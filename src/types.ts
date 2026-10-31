@@ -52,7 +52,7 @@ export interface Client {
   id: ID
   name: string
   rateEur: number // hourly clients
-  kind?: 'hourly' | 'fixed'
+  kind?: 'hourly' | 'fixed' | 'job' // job = a fixed fee per piece of work, whenever it comes
   fixedEur?: number // fixed clients: monthly fee in €
   payDay?: number // fixed clients: day of the month the fee is due
   since?: string // fixed clients: first month (YYYY-MM)

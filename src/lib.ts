@@ -139,15 +139,23 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const tx = taxFor(st, forMonth)
     if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${st.taxMonths[forMonth]?.paid ? 'paid' : 'pay ' + fmtDay(due)}`, kind: 'tax' })
   }
-  // fixed client fees expected in this half (until they're paid — then they're real income)
+  // client fees (monthly or per job) expected in this half — until they're paid, then they're real income
+  const localDay = (iso: string) => { const x = new Date(iso); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}` }
+  for (const s of st.sessions) {
+    if (s.fee === undefined || s.paid) continue
+    const c = st.clients.find((x) => x.id === s.clientId)
+    if (!c || c.archived) continue
+    const d = localDay(s.start)
+    if (d < p.start || d > p.end) continue
+    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · €${s.fee} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate ? 'invoiced' : 'invoiced ≈') : 'expected ≈'}`, kind: 'fee', income: true })
+  }
+  // future months of monthly clients (their entry is only created when the month comes)
   for (const c of st.clients) {
     if (c.kind !== 'fixed' || c.archived || !c.fixedEur) continue
     const d = feeDate(c, p.month)
     if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
-    const s = st.sessions.find((x) => x.clientId === c.id && x.feeMonth === p.month)
-    if (s?.paid) continue
-    const eur = s ? sessionEur(st, s) : c.fixedEur
-    out.push({ id: 'fee-' + c.id, label: c.name, amount: eur * (s?.nbpRate ?? st.settings.eurPln), date: d, meta: `€${eur} fee · ${fmtDay(d)} · ${s?.invoiced ? (s.nbpRate ? 'invoiced' : 'invoiced ≈') : 'expected ≈'}`, kind: 'fee', income: true })
+    if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
+    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · €${c.fixedEur} · ${fmtDay(d)} · expected ≈`, kind: 'fee', income: true })
   }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {

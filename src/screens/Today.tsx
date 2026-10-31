@@ -40,7 +40,7 @@ const things = (st: State): Thing[] => {
     const unpaid = ss.filter((s) => s.invoiced && !s.paid)
     if (unInv.length) {
       const h = unInv.reduce((a, s) => a + hours(s), 0)
-      out.push({ id: 'inv-' + c.id, dot: C.work, title: `Invoice ${c.name}`, meta: `${fmtHours(h)} not invoiced yet`, trail: fmtEur(unInv.reduce((a, s) => a + sessionEur(st, s), 0)), go: () => go('money', 'work') })
+      out.push({ id: 'inv-' + c.id, dot: C.work, title: `Invoice ${c.name}`, meta: (c.kind ?? "hourly") === "hourly" ? `${fmtHours(h)} not invoiced yet` : `${unInv.length} ${unInv.length === 1 ? "payment" : "payments"} not invoiced yet`, trail: fmtEur(unInv.reduce((a, s) => a + sessionEur(st, s), 0)), go: () => go('money', 'work') })
     } else if (unpaid.length) {
       const since = unpaid.map((s) => s.start.slice(0, 10)).sort()[0]
       out.push({ id: 'paid-' + c.id, dot: C.work, title: `${c.name} paid yet?`, meta: `Invoiced · waiting since ${fmtDay(since)}`, trail: fmt(unpaid.reduce((a, s) => a + sessionPln(st, s), 0)), go: () => go('money', 'work') })
