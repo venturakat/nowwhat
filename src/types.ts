@@ -155,6 +155,26 @@ export interface Outfit {
   itemIds: ID[]
 }
 
+export interface CreditExtra {
+  id: ID
+  date: string
+  amount: number
+}
+
+export interface Credit {
+  id: ID
+  name: string // lender / what it's for
+  takenOn: string
+  borrowed?: number // amount received (optional, for reference)
+  installment: number // monthly payment
+  count: number // number of monthly payments in the contract
+  firstPayment: string // date of the 1st payment; the rest follow monthly on the same day
+  lastAmount?: number // if the final payment differs
+  extras: CreditExtra[] // extra payments — the bank takes them off the END of the schedule
+  closedOn?: string // paid off early on this date
+  note?: string // contract number, account, anything to remember
+}
+
 export interface State {
   version: number
   settings: Settings
@@ -165,6 +185,7 @@ export interface State {
   sessions: Session[]
   timer: Timer | null
   taxMonths: Record<string, TaxMonth>
+  credits: Credit[]
   supplies: Supply[]
   cleanTasks: CleanTask[]
   cleanPlan: CleanPlan

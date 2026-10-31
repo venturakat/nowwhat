@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, diffDays, fmt, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
+import { addDays, creditStatus, diffDays, fmt, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
 import { C, Chips, Icon, openSettings, openSheet, Row, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
@@ -23,6 +23,13 @@ const things = (st: State): Thing[] => {
   const dd = diffDays(t, due)
   if (!tx.paid && tx.total > 0 && dd <= 5 && dd >= -10)
     out.push({ id: 'tax-' + pm, dot: C.money, title: 'Pay ZUS + PIT', meta: `For ${monthName(pm, true)} · ${dd < 0 ? 'late!' : dd === 0 ? 'due today' : `due in ${dd} days`}`, trail: fmt(tx.total), go: () => go('money', 'taxes') })
+  // credit payments due today / tomorrow
+  for (const c of st.credits ?? []) {
+    const n = creditStatus(c).next
+    if (!n) continue
+    const dd = diffDays(t, n.date)
+    if (dd >= 0 && dd <= 1) out.push({ id: `credit-${c.id}-${n.date}`, dot: C.money, title: `Credit payment · ${c.name}`, meta: `${dd === 0 ? 'Due today' : 'Due tomorrow'} · payment ${n.n} of ${c.count}`, trail: fmt(n.amount), go: () => go('money', 'credits') })
+  }
   // clients
   for (const c of st.clients.filter((c) => !c.archived)) {
     const ss = st.sessions.filter((s) => s.clientId === c.id)

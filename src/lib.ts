@@ -1,4 +1,4 @@
-import type { BudgetItem, Session, Settings, State, Supply, SupplyCat } from './types'
+import type { BudgetItem, Credit, Session, Settings, State, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -99,7 +99,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
   return { items: [], isTemplate: true }
 }
 
-export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' }
+export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' }
 
 export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
@@ -133,7 +133,40 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const tx = taxFor(st, forMonth)
     if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${st.taxMonths[forMonth]?.paid ? 'paid' : 'due ' + fmtDay(due)}`, kind: 'tax' })
   }
+  // credit installments falling in this half
+  for (const c of st.credits ?? []) {
+    const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
+    if (inP.length) out.push({ id: 'credit-' + c.id, label: `Credit · ${c.name}`, amount: inP.reduce((a, x) => a + x.amount, 0), date: inP[0].date, meta: `${inP.map((x) => fmtDay(x.date)).join(', ')} · payment ${inP[0].n} of ${c.count}`, kind: 'credit' })
+  }
   return out
+}
+
+// ---------- credits ----------
+// same day each month (clamped to the month's last day)
+export const monthlyDate = (first: string, i: number) => {
+  const [y, m, d] = first.split('-').map(Number)
+  const mm = m - 1 + i
+  const yy = y + Math.floor(mm / 12)
+  const m2 = (mm % 12) + 1
+  return `${yy}-${pad(m2)}-${pad(Math.min(d, daysInMonth(yy, m2)))}`
+}
+// the payment plan after extra payments (taken off the end) and early closing
+export const creditSchedule = (c: Credit) => {
+  const sched = Array.from({ length: c.count }, (_, i) => ({ n: i + 1, date: monthlyDate(c.firstPayment, i), amount: i === c.count - 1 && c.lastAmount ? c.lastAmount : c.installment }))
+  let extra = (c.extras ?? []).reduce((a, x) => a + x.amount, 0)
+  for (let k = sched.length - 1; k >= 0 && extra > 0.004; k--) {
+    const take = Math.min(extra, sched[k].amount)
+    sched[k].amount = r2(sched[k].amount - take)
+    extra = r2(extra - take)
+  }
+  return sched.filter((x) => x.amount > 0.004 && (!c.closedOn || x.date <= c.closedOn))
+}
+export const creditStatus = (c: Credit, t = today()) => {
+  const sched = creditSchedule(c)
+  const left = sched.filter((x) => x.date >= t)
+  const remaining = left.reduce((a, x) => a + x.amount, 0)
+  const total = c.installment * (c.count - 1) + (c.lastAmount || c.installment)
+  return { sched, left, next: left[0], remaining: r2(remaining), total: r2(total), endsOn: sched[sched.length - 1]?.date, closed: !!c.closedOn || left.length === 0 }
 }
 
 export interface PeriodSummary {

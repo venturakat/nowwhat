@@ -6,18 +6,20 @@ import {
 } from '../lib'
 import { C, Chips, closeSheet, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
+import { Credits } from './Credits'
 
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
   const setSub = useUi((u) => u.setSub)
-  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : 'Money'
+  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : 'Money'
   return (
     <div className="screen">
       <Header sub={sub === 'budget' ? 'Budget' : 'Money'} title={title} />
-      <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes']]} value={sub as any} onChange={setSub} />
+      <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['credits', 'Credits']]} value={sub as any} onChange={setSub} />
       {sub === 'budget' && <Budget />}
       {sub === 'work' && <Work />}
       {sub === 'taxes' && <Taxes />}
+      {sub === 'credits' && <Credits />}
     </div>
   )
 }
@@ -92,7 +94,7 @@ const Budget = () => {
       </List>
       <List title="Fixed this half" right={fmt(s.fixed)}>
         {s.auto.map((a) => (
-          <Row key={a.id} dot={a.kind === 'tax' ? C.money : C.supplies} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go(a.kind === 'tax' ? 'money' : 'supplies', a.kind === 'tax' ? 'taxes' : undefined)} />
+          <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies') : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : 'credits')} />
         ))}
         {expenses.map((i) => (
           <Row key={i.id} dot={C.line} title={i.label} trail={fmt(i.amount)} onClick={() => editItem(i.id)} />
