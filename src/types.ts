@@ -20,6 +20,9 @@ export interface Settings {
   taxPayDay?: number // the day I actually pay — the budget puts ZUS + PIT on this day
   leadDays: number // meds, pets, care: shop this many days before running out
   leadDaysShort?: number // groceries, home: shop this many days before
+  usdPln?: number // PLN for 1 USD (NBP table A)
+  blueArs?: number // dólar blue (sell): pesos for 1 USD
+  blueAt?: string
   taxAccount?: string // mikrorachunek podatkowy
   zusAccount?: string // rachunek składkowy
 }
@@ -209,6 +212,27 @@ export interface Credit {
   note?: string // contract number, account, anything to remember
 }
 
+// language classes paid in pesos: a USD price per class at the dólar blue rate of the payment day
+export interface Lessons {
+  usd: number // price per class in USD
+  days: number[] // weekdays of the classes (0 Sun … 6 Sat)
+  time?: string // your local time, e.g. 17:00
+  since: string // first class that isn't paid yet when this was set up
+  extra: string[] // one-off extra classes
+  skips: string[] // cancelled classes
+  pays: LessonPay[]
+}
+export interface LessonPay {
+  id: ID
+  date: string
+  dates: string[] // classes it covers
+  usd: number // per class
+  blue: number
+  ars: number
+  pln: number // what it cost you in zł
+  itemId?: ID // its line in the budget
+}
+
 export interface State {
   version: number
   settings: Settings
@@ -221,6 +245,7 @@ export interface State {
   taxMonths: Record<string, TaxMonth>
   credits: Credit[]
   subscriptions: Subscription[]
+  lessons?: Lessons
   supplies: Supply[]
   cleanTasks: CleanTask[]
   cleanPlan: CleanPlan

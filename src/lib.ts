@@ -1,4 +1,4 @@
-import type { BudgetItem, Credit, Currency, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { BudgetItem, Credit, Currency, Lessons, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -99,7 +99,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
   return { items: [], isTemplate: true }
 }
 
-export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' | 'fee'; income?: boolean; expected?: boolean }
+export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' | 'fee' | 'lessons'; income?: boolean; expected?: boolean }
 
 export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
@@ -174,6 +174,9 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
     out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedCur === 'PLN' ? c.fixedEur : c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · ${c.fixedCur === 'PLN' ? fmt(c.fixedEur, true) : fmtEur(c.fixedEur)} · ${fmtDay(d)} · expected`, kind: 'fee', income: true, expected: true })
   }
+  // the next batch of classes to pay for, on the day of its first class (until it's paid)
+  const lb = lessonBatch(st)
+  if (lb && inHalf(lb.due)) out.push({ id: 'lessons', label: 'Spanish classes', amount: lb.pln, date: lb.due, meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtArs(lb.ars)} · pay by ${fmtDay(lb.due)}`, kind: 'lessons' })
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
@@ -356,3 +359,29 @@ export const parseNum = (x: unknown): number | undefined => {
 }
 // show stored numbers with a comma, the way the bank does
 export const numText = (n?: number) => (n === undefined || n === null ? '' : String(n).replace('.', ','))
+
+// ---------- classes paid in pesos ----------
+export const fmtArs = (n: number) => Math.round(n).toLocaleString('en-US') + ' ARS'
+const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+export const weekdayName = (i: number) => WD_SHORT[i]
+// scheduled classes (weekdays + extras, minus cancelled) between two dates
+export const lessonDates = (l: Lessons, from: string, to: string) => {
+  const out = new Set<string>()
+  if (from < l.since) from = l.since
+  for (let d = from, g = 0; d <= to && g < 800; d = addDays(d, 1), g++) if (l.days.includes(parse(d).getDay())) out.add(d)
+  for (const x of l.extra) if (x >= from && x <= to) out.add(x)
+  return [...out].filter((d) => !l.skips.includes(d)).sort()
+}
+// the next batch to pay for: the unpaid classes in the month of the first unpaid one
+export const lessonBatch = (st: State, t = today()) => {
+  const l = st.lessons
+  if (!l || !l.usd) return undefined
+  const paid = new Set(l.pays.flatMap((p) => p.dates))
+  const first = lessonDates(l, l.since, addDays(t, 400)).find((d) => !paid.has(d))
+  if (!first) return undefined
+  const mk = monthKey(first)
+  const dates = lessonDates(l, `${mk}-01`, `${mk}-${pad(daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7)))}`).filter((d) => !paid.has(d))
+  const blue = st.settings.blueArs ?? 0
+  const perClass = Math.round(l.usd * blue)
+  return { month: mk, dates, due: first, usd: l.usd * dates.length, blue, perClass, ars: perClass * dates.length, pln: r2(l.usd * dates.length * (st.settings.usdPln ?? 4)) }
+}

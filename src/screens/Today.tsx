@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, creditStatus, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
+import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
 import { C, Chips, Icon, openSettings, openSheet, Row, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
@@ -69,6 +69,10 @@ const things = (st: State): Thing[] => {
   // closet: saved thing ready to decide
   const ready = st.saved.find((s) => diffDays(s.savedAt, t) >= 7)
   if (ready) out.push({ id: 'saved-' + ready.id, dot: C.closet, title: `Still want ${ready.name}?`, meta: 'Waited a week · buy or let go', trail: fmt(ready.price), go: () => go('closet', 'buy') })
+  // Spanish classes: from 3 days before the first unpaid class
+  const lb = lessonBatch(st)
+  if (lb && lb.blue && t >= addDays(lb.due, -3))
+    out.push({ id: 'lessons-' + lb.due, dot: C.money, title: 'Pay for Spanish', meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtArs(lb.ars)} · ${lb.due < t ? 'since' : 'first class'} ${fmtDay(lb.due)}`, trail: fmt(lb.pln), go: () => go('money', 'spanish') })
   out.push(...paidChecks)
   out.unshift(...meds)
   const dis = st.dismissed.date === t ? st.dismissed.ids : []

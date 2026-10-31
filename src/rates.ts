@@ -50,17 +50,35 @@ const fetchUah = async (): Promise<{ v: number; src: string } | undefined> => {
   if (j?.rate) return { v: 1 / j.rate, src: 'mid-market' }
 }
 
+// USD: NBP table A; dólar blue (sell) from DolarApi, Bluelytics as a fallback
+const fetchUsd = async () => {
+  const j = await getJson('https://api.nbp.pl/api/exchangerates/rates/a/usd/?format=json')
+  const r = j?.rates?.[0]
+  if (r?.mid) return r.mid as number
+}
+export const fetchBlue = async (): Promise<number | undefined> => {
+  try {
+    const j = await getJson('https://dolarapi.com/v1/dolares/blue')
+    if (j?.venta) return j.venta
+  } catch { /* fall back */ }
+  const j = await getJson('https://api.bluelytics.com.ar/v2/latest')
+  if (j?.blue?.value_sell) return j.blue.value_sell
+}
+
 export const refreshRates = async (force = false) => {
   const s = useStore.getState().st.settings
   if (s.ratesAuto === false && !force) return false
   if (!force && s.ratesAt && Date.now() - new Date(s.ratesAt).getTime() < MAX_AGE_H * 3600000) return false
-  const [eur, uah] = await Promise.allSettled([fetchEur(), fetchUah()])
+  const lessons = !!useStore.getState().st.lessons
+  const [eur, uah, usd, blue] = await Promise.allSettled([fetchEur(), fetchUah(), lessons ? fetchUsd() : Promise.resolve(undefined), lessons ? fetchBlue() : Promise.resolve(undefined)])
   const e = eur.status === 'fulfilled' ? eur.value : undefined
   const u = uah.status === 'fulfilled' ? uah.value : undefined
   if (!e && !u) return false
   update((d) => {
     if (e) d.settings.eurPln = Math.round(e.v * 10000) / 10000
     if (u) d.settings.uahPln = Math.round(u.v * 1000000) / 1000000
+    if (usd.status === 'fulfilled' && usd.value) d.settings.usdPln = usd.value
+    if (blue.status === 'fulfilled' && blue.value) { d.settings.blueArs = blue.value; d.settings.blueAt = new Date().toISOString() }
     d.settings.ratesAt = new Date().toISOString()
     d.settings.ratesNote = [e ? `EUR ${e.src}` : 'EUR kept', u ? `UAH ${u.src}` : 'UAH kept'].join(' · ')
   })

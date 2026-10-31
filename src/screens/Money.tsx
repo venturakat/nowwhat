@@ -9,20 +9,22 @@ import { FormSheet, type FieldDef } from '../form'
 import { Credits } from './Credits'
 import { nbpRateForInvoice } from '../rates'
 import { CURRENCIES, ord, Subscriptions } from './Subscriptions'
+import { Spanish } from './Spanish'
 
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
   const setSub = useUi((u) => u.setSub)
-  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'subs' ? 'Subscriptions' : 'Money'
+  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'subs' ? 'Subscriptions' : sub === 'spanish' ? 'Spanish' : 'Money'
   return (
     <div className="screen">
       <Header sub={sub === 'budget' ? 'Budget' : 'Money'} title={title} />
-      <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['credits', 'Credits'], ['subs', 'Subscriptions']]} value={sub as any} onChange={setSub} />
+      <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['credits', 'Credits'], ['subs', 'Subscriptions'], ['spanish', 'Spanish']]} value={sub as any} onChange={setSub} />
       {sub === 'budget' && <Budget />}
       {sub === 'work' && <Work />}
       {sub === 'taxes' && <Taxes />}
       {sub === 'credits' && <Credits />}
       {sub === 'subs' && <Subscriptions />}
+      {sub === 'spanish' && <Spanish />}
     </div>
   )
 }
@@ -115,7 +117,7 @@ const Budget = () => {
       )}
       <List title="Fixed this fortnight" right={fmt(s.fixed)}>
         {s.auto.filter((a) => !a.income).map((a) => (
-          <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : 'credits')} />
+          <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'lessons' ? 'spanish' : 'credits')} />
         ))}
         {expenses.map((i) => (
           <Row key={i.id} dot={C.line} title={i.label} trail={amt(i)} onClick={() => editItem(i.id)} />
