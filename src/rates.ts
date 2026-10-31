@@ -1,7 +1,6 @@
 import { update, useStore } from './store'
 
-// EUR: mid-market rate (ECB-based, via Frankfurter). Revolut has no public rates API, but on weekdays
-// it converts at the mid-market rate, so this is as close as a public source gets.
+// EUR: NBP table A mid rate (what Polish accounting — e.g. inFakt — uses); Frankfurter (ECB) as a fallback.
 // UAH: monobank's public rates (rateCross for PLN = hryvnias per 1 zł).
 const EUR_URL = 'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN'
 const MONO_URL = 'https://api.monobank.ua/bank/currency'
@@ -20,9 +19,24 @@ const getJson = async (url: string) => {
   }
 }
 
-const fetchEur = async (): Promise<number | undefined> => {
+const NBP = 'https://api.nbp.pl/api/exchangerates/rates/a/eur'
+const fetchEur = async (): Promise<{ v: number; src: string } | undefined> => {
+  try {
+    const j = await getJson(`${NBP}/?format=json`)
+    const r = j?.rates?.[0]
+    if (r?.mid) return { v: r.mid, src: `NBP ${r.no}` }
+  } catch { /* fall back */ }
   const j = await getJson(EUR_URL)
-  return j?.rates?.PLN
+  if (j?.rates?.PLN) return { v: j.rates.PLN, src: 'ECB' }
+}
+
+const shift = (d: string, n: number) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10) }
+// rate for an invoice: NBP table A from the last working day before the invoice date
+export const nbpRateForInvoice = async (invoiceDate: string): Promise<{ rate: number; table: string; date: string }> => {
+  const j = await getJson(`${NBP}/${shift(invoiceDate, -12)}/${shift(invoiceDate, -1)}/?format=json`)
+  const r = j?.rates?.[j.rates.length - 1]
+  if (!r?.mid) throw new Error('no rate')
+  return { rate: r.mid, table: r.no, date: r.effectiveDate }
 }
 
 const fetchUah = async (): Promise<{ v: number; src: string } | undefined> => {
@@ -45,10 +59,10 @@ export const refreshRates = async (force = false) => {
   const u = uah.status === 'fulfilled' ? uah.value : undefined
   if (!e && !u) return false
   update((d) => {
-    if (e) d.settings.eurPln = Math.round(e * 10000) / 10000
+    if (e) d.settings.eurPln = Math.round(e.v * 10000) / 10000
     if (u) d.settings.uahPln = Math.round(u.v * 1000000) / 1000000
     d.settings.ratesAt = new Date().toISOString()
-    d.settings.ratesNote = [e ? 'EUR mid-market' : 'EUR kept', u ? `UAH ${u.src}` : 'UAH kept'].join(' · ')
+    d.settings.ratesNote = [e ? `EUR ${e.src}` : 'EUR kept', u ? `UAH ${u.src}` : 'UAH kept'].join(' · ')
   })
   return true
 }

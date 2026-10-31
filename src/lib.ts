@@ -242,6 +242,8 @@ export const sessionEur = (st: State, s: Session) => {
   const c = st.clients.find((c) => c.id === s.clientId)
   return hours(s) * (c?.rateEur ?? 0)
 }
+// zł value of hours: invoiced ones use the NBP rate of their invoice, others today's rate (an estimate)
+export const sessionPln = (st: State, s: Session) => sessionEur(st, s) * (s.nbpRate ?? st.settings.eurPln)
 export const fmtHours = (h: number) => (Math.round(h * 10) / 10).toString().replace(/\.0$/, '') + ' h'
 export const fmtClock = (ms: number) => {
   const t = Math.max(0, Math.floor(ms / 1000))

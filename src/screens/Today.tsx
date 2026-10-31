@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, creditStatus, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
+import { addDays, creditStatus, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
 import { C, Chips, Icon, openSettings, openSheet, Row, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
@@ -43,7 +43,7 @@ const things = (st: State): Thing[] => {
       out.push({ id: 'inv-' + c.id, dot: C.work, title: `Invoice ${c.name}`, meta: `${fmtHours(h)} not invoiced yet`, trail: fmtEur(unInv.reduce((a, s) => a + sessionEur(st, s), 0)), go: () => go('money', 'work') })
     } else if (unpaid.length) {
       const since = unpaid.map((s) => s.start.slice(0, 10)).sort()[0]
-      out.push({ id: 'paid-' + c.id, dot: C.work, title: `${c.name} paid yet?`, meta: `Invoiced · waiting since ${fmtDay(since)}`, trail: fmt(unpaid.reduce((a, s) => a + sessionEur(st, s), 0) * st.settings.eurPln), go: () => go('money', 'work') })
+      out.push({ id: 'paid-' + c.id, dot: C.work, title: `${c.name} paid yet?`, meta: `Invoiced · waiting since ${fmtDay(since)}`, trail: fmt(unpaid.reduce((a, s) => a + sessionPln(st, s), 0)), go: () => go('money', 'work') })
     }
   }
   // cleaning

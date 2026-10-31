@@ -63,6 +63,9 @@ export interface Session {
   end: string // ISO datetime
   invoiced: boolean
   paid: boolean
+  invoiceDate?: string
+  nbpRate?: number // NBP table A mid rate from the last working day before the invoice date
+  nbpTable?: string // e.g. 212/A/NBP/2026
 }
 
 export interface Timer {

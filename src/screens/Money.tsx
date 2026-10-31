@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { addIncome, ensurePeriod, update, useSt } from '../store'
 import type { Currency, Session, State } from '../types'
 import {
-  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
+  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, sessionPln, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 import { Credits } from './Credits'
+import { nbpRateForInvoice } from '../rates'
 import { CURRENCIES, Subscriptions } from './Subscriptions'
 
 export const Money = () => {
@@ -212,7 +213,8 @@ const Work = () => {
     const unInv = ss.filter((s) => !s.invoiced)
     const unpaid = ss.filter((s) => s.invoiced && !s.paid)
     const eur = (l: Session[]) => l.reduce((a, s) => a + sessionEur(st, s), 0)
-    return { c, mh, monthEur: eur(month), unInv, unpaid, unInvEur: eur(unInv), unpaidEur: eur(unpaid) }
+    const pln = (l: Session[]) => l.reduce((a, s) => a + sessionPln(st, s), 0)
+    return { c, mh, monthEur: eur(month), monthPln: pln(month), unInv, unpaid, unInvEur: eur(unInv), unpaidEur: eur(unpaid), unpaidPln: pln(unpaid) }
   })
   const next = clientStats.find((x) => x.unpaid.length) ?? clientStats.find((x) => x.unInv.length)
   return (
@@ -234,10 +236,10 @@ const Work = () => {
         </button>
       )}
       <List title="Clients" right={monthName(mk, true)}>
-        {clientStats.map(({ c, mh, monthEur, unInv, unpaid, unpaidEur, unInvEur }) => (
+        {clientStats.map(({ c, mh, monthEur, monthPln, unInv, unpaid, unpaidEur, unInvEur }) => (
           <Row key={c.id} dot={C.work} title={c.name}
             meta={[mh ? `${fmtHours(mh)} · ${fmtEur(monthEur)}` : 'No hours this month', unInv.length ? `${fmtEur(unInvEur)} to invoice` : '', unpaid.length ? `${fmtEur(unpaidEur)} not paid yet` : ''].filter(Boolean).join(' · ')}
-            trail={mh ? fmt(monthEur * st.settings.eurPln, true) : '—'} onClick={() => openSheet(<ClientSheet id={c.id} />)} />
+            trail={mh ? fmt(monthPln, true) : '—'} onClick={() => openSheet(<ClientSheet id={c.id} />)} />
         ))}
         <Row title={<span className="muted">+ Add client</span>} onClick={() => openSheet(<ClientEdit />)} />
       </List>
@@ -246,7 +248,7 @@ const Work = () => {
           <span className="t14 w5">Next step</span>
           <span className="t17">
             {next.unpaid.length
-              ? `${next.c.name} paid? Tap to mark it — ${fmt(next.unpaidEur * st.settings.eurPln, true)} moves to income.`
+              ? `${next.c.name} paid? Tap to mark it — ${fmt(next.unpaidPln, true)} moves to income.`
               : `Invoice ${next.c.name}: ${fmtHours(next.unInv.reduce((a, s) => a + hours(s), 0))} · ${fmtEur(next.unInvEur)}`}
           </span>
         </button>
@@ -295,47 +297,87 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
   )
 }
 
+const invoiceLines = (st: State, l: Session[]) =>
+  l.map((s) => `${toLocalDate(s.start)}  ${s.task}  ${fmtHours(hours(s))}  ${fmtEur(sessionEur(st, s))}`).join('\n') +
+  `\nTotal: ${fmtHours(l.reduce((a, s) => a + hours(s), 0))} · ${fmtEur(l.reduce((a, s) => a + sessionEur(st, s), 0))}`
+
+// Mark hours as invoiced with the invoice date: the zł amount uses the NBP rate (table A) from the
+// last working day before that date — the same one inFakt puts on the invoice.
+const InvoiceSheet = ({ ids, fix }: { ids: string[]; fix?: boolean }) => {
+  const st = useSt()
+  const ss = st.sessions.filter((s) => ids.includes(s.id))
+  const first = ss.find((s) => s.invoiceDate)
+  const [date, setDate] = useState(first?.invoiceDate ?? today())
+  const [rate, setRate] = useState(first?.nbpRate ? numText(first.nbpRate) : '')
+  const [table, setTable] = useState(first?.nbpTable ?? '')
+  const [state, setState] = useState<'idle' | 'loading' | 'fail'>('idle')
+  const load = async (d: string) => {
+    setState('loading')
+    try {
+      const r = await nbpRateForInvoice(d)
+      setRate(numText(r.rate)); setTable(`${r.table} (${fmtDay(r.date)})`); setState('idle')
+    } catch { setState('fail'); setTable('') }
+  }
+  useEffect(() => { if (!first?.nbpRate) load(date) }, [])
+  const eur = ss.reduce((a, s) => a + sessionEur(st, s), 0)
+  const r = parseNum(rate)
+  return (
+    <Sheet title={fix ? 'Invoice date & rate' : 'Mark invoiced'}>
+      <span className="t15 muted">{ss.length} {ss.length === 1 ? 'entry' : 'entries'} · {fmtEur(eur)}</span>
+      <Field label="Invoice date"><input className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value) load(e.target.value) }} /></Field>
+      <Field label="1 € in zł — NBP table A, last working day before the invoice">
+        <input className="input" inputMode="decimal" value={rate} placeholder={state === 'loading' ? 'Getting the NBP rate…' : 'e.g. 4,3955'} onChange={(e) => { setRate(e.target.value); setTable('typed by hand') }} />
+        <span className="t13 muted">{state === 'loading' ? 'Getting the rate from NBP…' : state === 'fail' ? 'Couldn’t reach NBP — type the rate from the invoice' : table ? `Table ${table}` : ''}</span>
+      </Field>
+      {r ? <div className="card money" style={{ gap: 2, padding: 16 }}><span className="t14 w5">On the invoice</span><span className="mid">{fmt(r2(eur * r), true)}</span></div> : null}
+      <button className="btn full" disabled={!r || !date} onClick={() => {
+        if (!fix) copyText(invoiceLines(st, ss), 'Marked invoiced · lines copied for your invoice')
+        update((d) => { for (const s of d.sessions) if (ids.includes(s.id)) Object.assign(s, { invoiced: true, invoiceDate: date, nbpRate: r, nbpTable: table.split(' (')[0] }) })
+        closeSheet()
+      }}>{fix ? 'Save' : 'Mark invoiced (copies the lines)'}</button>
+    </Sheet>
+  )
+}
+
 const ClientSheet = ({ id }: { id: string }) => {
   const st = useSt()
   const c = st.clients.find((x) => x.id === id)!
-  const rate = st.settings.eurPln
   const ss = st.sessions.filter((s) => s.clientId === id).sort((a, b) => b.start.localeCompare(a.start))
   const unInv = ss.filter((s) => !s.invoiced)
   const unpaid = ss.filter((s) => s.invoiced && !s.paid)
   const eur = (l: Session[]) => l.reduce((a, s) => a + sessionEur(st, s), 0)
+  const pln = (l: Session[]) => l.reduce((a, s) => a + sessionPln(st, s), 0)
+  const noRate = unpaid.filter((s) => !s.nbpRate)
+  const tables = [...new Set(unpaid.filter((s) => s.nbpTable).map((s) => s.nbpTable))]
   const [all, setAll] = useState(false)
   const shown = all ? ss : ss.slice(0, 8)
   const markPaid = () => {
-    const pln = r2(eur(unpaid) * rate)
-    const tax = r2(pln * st.settings.pitRate)
+    const amount = r2(pln(unpaid))
+    const tax = r2(amount * st.settings.pitRate)
     update((d) => {
       for (const s of d.sessions) if (s.clientId === id && s.invoiced && !s.paid) s.paid = true
       const key = periodOf(today(), d.settings).key
-      addIncome(d, key, { label: c.name, amount: pln, date: today(), taxable: true, fromClient: id })
+      addIncome(d, key, { label: c.name, amount, date: today(), taxable: true, fromClient: id })
     })
-    toast(`${fmt(pln, true)} added to income · ~${fmt(tax, true)} goes to taxes`)
+    toast(`${fmt(amount, true)} added to income · ~${fmt(tax, true)} goes to taxes`)
   }
   return (
     <Sheet title={c.name}>
-      <div className="t15 muted">{fmtEur(c.rateEur)} per hour · 1 € = {rate} zł</div>
+      <div className="t15 muted">{fmtEur(c.rateEur)} per hour</div>
       {unInv.length > 0 && (
         <div className="card work" style={{ gap: 6 }}>
           <span className="t14 w5">Not invoiced yet</span>
           <span className="mid">{fmtHours(unInv.reduce((a, s) => a + hours(s), 0))} · {fmtEur(eur(unInv))}</span>
-          <span className="t14">{fmt(eur(unInv) * rate, true)}</span>
-          <button className="btn" onClick={() => {
-            const text = unInv.map((s) => `${toLocalDate(s.start)}  ${s.task}  ${fmtHours(hours(s))}  ${fmtEur(sessionEur(st, s))}`).join('\n') + `\nTotal: ${fmtHours(unInv.reduce((a, s) => a + hours(s), 0))} · ${fmtEur(eur(unInv))}`
-            navigator.clipboard?.writeText(text).catch(() => {})
-            update((d) => { for (const s of d.sessions) if (s.clientId === id && !s.invoiced) s.invoiced = true })
-            toast('Marked invoiced · lines copied for your invoice')
-          }}>Mark invoiced (copies the lines)</button>
+          <span className="t14">≈ {fmt(pln(unInv), true)} at today’s rate</span>
+          <button className="btn" onClick={() => openSheet(<InvoiceSheet ids={unInv.map((s) => s.id)} />)}>Mark invoiced…</button>
         </div>
       )}
       {unpaid.length > 0 && (
         <div className="card money" style={{ gap: 6 }}>
           <span className="t14 w5">Invoiced, waiting for payment</span>
-          <span className="mid">{fmt(eur(unpaid) * rate, true)}</span>
-          <span className="t14">{fmtEur(eur(unpaid))} · {unpaid.length} entries</span>
+          <span className="mid">{noRate.length ? '≈ ' : ''}{fmt(pln(unpaid), true)}</span>
+          <span className="t14">{fmtEur(eur(unpaid))} · {unpaid.length} entries{tables.length ? ` · NBP ${tables.join(', ')}` : ''}</span>
+          {noRate.length > 0 && <button className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet(<InvoiceSheet ids={noRate.map((s) => s.id)} fix />)}>Set invoice date for the NBP rate</button>}
           <button className="btn" onClick={markPaid}>They paid → add to income</button>
         </div>
       )}
