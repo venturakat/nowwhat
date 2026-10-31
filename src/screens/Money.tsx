@@ -341,9 +341,9 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
   const st = useSt()
   const s = st.sessions.find((x) => x.id === id)
   const c = st.clients.find((x) => x.id === clientId)
+  const paidAt = s?.paid ? s.paidDate ?? Object.values(st.periods).flatMap((p) => p.items).find((i) => i.fromSession === s.id)?.date ?? s.invoiceDate ?? toLocalDate(s.start) : undefined
   // fee entries (monthly or per job) have an amount and a date instead of start/stop times
   if (s?.fee !== undefined || (!s && c?.kind && c.kind !== 'hourly')) {
-    const paidAt = s?.paid ? s.paidDate ?? Object.values(st.periods).flatMap((p) => p.items).find((i) => i.fromSession === s.id)?.date ?? s.invoiceDate ?? toLocalDate(s.start) : undefined
     const init = s ? { task: s.task, fee: s.fee, feeCur: s.feeCur ?? 'EUR', invoiceDate: s.invoiceDate, paidDate: paidAt } : { feeCur: c?.kind === 'job' ? ([...st.sessions].reverse().find((x) => x.clientId === c.id && x.fee != null)?.feeCur ?? 'PLN') : (c?.fixedCur ?? 'EUR') }
     return (
       <FormSheet title={s ? (s.feeMonth ? 'Edit monthly fee' : 'Edit job') : 'New job'} initial={init}
@@ -371,17 +371,20 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
     )
   }
   const now = new Date()
-  const init = s ? { task: s.task, start: toLocalInput(s.start), end: toLocalInput(s.end), invoiced: s.invoiced, invoiceDate: s.invoiceDate, paid: s.paid }
-    : { start: toLocalInput(new Date(now.getTime() - 3600000).toISOString()), end: toLocalInput(now.toISOString()), invoiced: false, paid: false }
+  const init = s ? { task: s.task, start: toLocalInput(s.start), end: toLocalInput(s.end), invoiceDate: s.invoiceDate, paidDate: paidAt }
+    : { start: toLocalInput(new Date(now.getTime() - 3600000).toISOString()), end: toLocalInput(now.toISOString()) }
+  // older hours invoiced before invoice dates existed stay invoiced (they count for taxes when paid)
+  const oldInvoiced = !!s?.invoiced && !s.invoiceDate
   return (
     <FormSheet title={s ? 'Edit hours' : 'Add hours'} initial={init}
-      fields={[{ key: 'task', label: 'Task', type: 'text' }, { key: 'start', label: 'Start', type: 'datetime' }, { key: 'end', label: 'Stop', type: 'datetime' }, { key: 'invoiced', label: 'Invoiced', type: 'toggle' }, { key: 'invoiceDate', label: 'Invoice date (counts for taxes in this month)', type: 'date' }, { key: 'paid', label: 'Paid', type: 'toggle' }]}
+      fields={[{ key: 'task', label: 'Task', type: 'text' }, { key: 'start', label: 'Start', type: 'datetime' }, { key: 'end', label: 'Stop', type: 'datetime' }, { key: 'invoiceDate', label: oldInvoiced ? 'Invoice date (invoiced earlier)' : 'Invoice date', type: 'date', clearable: true }, { key: 'paidDate', label: 'Paid on', type: 'date', clearable: true }]}
+      extra={<span className="t13 muted">Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.</span>}
       onSave={(v) => update((d) => {
         const data = { task: v.task, start: new Date(v.start).toISOString(), end: new Date(v.end).toISOString() }
         const sid = s?.id ?? uid()
         if (s) Object.assign(d.sessions.find((x) => x.id === s.id)!, data)
         else d.sessions.push({ id: sid, clientId, ...data, invoiced: false, paid: false })
-        setStatus(d, sid, { invoiced: !!v.invoiced || (!!v.paid && !!v.invoiceDate), invoiceDate: v.invoiceDate || undefined, paid: !!v.paid })
+        setStatus(d, sid, { invoiced: !!v.invoiceDate || oldInvoiced, invoiceDate: v.invoiceDate || undefined, paid: !!v.paidDate, paidDate: v.paidDate || undefined })
         setTimeout(() => fetchMissingRates([sid]))
       })}
       onDelete={s ? () => update((d) => { d.sessions = d.sessions.filter((x) => x.id !== s.id) }) : undefined}
@@ -396,7 +399,7 @@ const setStatus = (d: State, id: string, o: { invoiced: boolean; invoiceDate?: s
   if (!s) return
   if (o.invoiced) {
     if (o.invoiceDate && o.invoiceDate !== s.invoiceDate) { s.invoiceDate = o.invoiceDate; delete s.nbpRate; delete s.nbpTable }
-    s.invoiceDate ??= today()
+    if (!s.invoiced) s.invoiceDate ??= today()
   } else { delete s.invoiceDate; delete s.nbpRate; delete s.nbpTable }
   s.invoiced = o.invoiced
   const items = () => Object.values(d.periods).flatMap((p) => p.items).filter((i) => i.fromSession === s.id)
