@@ -39,7 +39,7 @@ const FormInline = () => {
           { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
           { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
-          { key: 'splitDay', label: 'Second half of the month starts on day', type: 'number', step: 1 },
+          { key: 'splitDay', label: 'Second fortnight starts on day', type: 'number', step: 1 },
           { key: 'taxPayDay', label: 'I pay ZUS + PIT on day (puts it in the budget)', type: 'number', step: 1 },
           { key: 'taxDueDay', label: 'Official deadline, day', type: 'number', step: 1 },
           { key: 'leadDays', label: 'Shop meds, pets & care this many days before they run out', type: 'number', step: 1 },

@@ -226,7 +226,7 @@ const fitsNote = (st: ReturnType<typeof useSt>, price: number) => {
     if (s.left >= price) return ` · fits ${s.info.label}`
     key = shiftPeriod(key, 1)
   }
-  return ' · no room in the next 3 halves'
+  return ' · no room in the next 3 fortnights'
 }
 
 const NeedEdit = ({ id }: { id?: string }) => {

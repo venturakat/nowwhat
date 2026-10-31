@@ -48,7 +48,7 @@ export const Credits = () => {
           {closed.map(({ c }) => <Row key={c.id} done title={c.name} meta={c.closedOn ? `Closed early ${fmtDay(c.closedOn)}` : 'All payments done'} onClick={() => openSheet(<CreditSheet id={c.id} />)} />)}
         </List>
       )}
-      <div className="t13 muted" style={{ padding: '0 4px' }}>Each payment shows up in the Budget’s fixed list for its half of the month, until the credit is paid off.</div>
+      <div className="t13 muted" style={{ padding: '0 4px' }}>Each payment shows up in the Budget’s fixed list for its fortnight, until the credit is paid off.</div>
     </>
   )
 }
@@ -106,7 +106,7 @@ const ExtraSheet = ({ id }: { id: string }) => {
   return (
     <FormSheet title="Extra payment" initial={{ date: today() }} saveLabel="Add extra payment"
       fields={[{ key: 'amount', label: `Amount (${CUR_SIGN[c.currency ?? 'PLN']})`, type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
-      extra={<span className="t14 muted">Your bank takes it off the end, so the last payments shrink or disappear. It’s also added to that half’s spending.</span>}
+      extra={<span className="t14 muted">Your bank takes it off the end, so the last payments shrink or disappear. It’s also added to that fortnight’s spending.</span>}
       onSave={(v) => {
         if (!v.amount) return
         update((d) => { d.credits.find((x) => x.id === id)!.extras.push({ id: uid(), date: v.date || today(), amount: v.amount }) })

@@ -85,7 +85,7 @@ const Budget = () => {
       <div className="card money" style={{ gap: 8 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
           <div className="col">
-            <span className="t15 w5">Left this half</span>
+            <span className="t15 w5">Left this fortnight</span>
             <span className="big" style={{ fontSize: 52, color: s.left < 0 ? 'var(--alert)' : undefined }}>{fmt(s.left)}</span>
           </div>
           <div className="col" style={{ alignItems: 'flex-end' }}>
@@ -96,7 +96,7 @@ const Budget = () => {
         <div className="bar"><div style={{ width: `${pct * 100}%` }} /></div>
         <span className="t14">Spent {fmt(s.fixed + s.spent)} of {fmt(s.income)}</span>
       </div>
-      {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>Copied from last month — edit anything and it becomes this half's own plan.</div>}
+      {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>Copied from last month — edit anything and it becomes this fortnight's own plan.</div>}
       <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
         {s.auto.filter((a) => a.income && !a.expected).map((a) => (
           <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
@@ -113,7 +113,7 @@ const Budget = () => {
           ))}
         </List>
       )}
-      <List title="Fixed this half" right={fmt(s.fixed)}>
+      <List title="Fixed this fortnight" right={fmt(s.fixed)}>
         {s.auto.filter((a) => !a.income).map((a) => (
           <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : 'credits')} />
         ))}

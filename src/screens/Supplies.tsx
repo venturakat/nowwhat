@@ -83,7 +83,7 @@ const SupplySheet = ({ id }: { id: string }) => {
           </div>
           <span className="t17">{fmt(s.pricePerUnit * qty, true)}</span>
         </div>
-        <button className="btn" onClick={() => { buySupply(s.id, qty); closeSheet(); toast('Got it · added to this half’s spending') }}>Bought {qty}</button>
+        <button className="btn" onClick={() => { buySupply(s.id, qty); closeSheet(); toast('Got it · added to this fortnight’s spending') }}>Bought {qty}</button>
       </div>
       <button className="btn full soft" onClick={() => openSheet(<SupplyEdit id={s.id} cat={s.cat} />)}>Edit</button>
     </Sheet>
