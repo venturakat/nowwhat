@@ -164,7 +164,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     if (!c || c.archived) continue
     const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
     if (!inHalf(d)) continue
-    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced ≈') : s.feeCur === 'PLN' ? 'expected' : 'expected ≈'}`, kind: 'fee', income: true, expected: true })
+    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced ≈') : 'expected'}`, kind: 'fee', income: true, expected: true })
   }
   // future months of monthly clients (their entry is only created when the month comes)
   for (const c of st.clients) {
@@ -172,7 +172,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const d = feeDate(c, p.month)
     if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
     if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
-    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedCur === 'PLN' ? c.fixedEur : c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · ${c.fixedCur === 'PLN' ? fmt(c.fixedEur, true) : fmtEur(c.fixedEur)} · ${fmtDay(d)} · expected${c.fixedCur === 'PLN' ? '' : ' ≈'}`, kind: 'fee', income: true, expected: true })
+    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedCur === 'PLN' ? c.fixedEur : c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · ${c.fixedCur === 'PLN' ? fmt(c.fixedEur, true) : fmtEur(c.fixedEur)} · ${fmtDay(d)} · expected`, kind: 'fee', income: true, expected: true })
   }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
