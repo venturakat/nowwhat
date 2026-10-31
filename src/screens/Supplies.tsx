@@ -5,13 +5,13 @@ import { addDays, CAT_LABEL, splitList, fmt, fmtDay, nextBuy, periodOf, relDays,
 import { C, Chips, Header, List, openSheet, Row, Sheet, closeSheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 
-const CATS: [SupplyCat, string][] = [['meds', 'Meds'], ['groceries', 'Groceries'], ['pets', 'Pets'], ['home', 'Home'], ['beauty', 'Beauty']]
+const CATS: [SupplyCat, string][] = [['meds', 'Meds'], ['groceries', 'Groceries'], ['pets', 'Pets'], ['home', 'Home'], ['care', 'Care']]
 const EMPTY: Record<SupplyCat, string> = {
   meds: 'Add your meds with price and how long a pack lasts.',
   groceries: 'Add staples that run out: coffee, oats, oil…',
   pets: 'Add pet food, litter, treats…',
   home: 'Add dish soap, toilet paper, trash bags…',
-  beauty: 'Add shampoo, cream, cotton pads…'
+  care: 'Add shampoo, cream, cotton pads…'
 }
 
 export const buySupply = (id: string, qty?: number) =>

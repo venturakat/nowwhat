@@ -101,7 +101,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
 
 export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' }
 
-export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', beauty: 'Beauty' }
+export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
 // next planned buy date of a supply (never in the past)
 export const nextBuy = (sp: Supply, t = today()) => (sp.enoughUntil < t ? t : sp.enoughUntil)

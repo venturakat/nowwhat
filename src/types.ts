@@ -1,7 +1,7 @@
 export type ID = string
 export type Energy = 'low' | 'okay' | 'lots'
 export type CleanMode = 1 | 2 | 3 // 1 light, 2 regular, 3 extra
-export type SupplyCat = 'meds' | 'groceries' | 'pets' | 'home' | 'beauty'
+export type SupplyCat = 'meds' | 'groceries' | 'pets' | 'home' | 'care'
 
 export interface Settings {
   eurPln: number

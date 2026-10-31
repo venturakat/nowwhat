@@ -29,6 +29,11 @@ export const migrate = (s: State): State => {
     }))
     out.version = 3
   }
+  if (out.version < 4) {
+    // v4: supplies "beauty" -> "care"
+    out.supplies = out.supplies.map((x) => ((x.cat as string) === 'beauty' ? { ...x, cat: 'care' } : x))
+    out.version = 4
+  }
   return out
 }
 
