@@ -1,0 +1,164 @@
+import type { ReactNode } from 'react'
+import { dismissToday, exportJson, importJson, update, useSt, useStore } from '../store'
+import type { Energy, State } from '../types'
+import { addDays, diffDays, fmt, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
+import { C, Chips, Icon, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { FormSheet } from '../form'
+import { SpendSheet } from './Money'
+import { currentClean, doFirstProject, MODES } from './Home'
+import { seed } from '../seed'
+
+interface Thing { id: string; dot: string; title: string; meta: string; trail?: ReactNode; go: () => void }
+
+const things = (st: State): Thing[] => {
+  const t = today()
+  const go = useUi.getState().go
+  const out: Thing[] = []
+  // supplies running out (soonest first)
+  const sup = st.supplies.map((s) => ({ s, ...supplyStatus(s, st.settings) })).filter((x) => x.state !== 'ok').sort((a, b) => a.daysLeft - b.daysLeft)
+  for (const { s, daysLeft } of sup.filter((x) => x.daysLeft <= 2))
+    out.push({ id: 'sup-' + s.id, dot: C.alert, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : 'Runs out in 2 days'} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', s.cat) })
+  // taxes due within 5 days
+  const pm = prevMonth(monthKey(t))
+  const tx = taxFor(st, pm)
+  const due = `${monthKey(t)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
+  const dd = diffDays(t, due)
+  if (!tx.paid && tx.total > 0 && dd <= 5 && dd >= -10)
+    out.push({ id: 'tax-' + pm, dot: C.money, title: 'Pay ZUS + PIT', meta: `For ${monthName(pm, true)} · ${dd < 0 ? 'late!' : dd === 0 ? 'due today' : `due in ${dd} days`}`, trail: fmt(tx.total), go: () => go('money', 'taxes') })
+  // clients
+  for (const c of st.clients.filter((c) => !c.archived)) {
+    const ss = st.sessions.filter((s) => s.clientId === c.id)
+    const unInv = ss.filter((s) => !s.invoiced)
+    const unpaid = ss.filter((s) => s.invoiced && !s.paid)
+    if (unInv.length) {
+      const h = unInv.reduce((a, s) => a + hours(s), 0)
+      out.push({ id: 'inv-' + c.id, dot: C.work, title: `Invoice ${c.name}`, meta: `${fmtHours(h)} not invoiced yet`, trail: fmtEur(unInv.reduce((a, s) => a + sessionEur(st, s), 0)), go: () => go('money', 'work') })
+    } else if (unpaid.length) {
+      const since = unpaid.map((s) => s.start.slice(0, 10)).sort()[0]
+      out.push({ id: 'paid-' + c.id, dot: C.work, title: `${c.name} paid yet?`, meta: `Invoiced · waiting since ${fmtDay(since)}`, trail: fmt(unpaid.reduce((a, s) => a + sessionEur(st, s), 0) * st.settings.eurPln), go: () => go('money', 'work') })
+    }
+  }
+  // cleaning
+  const cl = currentClean(st)
+  const left = cl.tasks.filter((x) => !cl.done.includes(x.id)).length
+  if (left > 0) out.push({ id: 'clean', dot: C.home, title: `${MODES[cl.mode - 1].name} clean`, meta: `${cl.minutes} min · ${left} ${left === 1 ? 'step' : 'steps'}${cl.done.length ? ' left' : ''}`, trail: '→', go: () => go('home', 'cleaning') })
+  // supplies soon (not urgent)
+  const soon = sup.filter((x) => x.daysLeft > 2)
+  if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s), dot: C.supplies, title: `Shopping run · ${soon.length} ${soon.length === 1 ? 'thing' : 'things'}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · by ${fmtDay(soon[0].s.enoughUntil)}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
+  // project
+  const p = doFirstProject(st)
+  if (p) out.push({ id: 'proj-' + p.id, dot: C.home, title: p.name, meta: `Next: ${p.nextStep}`, trail: '→', go: () => go('home', 'projects') })
+  // closet: saved thing ready to decide
+  const ready = st.saved.find((s) => diffDays(s.savedAt, t) >= 7)
+  if (ready) out.push({ id: 'saved-' + ready.id, dot: C.closet, title: `Still want ${ready.name}?`, meta: 'Waited a week · buy or let go', trail: fmt(ready.price), go: () => go('closet', 'buy') })
+  const dis = st.dismissed.date === t ? st.dismissed.ids : []
+  return out.filter((x) => !dis.includes(x.id))
+}
+
+export const Today = () => {
+  const st = useSt()
+  const t = today()
+  const s = summarize(st, periodOf(t, st.settings).key)
+  const energy = st.energy?.date === t ? st.energy.level : null
+  const list = things(st)
+  const top = list.slice(0, 3)
+  const nextP = summarize(st, shiftPeriod(s.info.key, 1))
+  const nextIncome = nextP.items.filter((i) => i.kind === 'income').sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))[0]
+  const pm = prevMonth(monthKey(t))
+  const tx = taxFor(st, pm)
+  const due = `${monthKey(t)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
+  return (
+    <div className="screen withfab">
+      <div className="between" style={{ alignItems: 'baseline' }}>
+        <h1 className="h1" style={{ margin: 0 }}>now what?</h1>
+        <button className="row t15 w5 muted" onClick={() => openSheet(<SettingsSheet />)} style={{ gap: 6 }}>{fmtWeekday(t)} <Icon.gear /></button>
+      </div>
+      {Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0 && (
+        <button className="card money" style={{ gap: 6 }} onClick={() => openSheet(<SettingsSheet />)}>
+          <span className="t17">Fresh start</span>
+          <span className="t15">Have a backup file? Open Settings → Restore from backup. Or just start adding money in, clients and supplies.</span>
+        </button>
+      )}
+      <button className="card dark" style={{ gap: 6, paddingTop: 22, paddingBottom: 22 }} onClick={() => useUi.getState().go('money', 'budget')}>
+        <span className="t15 w5">You can spend today</span>
+        <span className="big" style={{ fontSize: 72, color: s.perDay < 0 ? 'var(--alert)' : undefined }}>{fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0))}</span>
+        <span className="t15">
+          {s.daysLeft <= 1
+            ? `Last day of this half${nextIncome ? ` · ${nextIncome.label.toLowerCase()} lands ${nextIncome.date === shiftDay(t) ? 'tomorrow' : fmtDay(nextIncome.date ?? nextP.info.start)}` : ''}`
+            : `${fmt(s.left)} left for ${s.daysLeft} days · ${s.perDay >= 0 ? 'on track' : 'over — go easy'}`}
+        </span>
+      </button>
+      <div className="col" style={{ gap: 10 }}>
+        <span className="t17">How much energy do you have?</span>
+        <Chips<Energy> items={[['low', 'Low'], ['okay', 'Okay'], ['lots', 'Lots']]} value={(energy ?? '') as Energy} onChange={(e) => update((d) => { d.energy = { date: today(), level: e }; if (d.cleanLog?.date === today() && !d.cleanLog.done.length) d.cleanLog = null })} />
+      </div>
+      <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
+        <div className="list-h" style={{ paddingBottom: 4 }}>
+          <span className="t17">{top.length ? `Now, just ${top.length === 1 ? 'this' : top.length === 2 ? 'these 2' : 'these 3'}` : 'Nothing urgent'}</span>
+          {list.length > 3 && <span className="t14 w5 muted">{list.length - 3} more later</span>}
+        </div>
+        {top.length === 0 && <div className="list-empty">You’re free. Rest counts too.</div>}
+        {top.map((x) => (
+          <div key={x.id} className="row" style={{ paddingRight: 8 }}>
+            <div className="grow"><Row dot={x.dot} title={x.title} meta={x.meta} trail={x.trail} onClick={x.go} /></div>
+            <button aria-label="Not today" title="Not today" onClick={() => { dismissToday(x.id); toast('Moved off today') }} style={{ padding: 6, color: 'var(--ink2)' }}><Icon.x /></button>
+          </div>
+        ))}
+      </div>
+      <button className="btn full soft" onClick={() => openSheet(<SpendSheet />)}>+ Log spending</button>
+      {tx.total > 0 && !tx.paid && diffDays(t, due) > 5 && (
+        <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: ZUS + PIT on {fmtDay(due)} · {fmt(tx.total)} · already in your budget</div>
+      )}
+    </div>
+  )
+}
+const shiftDay = (d: string) => addDays(d, 1)
+
+const SettingsSheet = () => {
+  const st = useSt()
+  const s = st.settings
+  return (
+    <Sheet title="Settings">
+      <FormInline />
+      <div className="card" style={{ gap: 10 }}>
+        <span className="t17">Backup</span>
+        <span className="t14 muted">Everything lives only on this phone. Save a backup file now and then (e.g. to iCloud Drive).</span>
+        <button className="btn" onClick={exportJson}>Save backup file</button>
+        <label className="btn soft" style={{ cursor: 'pointer' }}>
+          Restore from backup
+          <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { await importJson(f); toast('Restored') } catch { toast('That file is not a backup') } }} />
+        </label>
+        <button className="btn soft" onClick={() => { if (confirm('Erase everything on this phone and start fresh? Save a backup first if you need it.')) { useStore.getState().replace(seed()); toast('Fresh start') } }}>Erase everything</button>
+      </div>
+      <span className="t13 muted">EUR→PLN {s.eurPln} · PIT {Math.round(s.pitRate * 100)}% · DRA {s.dra} · RCA {s.rca}</span>
+    </Sheet>
+  )
+}
+
+const FormInline = () => {
+  const st = useSt()
+  return (
+    <button className="card" style={{ gap: 4 }} onClick={() => openSheet(
+      <FormSheet title="Numbers" initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
+        fields={[
+          { key: 'eurPln', label: '1 € in zł (for invoices)', type: 'number' },
+          { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
+          { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
+          { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
+          { key: 'splitDay', label: 'Second half of the month starts on day', type: 'number', step: 1 },
+          { key: 'taxDueDay', label: 'Taxes due on day', type: 'number', step: 1 },
+          { key: 'leadDays', label: 'Warn about supplies this many days ahead', type: 'number', step: 1 },
+          { key: 'zusAccount', label: 'ZUS account (rachunek składkowy)', type: 'text' },
+          { key: 'taxAccount', label: 'Tax account (mikrorachunek)', type: 'text' }
+        ]}
+        onSave={(v) => update((d) => {
+          const { pitPct, ...rest } = v
+          d.settings = { ...d.settings, ...rest, pitRate: (pitPct ?? 14) / 100 }
+        })}
+      />
+    )}>
+      <span className="t17">Rates, taxes & accounts</span>
+      <span className="t14 muted">Exchange rate, ZUS amounts, PIT %, account numbers for transfers</span>
+    </button>
+  )
+}
