@@ -133,15 +133,12 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const tx = taxFor(st, forMonth)
     if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${st.taxMonths[forMonth]?.paid ? 'paid' : 'due ' + fmtDay(due)}`, kind: 'tax' })
   }
-  // credit installments falling in this half
-  for (const c of st.credits ?? []) {
+  // all credit payments falling in this half, summed into one fixed line
+  const cr = (st.credits ?? []).map((c) => {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
-    if (inP.length) {
-      const sum = inP.reduce((a, x) => a + x.amount, 0)
-      const cur = c.currency ?? 'PLN'
-      out.push({ id: 'credit-' + c.id, label: `Credit · ${c.name}`, amount: toPln(st.settings, sum, cur), date: inP[0].date, meta: `${inP.map((x) => fmtDay(x.date)).join(', ')} · payment ${inP[0].n} of ${c.count}${cur !== 'PLN' ? ' · ' + fmtCur(sum, cur) : ''}`, kind: 'credit' })
-    }
-  }
+    return { c, pln: inP.reduce((a, x) => a + toPln(st.settings, x.amount, c.currency ?? 'PLN'), 0), dates: inP.map((x) => x.date) }
+  }).filter((x) => x.dates.length)
+  if (cr.length) out.push({ id: 'credits', label: 'Credits', amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: cr.map((x) => `${x.c.name} ${x.dates.map(fmtDay).join(', ')}`).join(' · '), kind: 'credit' })
   // subscriptions charged in this half, as one line
   const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
   if (subs.length) out.push({ id: 'subs', label: 'Subscriptions', amount: subs.reduce((a, { x }) => a + toPln(st.settings, x.amount, x.currency), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
