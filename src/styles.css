@@ -77,10 +77,10 @@ button { background: none; border: 0; padding: 0; cursor: pointer; text-align: l
 .chip.on { background: var(--ink); color: var(--inv); border-color: var(--ink); }
 
 /* buttons */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 18px; border-radius: 100px; font-size: 16px; font-weight: 600; background: var(--ink); color: var(--inv); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 16px; border-radius: 100px; font-size: 16px; font-weight: 600; background: var(--ink); color: var(--inv); border: 1.5px solid transparent; white-space: nowrap; line-height: 1.2; }
 .btn.full { width: 100%; }
 .btn.ghost { background: transparent; color: inherit; border: 1.5px solid currentColor; }
-.btn.soft { background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+.btn.soft { background: var(--card); color: var(--ink); border: 1.5px solid var(--line); }
 .btn.money { background: var(--money); color: var(--ink); } .btn.work { background: var(--work); color: var(--ink); }
 .btn.home { background: var(--home); color: var(--ink); } .btn.closet { background: var(--closet); color: var(--ink); }
 .btn.sm { padding: 7px 14px; font-size: 14px; }
@@ -146,3 +146,11 @@ button { background: none; border: 0; padding: 0; cursor: pointer; text-align: l
 
 .chart .b[data-future] { opacity: .35; }
 .screen.withfab { padding-bottom: calc(var(--safe-b) + 190px); }
+
+.btn2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn2 .btn { width: 100%; min-width: 0; }
+.quota { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,.1); color: var(--inv);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: transform .15s, background .15s; border: 1.5px solid transparent; }
+.quota.on { background: var(--inv); color: var(--ink); }
+.quota.hold { transform: scale(.96); border-color: var(--money); }
+.hdr-gear { color: var(--ink2); padding: 6px; margin: -6px -6px 0 0; align-self: flex-start; }

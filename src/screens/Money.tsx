@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { addIncome, ensurePeriod, update, useSt } from '../store'
 import type { Session, State } from '../types'
 import {
@@ -365,11 +365,12 @@ const Taxes = () => {
   const afterTx = taxFor(st, after)
   const yearPit = months.reduce((a, m) => a + taxFor(st, m).pit, 0)
 
-  const copy = () => {
-    const s = st.settings
-    if (!s.zusAccount && !s.taxAccount) { toast('Add your account numbers in Settings first'); return }
-    const text = [`ZUS (DRA + RCA) ${monthName(due, true)}: ${fmt(tx.dra + tx.rca, true)}${s.zusAccount ? '\n' + s.zusAccount : ''}`, `PIT-28 ${monthName(due, true)}: ${fmt(tx.pit, true)}${s.taxAccount ? '\n' + s.taxAccount : ''}`].join('\n\n')
-    navigator.clipboard?.writeText(text).then(() => toast('Transfer details copied'), () => toast('Could not copy'))
+  const [pick, setPick] = useState<'zus' | 'pit'>('zus')
+  const zus = r2(tx.dra + tx.rca)
+  const copyAccount = () => {
+    const acc = pick === 'zus' ? st.settings.zusAccount : st.settings.taxAccount
+    if (!acc) { toast(`Add the ${pick === 'zus' ? 'ZUS' : 'tax (PIT)'} account in Settings first`); return }
+    copyText(acc.trim(), `${pick === 'zus' ? 'ZUS' : 'PIT'} account copied`)
   }
   const editMonth = (m: string) => openSheet(<TaxMonthSheet m={m} />)
   return (
@@ -381,13 +382,13 @@ const Taxes = () => {
         </div>
         <div className="big" style={{ fontSize: 60 }}>{fmt(tx.total)}</div>
         <div className="parts" style={{ paddingTop: 6 }}>
-          <div><span className="t13 w5">ZUS DRA</span><span className="t17">{fmt(tx.dra, true)}</span></div>
-          <div><span className="t13 w5">ZUS RCA</span><span className="t17">{fmt(tx.rca, true)}</span></div>
-          <div><span className="t13 w5">PIT-28</span><span className="t17">{fmt(tx.pit, true)}</span></div>
+          <Quota label="ZUS (DRA + RCA)" amount={zus} on={pick === 'zus'} onPick={() => setPick('zus')} />
+          <Quota label="PIT-28" amount={tx.pit} on={pick === 'pit'} onPick={() => setPick('pit')} />
         </div>
-        <div className="row" style={{ paddingTop: 6 }}>
-          <button className="btn money grow" onClick={() => update((d) => { d.taxMonths[due] = { ...(d.taxMonths[due] ?? {}), paid: !tx.paid } })}>{tx.paid ? 'Undo paid' : 'Mark as paid'}</button>
-          <button className="btn ghost grow" onClick={copy}>Copy transfer details</button>
+        <span className="t13" style={{ opacity: 0.7 }}>Tap to choose · hold to copy the amount</span>
+        <div className="btn2" style={{ paddingTop: 4 }}>
+          <button className="btn money" onClick={() => update((d) => { d.taxMonths[due] = { ...(d.taxMonths[due] ?? {}), paid: !tx.paid } })}>{tx.paid ? 'Undo paid' : 'Mark as paid'}</button>
+          <button className="btn ghost" onClick={copyAccount}>Copy {pick === 'zus' ? 'ZUS' : 'PIT'} account</button>
         </div>
         <span className="t13" style={{ opacity: 0.7 }}>Already in your budget for {fmtDay(dueDate)}. Revenue {fmt(tx.revenue, true)} · <u onClick={() => editMonth(due)}>edit</u></span>
       </div>
@@ -433,5 +434,60 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
       extra={<div className="t14 muted">Now: DRA {fmt(tx.dra, true)} · RCA {fmt(tx.rca, true)} · PIT {fmt(tx.pit, true)} = <b>{fmt(tx.total, true)}</b></div>}
       onSave={(v) => update((d) => { d.taxMonths[m] = { ...(d.taxMonths[m] ?? {}), revenueOverride: v.revenueOverride, pitOverride: v.pitOverride, paid: !!v.paid } })}
     />
+  )
+}
+
+// Bank-friendly amount: 954,54 (comma, no thousands separator)
+export const bankAmount = (n: number) => (Math.round(n * 100) / 100).toFixed(2).replace('.', ',')
+
+export const copyText = (text: string, msg: string) => {
+  const done = () => { toast(msg); navigator.vibrate?.(15) }
+  const fallback = () => {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    ta.setSelectionRange(0, text.length)
+    const ok = document.execCommand('copy')
+    ta.remove()
+    ok ? done() : toast('Could not copy')
+  }
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fallback)
+  else fallback()
+}
+
+// Tap = choose this quota, hold (~0.5 s) = copy its amount as 954,54
+const Quota = ({ label, amount, on, onPick }: { label: string; amount: number; on: boolean; onPick: () => void }) => {
+  const [holding, setHolding] = useState(false)
+  const start = useRef(0)
+  const timer = useRef<number>()
+  const begin = () => {
+    start.current = Date.now()
+    timer.current = window.setTimeout(() => setHolding(true), 450)
+  }
+  const end = () => {
+    clearTimeout(timer.current)
+    const long = Date.now() - start.current >= 450
+    setHolding(false)
+    start.current = 0
+    if (long) copyText(bankAmount(amount), `${bankAmount(amount)} copied`)
+    else onPick()
+  }
+  const cancel = () => { clearTimeout(timer.current); setHolding(false); start.current = 0 }
+  return (
+    <button
+      className={'quota' + (on ? ' on' : '') + (holding ? ' hold' : '')}
+      onPointerDown={begin}
+      onPointerUp={() => start.current && end()}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <span className="t13 w5">{label}</span>
+      <span className="t17">{fmt(amount, true)}</span>
+    </button>
   )
 }

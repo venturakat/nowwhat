@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useSt, useStore } from './store'
-import { Icon, openSheet, useUi, type Tab } from './ui'
+import { Icon, openSheet, registerSettings, useUi, type Tab } from './ui'
+import { SettingsSheet } from './settings'
 import { Today } from './screens/Today'
 import { Money, StartTimerSheet, stopTimer } from './screens/Money'
 import { Supplies } from './screens/Supplies'
 import { Home } from './screens/Home'
 import { Closet } from './screens/Closet'
 import { fmtClock } from './lib'
+
+registerSettings(() => <SettingsSheet />)
 
 const TABS: [Tab, string, () => JSX.Element][] = [
   ['today', 'Today', Icon.today], ['money', 'Money', Icon.money], ['supplies', 'Supplies', Icon.supplies], ['home', 'Home', Icon.home], ['closet', 'Closet', Icon.closet]

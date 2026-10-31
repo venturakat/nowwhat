@@ -36,6 +36,11 @@ export const openSheet = (n: ReactNode) => useUi.getState().open(n)
 export const closeSheet = () => useUi.getState().close()
 export const toast = (m: string) => useUi.getState().say(m)
 
+// Settings live in their own module; App registers how to build the sheet so every screen can open it
+let settingsFactory: (() => ReactNode) | null = null
+export const registerSettings = (f: () => ReactNode) => { settingsFactory = f }
+export const openSettings = () => { if (settingsFactory) openSheet(settingsFactory()) }
+
 // ---------- icons ----------
 const S = (p: { children: ReactNode; size?: number; color?: string; fill?: boolean }) => (
   <svg width={p.size ?? 22} height={p.size ?? 22} viewBox="0 0 24 24" fill={p.fill ? p.color ?? 'currentColor' : 'none'} stroke={p.fill ? 'none' : p.color ?? 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -79,7 +84,7 @@ export const Header = ({ sub, title, right }: { sub: string; title: string; righ
       <div className="sub">{sub}</div>
       <h1 className="h1">{title}</h1>
     </div>
-    {right}
+    {right ?? <button className="hdr-gear" aria-label="Settings" onClick={openSettings}><Icon.gear /></button>}
   </div>
 )
 
