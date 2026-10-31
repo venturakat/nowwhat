@@ -39,7 +39,7 @@ export const Cleaning = () => {
           </button>
         )}
       </div>
-      <button className="btn full soft" onClick={() => openSheet(<ListsSheet />)}>Edit lists & rotation</button>
+      <button className="btn full soft" onClick={() => openSheet(<ListsSheet />)}>Edit lists</button>
     </>
   )
 }
@@ -128,19 +128,17 @@ const PlanExtra = ({ date }: { date?: string }) => (
   />
 )
 
-const ListsSheet = () => {
+const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
   const st = useSt()
-  const [mode, setMode] = useState<CleanMode>(1)
-  const nextSun = sundayOnOrAfter(today())
-  const nextMode = occurrences(st, nextSun, nextSun).find((o) => o.sunday === nextSun)?.mode ?? 1
+  const [mode, setMode] = useState<CleanMode>(start)
   const tasks = tasksFor(st, mode)
   const edit = (id?: string) => {
     const t = st.cleanTasks.find((x) => x.id === id)
     openSheet(
       <FormSheet title={t ? 'Edit step' : `New step in ${MODE_NAME[mode]}`} initial={t ?? {}}
         fields={[{ key: 'name', label: 'Step', type: 'text' }]}
-        onSave={(v) => { update((d) => { if (t) d.cleanTasks.find((x) => x.id === t.id)!.name = v.name; else d.cleanTasks.push({ id: uid(), name: v.name, mode }) }); setTimeout(() => openSheet(<ListsSheet />)) }}
-        onDelete={t ? () => { update((d) => { d.cleanTasks = d.cleanTasks.filter((x) => x.id !== t.id) }); setTimeout(() => openSheet(<ListsSheet />)) } : undefined}
+        onSave={(v) => { update((d) => { if (t) d.cleanTasks.find((x) => x.id === t.id)!.name = v.name; else d.cleanTasks.push({ id: uid(), name: v.name, mode }) }); setTimeout(() => openSheet(<ListsSheet start={mode} />)) }}
+        onDelete={t ? () => { update((d) => { d.cleanTasks = d.cleanTasks.filter((x) => x.id !== t.id) }); setTimeout(() => openSheet(<ListsSheet start={mode} />)) } : undefined}
       />
     )
   }
@@ -153,15 +151,6 @@ const ListsSheet = () => {
   })
   return (
     <Sheet title="Cleaning lists">
-      <div className="card" style={{ gap: 8, padding: 16 }}>
-        <span className="t15 w5">Every Sunday, Light and Regular take turns.</span>
-        <span className="t14 muted">This Sunday ({fmtDay(nextSun)}) is:</span>
-        <div className="seg">
-          {([1, 2] as const).map((m) => (
-            <button key={m} className={'chip' + (nextMode === m ? ' on' : '')} onClick={() => update((d) => { d.cleanPlan.anchor = nextSun; d.cleanPlan.anchorMode = m })}>{MODE_NAME[m]}</button>
-          ))}
-        </div>
-      </div>
       <Chips items={[['1', 'Light'], ['2', 'Regular'], ['3', 'Extra']]} value={String(mode)} onChange={(v) => setMode(Number(v) as CleanMode)} />
       <List title={`${MODE_NAME[mode]} · ${tasks.length} steps`}>
         {tasks.map((t, i) => (

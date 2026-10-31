@@ -154,3 +154,4 @@ button { background: none; border: 0; padding: 0; cursor: pointer; text-align: l
 .quota.on { background: var(--inv); color: var(--ink); }
 .quota.hold { transform: scale(.96); border-color: var(--money); }
 .hdr-gear { color: var(--ink2); padding: 6px; margin: -6px -6px 0 0; align-self: flex-start; }
+.sheet > * { flex-shrink: 0; }
