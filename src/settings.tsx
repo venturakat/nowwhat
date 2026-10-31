@@ -42,7 +42,8 @@ const FormInline = () => {
           { key: 'splitDay', label: 'Second half of the month starts on day', type: 'number', step: 1 },
           { key: 'taxPayDay', label: 'I pay ZUS + PIT on day (puts it in the budget)', type: 'number', step: 1 },
           { key: 'taxDueDay', label: 'Official deadline, day', type: 'number', step: 1 },
-          { key: 'leadDays', label: 'Warn about supplies this many days ahead', type: 'number', step: 1 },
+          { key: 'leadDays', label: 'Shop meds, pets & care this many days before they run out', type: 'number', step: 1 },
+          { key: 'leadDaysShort', label: 'Shop groceries & home this many days before', type: 'number', step: 1 },
           { key: 'zusAccount', label: 'ZUS account (rachunek składkowy)', type: 'text' },
           { key: 'taxAccount', label: 'Tax account (mikrorachunek)', type: 'text' }
         ]}

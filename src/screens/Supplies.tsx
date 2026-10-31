@@ -33,7 +33,7 @@ export const Supplies = () => {
   const buy = withStatus.filter((x) => x.state !== 'ok')
   const ok = withStatus.filter((x) => x.state === 'ok')
   const total = buy.reduce((a, x) => a + x.s.pricePerUnit * x.s.buyQty, 0)
-  const runDate = buy.length ? buy.map((x) => nextBuy(x.s)).sort()[0] : null
+  const runDate = buy.length ? buy.map((x) => nextBuy(x.s, st.settings)).sort()[0] : null
   const projectBuys = cat === 'home' ? st.projects.filter((p) => !p.done).flatMap((p) => splitList(p.toBuy).map((item) => ({ p, item }))) : []
   return (
     <div className="screen">

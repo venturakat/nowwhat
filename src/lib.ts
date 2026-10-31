@@ -104,7 +104,13 @@ export interface AutoLine { id: string; label: string; amount: number; date: str
 export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
 // next planned buy date of a supply (never in the past)
-export const nextBuy = (sp: Supply, t = today()) => (sp.enoughUntil < t ? t : sp.enoughUntil)
+// how many days ahead to shop for this kind of thing
+export const leadFor = (s: Settings, cat: SupplyCat) => (cat === 'groceries' || cat === 'home' ? s.leadDaysShort ?? 2 : s.leadDays)
+// planned shopping day: the lead time before it runs out (never in the past)
+export const nextBuy = (sp: Supply, s: Settings, t = today()) => {
+  const d = addDays(sp.enoughUntil, -leadFor(s, sp.cat))
+  return d < t ? t : d
+}
 
 export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   const out: AutoLine[] = []
@@ -112,7 +118,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   // supplies: every planned purchase that falls inside this period (repeats for short-lasting items)
   const byCat: Record<string, { amount: number; n: number }> = {}
   for (const sp of st.supplies) {
-    let d = nextBuy(sp, t)
+    let d = nextBuy(sp, st.settings, t)
     let guard = 0
     while (d <= p.end && guard++ < 40) {
       if (d >= p.start) {
@@ -245,7 +251,7 @@ export const fmtClock = (ms: number) => {
 // ---------- supplies ----------
 export const supplyStatus = (sp: Supply, s: Settings, t = today()) => {
   const left = diffDays(t, sp.enoughUntil)
-  const state: 'out' | 'buy' | 'ok' = left <= 0 ? 'out' : left <= s.leadDays ? 'buy' : 'ok'
+  const state: 'out' | 'buy' | 'ok' = left <= 0 ? 'out' : left <= leadFor(s, sp.cat) ? 'buy' : 'ok'
   return { daysLeft: left, state }
 }
 
