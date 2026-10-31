@@ -138,7 +138,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
     return { c, pln: inP.reduce((a, x) => a + toPln(st.settings, x.amount, c.currency ?? 'PLN'), 0), dates: inP.map((x) => x.date) }
   }).filter((x) => x.dates.length)
-  if (cr.length) out.push({ id: 'credits', label: 'Credits', amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: cr.map((x) => `${x.c.name} ${x.dates.map(fmtDay).join(', ')}`).join(' · '), kind: 'credit' })
+  if (cr.length) out.push({ id: 'credits', label: 'Credits', amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: creditMeta(cr.flatMap((x) => x.dates)), kind: 'credit' })
   // subscriptions charged in this half, as one line
   const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
   if (subs.length) out.push({ id: 'subs', label: 'Subscriptions', amount: subs.reduce((a, { x }) => a + toPln(st.settings, x.amount, x.currency), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
@@ -146,6 +146,13 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
 }
 
 // ---------- credits ----------
+// "3 payments · 5–12 Nov" (or "1 payment · 5 Nov")
+const creditMeta = (dates: string[]) => {
+  const d = [...dates].sort()
+  const a = parse(d[0]), b = parse(d[d.length - 1])
+  const range = d[0] === d[d.length - 1] ? fmtDay(d[0]) : a.getMonth() === b.getMonth() ? `${a.getDate()}–${fmtDay(d[d.length - 1])}` : `${fmtDay(d[0])} – ${fmtDay(d[d.length - 1])}`
+  return `${d.length} ${d.length === 1 ? 'payment' : 'payments'} · ${range}`
+}
 // same day each month (clamped to the month's last day)
 export const monthlyDate = (first: string, i: number) => {
   const [y, m, d] = first.split('-').map(Number)
