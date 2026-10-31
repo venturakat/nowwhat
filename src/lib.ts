@@ -225,9 +225,9 @@ export const taxFor = (st: State, mk: string) => {
   const dra = tm?.draOverride ?? s.dra
   const rca = tm?.rcaOverride ?? s.rca
   const pit = tm?.pitOverride ?? Math.max(0, r2(s.pitRate * (revenue - 0.5 * dra)))
-  const active = revenue > 0 || tm !== undefined
-  const total = active ? r2(dra + rca + pit) : 0
-  return { revenue, dra: active ? dra : 0, rca: active ? rca : 0, pit: active ? pit : 0, total, paid: !!tm?.paid, override: tm?.revenueOverride !== undefined }
+  // ZUS (DRA + RCA) is a fixed monthly amount, due whether or not there was revenue; only PIT depends on revenue
+  const total = r2(dra + rca + pit)
+  return { revenue, dra, rca, pit, total, paid: !!tm?.paid, override: tm?.revenueOverride !== undefined }
 }
 
 // ---------- work ----------

@@ -357,7 +357,9 @@ const Taxes = () => {
   const year = curM.slice(0, 4)
   // the payment to show: the earliest unpaid month before the current month
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
-  const candidates = [...months, ...Object.keys(st.taxMonths)].filter((m, i, a) => a.indexOf(m) === i && m < curM).sort()
+  // only months since taxes were first tracked here (ZUS is due every month, so older months would all look unpaid)
+  const since = Object.keys(st.taxMonths).sort()[0] ?? prevMonth(curM)
+  const candidates = [...months, ...Object.keys(st.taxMonths)].filter((m, i, a) => a.indexOf(m) === i && m < curM && m >= since).sort()
   // earliest unpaid past month; if everything is paid, the month that is accruing now
   const due = candidates.find((m) => !taxFor(st, m).paid && taxFor(st, m).total > 0) ?? curM
   const tx = taxFor(st, due)
