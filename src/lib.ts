@@ -157,14 +157,14 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     if (d > g.d) g.d = d
   }
   for (const [k, g] of Object.entries(hourly))
-    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtEur(g.eur)} · ${fmtDay(g.d)} · invoiced${g.approx ? ' ≈' : ''}`, kind: 'fee', income: true, expected: true })
+    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtEur(g.eur)} · ${fmtDay(g.d)} · invoiced`, kind: 'fee', income: true, expected: true })
   for (const s of st.sessions) {
     if (s.fee === undefined || s.paid) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
     const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
     if (!inHalf(d)) continue
-    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced ≈') : 'expected'}`, kind: 'fee', income: true, expected: true })
+    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced') : 'expected'}`, kind: 'fee', income: true, expected: true })
   }
   // future months of monthly clients (their entry is only created when the month comes)
   for (const c of st.clients) {
@@ -332,8 +332,8 @@ export const fmtCur = (amount: number, cur: Currency = 'PLN', dec = true) => {
   const v = (Math.round(amount * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0 })
   return cur === 'EUR' ? '€' + v : v + ' ₴'
 }
-// "25 € ≈ 110 zł" for foreign amounts, plain zł otherwise
-export const fmtBoth = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'PLN' ? fmt(amount, true) : `${fmtCur(amount, cur)} ≈ ${fmt(toPln(s, amount, cur))}`)
+// "25 € · 110 zł" for foreign amounts, plain zł otherwise
+export const fmtBoth = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'PLN' ? fmt(amount, true) : `${fmtCur(amount, cur)} · ${fmt(toPln(s, amount, cur))}`)
 
 // ---------- subscriptions ----------
 export const subDate = (sub: Subscription, mk: string) => {

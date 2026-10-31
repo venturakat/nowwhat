@@ -38,7 +38,7 @@ export const Credits = () => {
           return (
             <Row key={c.id} dot={n <= 2 ? C.alert : C.money} title={c.name}
               meta={`Next ${s.next ? (n === 0 ? 'today' : n === 1 ? 'tomorrow' : fmtDay(s.next.date)) : '—'} · ${fmtCur(s.next?.amount ?? 0, c.currency)} · ${s.left.length} left`}
-              trail={(c.currency ?? 'PLN') === 'PLN' ? fmt(s.remaining) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(s.remaining, c.currency, false)}<br /><span className="t13 muted">≈ {fmt(pl(c, s.remaining))}</span></span>} onClick={() => openSheet(<CreditSheet id={c.id} />)} />
+              trail={(c.currency ?? 'PLN') === 'PLN' ? fmt(s.remaining) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(s.remaining, c.currency, false)}<br /><span className="t13 muted">{fmt(pl(c, s.remaining))}</span></span>} onClick={() => openSheet(<CreditSheet id={c.id} />)} />
           )
         })}
       </List>
@@ -66,7 +66,7 @@ const CreditSheet = ({ id }: { id: string }) => {
     <Sheet title={c.name}>
       <div className="card money" style={{ gap: 8 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <div className="col"><span className="t14 w5">Left to repay</span><span className="mid">{fmtCur(s.remaining, cur)}</span>{cur !== 'PLN' && <span className="t14">≈ {fmt(toPln(st.settings, s.remaining, cur))}</span>}</div>
+          <div className="col"><span className="t14 w5">Left to repay</span><span className="mid">{fmtCur(s.remaining, cur)}</span>{cur !== 'PLN' && <span className="t14">{fmt(toPln(st.settings, s.remaining, cur))}</span>}</div>
           <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5">{s.closed ? 'Done' : 'Ends'}</span><span className="t17">{s.closed ? '✓' : monthYear(s.endsOn)}</span></div>
         </div>
         <div className="bar"><div style={{ width: `${paidPct * 100}%` }} /></div>

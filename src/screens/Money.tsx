@@ -71,7 +71,7 @@ const Budget = () => {
   }
 
   // foreign amounts: "€25.00" with the zł value under it
-  const amt = (x: { amount: number; currency?: Currency }) => !x.currency || x.currency === 'PLN' ? fmt(x.amount) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(x.amount, x.currency)}<br /><span className="t13 muted" style={{ fontWeight: 400 }}>≈ {fmt(toPln(st.settings, x.amount, x.currency))}</span></span>
+  const amt = (x: { amount: number; currency?: Currency }) => !x.currency || x.currency === 'PLN' ? fmt(x.amount) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(x.amount, x.currency)}<br /><span className="t13 muted" style={{ fontWeight: 400 }}>{fmt(toPln(st.settings, x.amount, x.currency))}</span></span>
   const incomes = s.items.filter((i) => i.kind === 'income')
   const expenses = s.items.filter((i) => i.kind === 'expense')
   const spends = st.spends.filter((x) => x.date >= s.info.start && x.date <= s.info.end).sort((a, b) => b.date.localeCompare(a.date))
@@ -513,14 +513,14 @@ const ClientSheet = ({ id }: { id: string }) => {
         <div className="card work" style={{ gap: 6 }}>
           <span className="t14 w5">Not invoiced yet</span>
           <span className="mid">{c.kind && c.kind !== 'hourly' ? eur(unInv) : `${fmtHours(unInv.reduce((a, s) => a + hours(s), 0))} · ${eur(unInv)}`}</span>
-          <span className="t14">≈ {fmt(pln(unInv), true)} at today’s rate</span>
+          <span className="t14">{fmt(pln(unInv), true)} at today’s rate</span>
           <button className="btn" onClick={() => openSheet(<InvoiceSheet ids={unInv.map((s) => s.id)} />)}>Mark invoiced…</button>
         </div>
       )}
       {unpaid.length > 0 && (
         <div className="card money" style={{ gap: 6 }}>
           <span className="t14 w5">Invoiced, waiting for payment</span>
-          <span className="mid">{noRate.length ? '≈ ' : ''}{fmt(pln(unpaid), true)}</span>
+          <span className="mid">{fmt(pln(unpaid), true)}</span>
           <span className="t14">{eur(unpaid)} · {unpaid.length} entries{tables.length ? ` · NBP ${tables.join(', ')}` : ''}</span>
           {noRate.length > 0 && <button className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet(<InvoiceSheet ids={noRate.map((s) => s.id)} fix />)}>Set invoice date for the NBP rate</button>}
           <button className="btn" onClick={markPaid}>They paid → add to income</button>
