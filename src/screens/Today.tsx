@@ -15,7 +15,7 @@ const things = (st: State): Thing[] => {
   // supplies running out (soonest first)
   const sup = st.supplies.map((s) => ({ s, ...supplyStatus(s, st.settings) })).filter((x) => x.state !== 'ok').sort((a, b) => a.daysLeft - b.daysLeft)
   for (const { s, daysLeft } of sup.filter((x) => x.daysLeft <= 2))
-    out.push({ id: 'sup-' + s.id, dot: C.alert, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : 'Runs out in 2 days'} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', s.cat) })
+    out.push({ id: 'sup-' + s.id, dot: daysLeft <= 0 ? C.alert : C.warn, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : 'Runs out in 2 days'} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', s.cat) })
   // taxes due within 5 days
   const pm = prevMonth(monthKey(t))
   const tx = taxFor(st, pm)

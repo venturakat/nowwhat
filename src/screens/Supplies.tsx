@@ -48,7 +48,7 @@ export const Supplies = () => {
       )}
       <List title="Buy now" empty={items.length ? 'Nothing to buy — you’re covered.' : undefined}>
         {buy.map(({ s, daysLeft, state }) => (
-          <Row key={s.id} dot={state === 'out' || daysLeft <= 2 ? C.alert : C.supplies} title={s.name}
+          <Row key={s.id} dot={state === 'out' ? C.alert : C.warn} title={s.name}
             meta={`${daysLeft <= 0 ? 'Ran out' : 'Runs out'} ${fmtDay(s.enoughUntil)} · ${s.buyQty} ${s.unit ?? (s.buyQty === 1 ? 'pack' : 'packs')}`}
             trail={fmt(s.pricePerUnit * s.buyQty)} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
         ))}

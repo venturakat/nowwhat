@@ -148,5 +148,5 @@ export const Field = ({ label, children }: { label: string; children: ReactNode 
 )
 
 export const C = {
-  money: 'var(--money)', supplies: 'var(--supplies)', home: 'var(--home)', closet: 'var(--closet)', work: 'var(--work)', alert: 'var(--alert)', ok: 'var(--ok)', ink: 'var(--ink)', line: 'var(--line)'
+  money: 'var(--money)', supplies: 'var(--supplies)', home: 'var(--home)', closet: 'var(--closet)', work: 'var(--work)', alert: 'var(--alert)', warn: 'var(--warn)', ok: 'var(--ok)', ink: 'var(--ink)', line: 'var(--line)'
 }

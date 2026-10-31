@@ -12,6 +12,7 @@
   --closet: #f7cfdd;
   --work: #e3d2ff;
   --alert: #ff6b4a;
+  --warn: #f5c400;
   --ok: #2e9e5b;
   --r: 24px;
   --safe-b: env(safe-area-inset-bottom, 0px);
