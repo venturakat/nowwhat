@@ -6,10 +6,16 @@ import '@fontsource/afacad/600.css'
 import '@fontsource/afacad/700.css'
 import './styles.css'
 import { App } from './App'
-import { hydrate } from './store'
+import { hydrate, update } from './store'
+import { ensureFees } from './lib'
 import { startRates } from './rates'
 
-hydrate().then(startRates)
+hydrate().then(() => {
+  update(ensureFees)
+  startRates()
+  // a new month adds the next fixed fee
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') update(ensureFees) })
+})
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

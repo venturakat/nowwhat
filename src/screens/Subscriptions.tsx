@@ -5,7 +5,7 @@ import { C, List, openSheet, Row } from '../ui'
 import { FormSheet } from '../form'
 
 export const CURRENCIES: [Currency, string][] = [['PLN', 'zł'], ['EUR', '€'], ['UAH', '₴']]
-const ord = (n: number) => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th')
+export const ord = (n: number) => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th')
 
 export const Subscriptions = () => {
   const st = useSt()

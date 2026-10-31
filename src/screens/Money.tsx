@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { addIncome, ensurePeriod, update, useSt } from '../store'
 import type { Currency, Session, State } from '../types'
 import {
-  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, sessionPln, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
+  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, sessionPln, ensureFees, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 import { Credits } from './Credits'
 import { nbpRateForInvoice } from '../rates'
-import { CURRENCIES, Subscriptions } from './Subscriptions'
+import { CURRENCIES, ord, Subscriptions } from './Subscriptions'
 
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
@@ -98,13 +98,16 @@ const Budget = () => {
       </div>
       {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>Copied from last month — edit anything and it becomes this half's own plan.</div>}
       <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
+        {s.auto.filter((a) => a.income).map((a) => (
+          <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
+        ))}
         {incomes.map((i) => (
           <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.taxable && 'business revenue'].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">+ Add money in</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
       <List title="Fixed this half" right={fmt(s.fixed)}>
-        {s.auto.map((a) => (
+        {s.auto.filter((a) => !a.income).map((a) => (
           <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : 'credits')} />
         ))}
         {expenses.map((i) => (
@@ -169,7 +172,7 @@ export const stopTimer = (st: State) => {
 
 export const StartTimerSheet = () => {
   const st = useSt()
-  const clients = st.clients.filter((c) => !c.archived)
+  const clients = st.clients.filter((c) => !c.archived && c.kind !== 'fixed')
   const last = [...st.sessions].sort((a, b) => b.start.localeCompare(a.start))[0]
   const [cid, setCid] = useState(last?.clientId ?? clients[0]?.id)
   const lastTask = [...st.sessions].filter((s) => s.clientId === cid).sort((a, b) => b.start.localeCompare(a.start))[0]?.task
@@ -238,8 +241,8 @@ const Work = () => {
       <List title="Clients" right={monthName(mk, true)}>
         {clientStats.map(({ c, mh, monthEur, monthPln, unInv, unpaid, unpaidEur, unInvEur }) => (
           <Row key={c.id} dot={C.work} title={c.name}
-            meta={[mh ? `${fmtHours(mh)} · ${fmtEur(monthEur)}` : 'No hours this month', unInv.length ? `${fmtEur(unInvEur)} to invoice` : '', unpaid.length ? `${fmtEur(unpaidEur)} not paid yet` : ''].filter(Boolean).join(' · ')}
-            trail={mh ? fmt(monthPln, true) : '—'} onClick={() => openSheet(<ClientSheet id={c.id} />)} />
+            meta={[c.kind === 'fixed' ? `${fmtEur(c.fixedEur ?? 0)} / month · on the ${ord(c.payDay ?? 1)}` : mh ? `${fmtHours(mh)} · ${fmtEur(monthEur)}` : 'No hours this month', unInv.length ? `${fmtEur(unInvEur)} to invoice` : '', unpaid.length ? `${fmtEur(unpaidEur)} not paid yet` : ''].filter(Boolean).join(' · ')}
+            trail={mh || monthPln ? fmt(monthPln, true) : '—'} onClick={() => openSheet(<ClientSheet id={c.id} />)} />
         ))}
         <Row title={<span className="muted">+ Add client</span>} onClick={() => openSheet(<ClientEdit />)} />
       </List>
@@ -267,11 +270,21 @@ const ClientEdit = ({ id }: { id?: string }) => {
   const st = useSt()
   const c = st.clients.find((x) => x.id === id)
   return (
-    <FormSheet title={c ? 'Edit client' : 'New client'} initial={c ?? { rateEur: 12 }}
-      fields={[{ key: 'name', label: 'Name', type: 'text' }, { key: 'rateEur', label: 'Rate (€ per hour)', type: 'number' }]}
+    <FormSheet title={c ? 'Edit client' : 'New client'} initial={c ? { kind: 'hourly', ...c, since: c.since ? c.since + '-01' : undefined } : { kind: 'hourly', rateEur: 12, payDay: 1, since: today().slice(0, 8) + '01' }}
+      fields={[
+        { key: 'name', label: 'Name', type: 'text' },
+        { key: 'kind', label: 'Paid', type: 'select', options: [['hourly', 'By the hour'], ['fixed', 'Fixed monthly fee']] },
+        { key: 'rateEur', label: 'Hourly: € per hour', type: 'number' },
+        { key: 'fixedEur', label: 'Fixed: € per month', type: 'number' },
+        { key: 'payDay', label: 'Fixed: fee due on day of the month', type: 'number', step: 1 },
+        { key: 'since', label: 'Fixed: first month (any day in it)', type: 'date' }
+      ]}
+      extra={<span className="t13 muted">A fixed client gets one entry a month. You invoice it like hours (NBP rate of the invoice date) and it shows in the budget as expected income until it’s paid.</span>}
       onSave={(v) => update((d) => {
-        if (c) Object.assign(d.clients.find((x) => x.id === c.id)!, { name: v.name, rateEur: v.rateEur ?? 0 })
-        else d.clients.push({ id: uid(), name: v.name, rateEur: v.rateEur ?? 0 })
+        const data = { name: v.name, kind: v.kind ?? 'hourly', rateEur: v.rateEur ?? 0, fixedEur: v.fixedEur, payDay: Math.min(31, Math.max(1, Math.round(v.payDay ?? 1))), since: v.since ? String(v.since).slice(0, 7) : undefined }
+        if (c) Object.assign(d.clients.find((x) => x.id === c.id)!, data)
+        else d.clients.push({ id: uid(), ...data })
+        ensureFees(d)
       })}
       onDelete={c ? () => update((d) => { d.clients.find((x) => x.id === c.id)!.archived = true }) : undefined}
     />
@@ -387,7 +400,7 @@ const ClientSheet = ({ id }: { id: string }) => {
       <List title="Hours" right={`${ss.length} entries`} empty="No hours yet">
         {shown.map((s) => (
           <Row key={s.id} title={s.task} meta={`${fmtDay(toLocalDate(s.start))} · ${timeOf(s.start)}–${timeOf(s.end)} · ${s.paid ? 'paid' : s.invoiced ? 'invoiced' : 'not invoiced'}`}
-            trail={`${fmtHours(hours(s))}`} dot={s.paid ? C.ok : s.invoiced ? C.money : C.work} onClick={() => openSheet(<SessionEdit clientId={id} id={s.id} />)} />
+            trail={s.fee !== undefined ? fmtEur(s.fee) : `${fmtHours(hours(s))}`} dot={s.paid ? C.ok : s.invoiced ? C.money : C.work} onClick={() => openSheet(<SessionEdit clientId={id} id={s.id} />)} />
         ))}
         {!all && ss.length > 8 && <Row title={<span className="muted">Show all</span>} onClick={() => setAll(true)} />}
       </List>

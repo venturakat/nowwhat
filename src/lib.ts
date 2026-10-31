@@ -99,7 +99,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
   return { items: [], isTemplate: true }
 }
 
-export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' }
+export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' | 'fee'; income?: boolean }
 
 export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
@@ -138,6 +138,16 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const forMonth = prevMonth(p.month)
     const tx = taxFor(st, forMonth)
     if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${st.taxMonths[forMonth]?.paid ? 'paid' : 'pay ' + fmtDay(due)}`, kind: 'tax' })
+  }
+  // fixed client fees expected in this half (until they're paid — then they're real income)
+  for (const c of st.clients) {
+    if (c.kind !== 'fixed' || c.archived || !c.fixedEur) continue
+    const d = feeDate(c, p.month)
+    if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
+    const s = st.sessions.find((x) => x.clientId === c.id && x.feeMonth === p.month)
+    if (s?.paid) continue
+    const eur = s ? sessionEur(st, s) : c.fixedEur
+    out.push({ id: 'fee-' + c.id, label: c.name, amount: eur * (s?.nbpRate ?? st.settings.eurPln), date: d, meta: `€${eur} fee · ${fmtDay(d)} · ${s?.invoiced ? (s.nbpRate ? 'invoiced' : 'invoiced ≈') : 'expected ≈'}`, kind: 'fee', income: true })
   }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
@@ -204,8 +214,8 @@ export const summarize = (st: State, key: string): PeriodSummary => {
   const { items, isTemplate } = periodItems(st, key)
   const auto = autoLines(st, info)
   const pl = (x: { amount: number; currency?: Currency }) => toPln(st.settings, x.amount, x.currency ?? 'PLN')
-  const income = items.filter((i) => i.kind === 'income').reduce((a, b) => a + pl(b), 0)
-  const fixed = items.filter((i) => i.kind === 'expense').reduce((a, b) => a + pl(b), 0) + auto.reduce((a, b) => a + b.amount, 0)
+  const income = items.filter((i) => i.kind === 'income').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => a.income).reduce((a, b) => a + b.amount, 0)
+  const fixed = items.filter((i) => i.kind === 'expense').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => !a.income).reduce((a, b) => a + b.amount, 0)
   const spent = st.spends.filter((s) => s.date >= info.start && s.date <= info.end).reduce((a, b) => a + pl(b), 0)
   const left = income - fixed - spent
   const t = today()
@@ -241,8 +251,27 @@ export const taxFor = (st: State, mk: string) => {
 // ---------- work ----------
 export const hours = (s: Session) => (new Date(s.end).getTime() - new Date(s.start).getTime()) / 3600000
 export const sessionEur = (st: State, s: Session) => {
+  if (s.fee !== undefined) return s.fee
   const c = st.clients.find((c) => c.id === s.clientId)
   return hours(s) * (c?.rateEur ?? 0)
+}
+export const feeDate = (c: { payDay?: number }, mk: string) => {
+  const [y, m] = mk.split('-').map(Number)
+  return `${mk}-${pad(Math.min(c.payDay ?? 1, daysInMonth(y, m)))}`
+}
+// make sure every fixed-fee client has an entry for each month up to now (they get invoiced like hours)
+export const ensureFees = (d: State) => {
+  const cur = today().slice(0, 7)
+  for (const c of d.clients) {
+    if (c.kind !== 'fixed' || c.archived || !c.fixedEur) continue
+    let mk = c.since ?? cur
+    for (let i = 0; i < 60 && mk <= cur; i++, mk = nextMonth(mk)) {
+      const ex = d.sessions.find((s) => s.clientId === c.id && s.feeMonth === mk)
+      if (ex) { if (!ex.invoiced) ex.fee = c.fixedEur; continue }
+      const at = new Date(feeDate(c, mk) + 'T12:00:00').toISOString()
+      d.sessions.push({ id: uid(), clientId: c.id, task: `${monthName(mk, true)} fee`, start: at, end: at, invoiced: false, paid: false, fee: c.fixedEur, feeMonth: mk })
+    }
+  }
 }
 // zł value of hours: invoiced ones use the NBP rate of their invoice, others today's rate (an estimate)
 export const sessionPln = (st: State, s: Session) => sessionEur(st, s) * (s.nbpRate ?? st.settings.eurPln)

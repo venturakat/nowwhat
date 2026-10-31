@@ -51,7 +51,11 @@ export interface Spend {
 export interface Client {
   id: ID
   name: string
-  rateEur: number
+  rateEur: number // hourly clients
+  kind?: 'hourly' | 'fixed'
+  fixedEur?: number // fixed clients: monthly fee in €
+  payDay?: number // fixed clients: day of the month the fee is due
+  since?: string // fixed clients: first month (YYYY-MM)
   archived?: boolean
 }
 
@@ -64,6 +68,8 @@ export interface Session {
   invoiced: boolean
   paid: boolean
   invoiceDate?: string
+  fee?: number // fixed monthly fee in € (instead of hours × rate)
+  feeMonth?: string // YYYY-MM the fee is for
   nbpRate?: number // NBP table A mid rate from the last working day before the invoice date
   nbpTable?: string // e.g. 212/A/NBP/2026
 }
