@@ -26,7 +26,8 @@ export interface BudgetItem {
   id: ID
   kind: 'income' | 'expense'
   label: string
-  amount: number
+  amount: number // in `currency`
+  currency?: Currency // default PLN; converted to zł with the current rate
   date?: string // YYYY-MM-DD
   taxable?: boolean // counts as revenue for PIT/ZUS
   fromClient?: ID
@@ -41,6 +42,7 @@ export interface Spend {
   id: ID
   date: string
   amount: number
+  currency?: Currency
   note: string
 }
 

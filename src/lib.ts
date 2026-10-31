@@ -190,9 +190,10 @@ export const summarize = (st: State, key: string): PeriodSummary => {
   const info = periodFromKey(key, st.settings)
   const { items, isTemplate } = periodItems(st, key)
   const auto = autoLines(st, info)
-  const income = items.filter((i) => i.kind === 'income').reduce((a, b) => a + b.amount, 0)
-  const fixed = items.filter((i) => i.kind === 'expense').reduce((a, b) => a + b.amount, 0) + auto.reduce((a, b) => a + b.amount, 0)
-  const spent = st.spends.filter((s) => s.date >= info.start && s.date <= info.end).reduce((a, b) => a + b.amount, 0)
+  const pl = (x: { amount: number; currency?: Currency }) => toPln(st.settings, x.amount, x.currency ?? 'PLN')
+  const income = items.filter((i) => i.kind === 'income').reduce((a, b) => a + pl(b), 0)
+  const fixed = items.filter((i) => i.kind === 'expense').reduce((a, b) => a + pl(b), 0) + auto.reduce((a, b) => a + b.amount, 0)
+  const spent = st.spends.filter((s) => s.date >= info.start && s.date <= info.end).reduce((a, b) => a + pl(b), 0)
   const left = income - fixed - spent
   const t = today()
   const total = diffDays(info.start, info.end) + 1
@@ -206,7 +207,7 @@ export const revenueFromIncome = (st: State, mk: string) => {
   let sum = 0
   for (const [key, p] of Object.entries(st.periods)) {
     if (!key.startsWith(mk)) continue
-    for (const it of p.items) if (it.kind === 'income' && it.taxable) sum += it.amount
+    for (const it of p.items) if (it.kind === 'income' && it.taxable) sum += toPln(st.settings, it.amount, it.currency ?? 'PLN')
   }
   return sum
 }

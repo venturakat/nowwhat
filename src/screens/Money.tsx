@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { addIncome, ensurePeriod, update, useSt } from '../store'
-import type { Session, State } from '../types'
+import type { Currency, Session, State } from '../types'
 import {
-  diffDays, fmt, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
+  diffDays, fmt, fmtCur, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
 } from '../lib'
 import { C, Chips, closeSheet, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 import { Credits } from './Credits'
-import { Subscriptions } from './Subscriptions'
+import { CURRENCIES, Subscriptions } from './Subscriptions'
 
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
@@ -39,10 +39,11 @@ const Budget = () => {
     openSheet(
       <FormSheet
         title={it ? 'Edit' : kind === 'income' ? 'Money in' : 'Fixed expense'}
-        initial={it ?? { kind, date: kind === 'income' ? s.info.start : undefined }}
+        initial={it ? { currency: 'PLN', ...it } : { kind, currency: 'PLN', date: kind === 'income' ? s.info.start : undefined }}
         fields={[
           { key: 'label', label: 'Name', type: 'text' },
-          { key: 'amount', label: 'Amount (zł)', type: 'number' },
+          { key: 'amount', label: 'Amount', type: 'number' },
+          { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES },
           ...((it?.kind ?? kind) === 'income'
             ? ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const)
             : [])
@@ -50,8 +51,8 @@ const Budget = () => {
         onSave={(v) =>
           update((d) => {
             const p = ensurePeriod(d, key)
-            if (it) Object.assign(p.items.find((x) => x.id === it.id)!, { label: v.label, amount: v.amount ?? 0, date: v.date, taxable: v.taxable })
-            else p.items.push({ id: uid(), kind, label: v.label, amount: v.amount ?? 0, date: v.date, taxable: v.taxable })
+            if (it) Object.assign(p.items.find((x) => x.id === it.id)!, { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? 'PLN', date: v.date, taxable: v.taxable })
+            else p.items.push({ id: uid(), kind, label: v.label, amount: v.amount ?? 0, currency: v.currency ?? 'PLN', date: v.date, taxable: v.taxable })
           })
         }
         onDelete={it ? () => update((d) => { const p = ensurePeriod(d, key); p.items = p.items.filter((x) => x.id !== it.id) }) : undefined}
@@ -63,6 +64,8 @@ const Budget = () => {
     openSheet(<SpendSheet id={id} initial={sp} />)
   }
 
+  // foreign amounts: "€25.00" with the zł value under it
+  const amt = (x: { amount: number; currency?: Currency }) => !x.currency || x.currency === 'PLN' ? fmt(x.amount) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(x.amount, x.currency)}<br /><span className="t13 muted" style={{ fontWeight: 400 }}>≈ {fmt(toPln(st.settings, x.amount, x.currency))}</span></span>
   const incomes = s.items.filter((i) => i.kind === 'income')
   const expenses = s.items.filter((i) => i.kind === 'expense')
   const spends = st.spends.filter((x) => x.date >= s.info.start && x.date <= s.info.end).sort((a, b) => b.date.localeCompare(a.date))
@@ -90,7 +93,7 @@ const Budget = () => {
       {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>Copied from last month — edit anything and it becomes this half's own plan.</div>}
       <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
         {incomes.map((i) => (
-          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.taxable && 'business revenue'].filter(Boolean).join(' · ')} trail={fmt(i.amount)} onClick={() => editItem(i.id)} />
+          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.taxable && 'business revenue'].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">+ Add money in</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
@@ -99,13 +102,13 @@ const Budget = () => {
           <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies') : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : 'credits')} />
         ))}
         {expenses.map((i) => (
-          <Row key={i.id} dot={C.line} title={i.label} trail={fmt(i.amount)} onClick={() => editItem(i.id)} />
+          <Row key={i.id} dot={C.line} title={i.label} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">+ Add fixed expense</span>} onClick={() => editItem(undefined, 'expense')} />
       </List>
       <List title="Day-to-day spending" right={fmt(s.spent)} empty="Nothing logged. Tap “Log spending” on Today.">
         {spends.map((x) => (
-          <Row key={x.id} title={x.note || 'Spending'} meta={fmtDay(x.date)} trail={fmt(x.amount)} onClick={() => editSpend(x.id)} />
+          <Row key={x.id} title={x.note || 'Spending'} meta={fmtDay(x.date)} trail={amt(x)} onClick={() => editSpend(x.id)} />
         ))}
       </List>
       <button className="btn full soft" onClick={() => editSpend()}>+ Log spending</button>
@@ -116,17 +119,18 @@ const Budget = () => {
 export const SpendSheet = ({ id, initial }: { id?: string; initial?: any }) => (
   <FormSheet
     title={id ? 'Edit spending' : 'Log spending'}
-    initial={initial ?? { date: today() }}
+    initial={initial ? { currency: 'PLN', ...initial } : { date: today(), currency: 'PLN' }}
     fields={[
-      { key: 'amount', label: 'How much (zł)', type: 'number' },
+      { key: 'amount', label: 'How much', type: 'number' },
+      { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES },
       { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…' },
       { key: 'date', label: 'Date', type: 'date' }
     ]}
     onSave={(v) => {
       if (!v.amount) return
       update((d) => {
-        if (id) Object.assign(d.spends.find((x) => x.id === id)!, { amount: v.amount, note: v.note ?? '', date: v.date })
-        else d.spends.push({ id: uid(), amount: v.amount, note: v.note ?? '', date: v.date || today() })
+        if (id) Object.assign(d.spends.find((x) => x.id === id)!, { amount: v.amount, currency: v.currency ?? 'PLN', note: v.note ?? '', date: v.date })
+        else d.spends.push({ id: uid(), amount: v.amount, currency: v.currency ?? 'PLN', note: v.note ?? '', date: v.date || today() })
       })
       toast('Logged')
     }}
