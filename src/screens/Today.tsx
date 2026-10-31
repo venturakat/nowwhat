@@ -19,10 +19,13 @@ const things = (st: State): Thing[] => {
   // taxes due within 5 days
   const pm = prevMonth(monthKey(t))
   const tx = taxFor(st, pm)
-  const due = `${monthKey(t)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
-  const dd = diffDays(t, due)
-  if (!tx.paid && tx.total > 0 && dd <= 5 && dd >= -10)
-    out.push({ id: 'tax-' + pm, dot: C.money, title: 'Pay ZUS + PIT', meta: `For ${monthName(pm, true)} · ${dd < 0 ? 'late!' : dd === 0 ? 'due today' : `due in ${dd} days`}`, trail: fmt(tx.total), go: () => go('money', 'taxes') })
+  const pay = `${monthKey(t)}-${String(st.settings.taxPayDay ?? st.settings.taxDueDay).padStart(2, '0')}`
+  const deadline = `${monthKey(t)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
+  const dd = diffDays(t, pay)
+  if (!tx.paid && tx.total > 0 && dd <= 2 && t <= deadline)
+    out.push({ id: 'tax-' + pm, dot: C.money, title: 'Pay ZUS + PIT', meta: `For ${monthName(pm, true)} · ${dd > 0 ? (dd === 1 ? 'tomorrow' : `in ${dd} days`) : dd === 0 ? 'today' : `deadline ${fmtDay(deadline)}`}`, trail: fmt(tx.total), go: () => go('money', 'taxes') })
+  else if (!tx.paid && tx.total > 0 && t > deadline && diffDays(deadline, t) <= 10)
+    out.push({ id: 'tax-' + pm, dot: C.alert, title: 'Pay ZUS + PIT', meta: `For ${monthName(pm, true)} · late!`, trail: fmt(tx.total), go: () => go('money', 'taxes') })
   // credit payments due today / tomorrow
   for (const c of st.credits ?? []) {
     const n = creditStatus(c).next
@@ -72,7 +75,7 @@ export const Today = () => {
   const nextIncome = nextP.items.filter((i) => i.kind === 'income').sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))[0]
   const pm = prevMonth(monthKey(t))
   const tx = taxFor(st, pm)
-  const due = `${monthKey(t)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
+  const due = `${monthKey(t)}-${String(st.settings.taxPayDay ?? st.settings.taxDueDay).padStart(2, '0')}`
   return (
     <div className="screen withfab">
       <div className="between" style={{ alignItems: 'baseline' }}>

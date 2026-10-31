@@ -16,7 +16,8 @@ export interface Settings {
   dra: number // ZUS health (DRA)
   rca: number // ZUS social (RCA)
   splitDay: number // second half starts on this day (15)
-  taxDueDay: number // 20
+  taxDueDay: number // official deadline (20th)
+  taxPayDay?: number // the day I actually pay — the budget puts ZUS + PIT on this day
   leadDays: number // warn this many days before supplies run out
   taxAccount?: string // mikrorachunek podatkowy
   zusAccount?: string // rachunek składkowy

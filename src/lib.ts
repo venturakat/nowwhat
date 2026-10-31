@@ -92,7 +92,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
     if (p) {
       const items = p.items
         .filter((it) => !it.fromClient && !it.oneOff)
-        .map((it) => ({ ...it, id: uid(), date: it.date ? key.slice(0, 7) + it.date.slice(7) : undefined }))
+        .map((it) => ({ ...it, id: `${it.id.split('@')[0]}@${key}`, date: it.date ? key.slice(0, 7) + it.date.slice(7) : undefined }))
       return { items, isTemplate: true }
     }
   }
@@ -126,12 +126,12 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   for (const [cat, v] of Object.entries(byCat)) {
     out.push({ id: 'sup-' + cat, label: CAT_LABEL[cat as SupplyCat], amount: v.amount, date: p.start, meta: `${v.n} planned ${v.n === 1 ? 'buy' : 'buys'} · from Supplies`, kind: 'supplies' })
   }
-  // taxes for previous month, due on taxDueDay
-  const due = `${p.month}-${pad(st.settings.taxDueDay)}`
+  // taxes for previous month, on the day I pay them (official deadline is taxDueDay)
+  const due = `${p.month}-${pad(st.settings.taxPayDay ?? st.settings.taxDueDay)}`
   if (due >= p.start && due <= p.end) {
     const forMonth = prevMonth(p.month)
     const tx = taxFor(st, forMonth)
-    if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${st.taxMonths[forMonth]?.paid ? 'paid' : 'due ' + fmtDay(due)}`, kind: 'tax' })
+    if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${st.taxMonths[forMonth]?.paid ? 'paid' : 'pay ' + fmtDay(due)}`, kind: 'tax' })
   }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {

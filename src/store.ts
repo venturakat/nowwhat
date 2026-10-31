@@ -42,6 +42,11 @@ export const migrate = (s: State): State => {
     out.settings = { ...out.settings, uahPln: out.settings.uahPln ?? 0.0854, ratesAuto: out.settings.ratesAuto ?? true, subsFrom: now }
     out.version = 5
   }
+  if (out.version < 6) {
+    // v6: ZUS + PIT are paid at the start of the month
+    out.settings = { ...out.settings, taxPayDay: out.settings.taxPayDay ?? 1 }
+    out.version = 6
+  }
   return out
 }
 

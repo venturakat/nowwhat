@@ -40,7 +40,8 @@ const FormInline = () => {
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
           { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
           { key: 'splitDay', label: 'Second half of the month starts on day', type: 'number', step: 1 },
-          { key: 'taxDueDay', label: 'Taxes due on day', type: 'number', step: 1 },
+          { key: 'taxPayDay', label: 'I pay ZUS + PIT on day (puts it in the budget)', type: 'number', step: 1 },
+          { key: 'taxDueDay', label: 'Official deadline, day', type: 'number', step: 1 },
           { key: 'leadDays', label: 'Warn about supplies this many days ahead', type: 'number', step: 1 },
           { key: 'zusAccount', label: 'ZUS account (rachunek składkowy)', type: 'text' },
           { key: 'taxAccount', label: 'Tax account (mikrorachunek)', type: 'text' }

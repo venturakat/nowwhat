@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { addIncome, ensurePeriod, update, useSt } from '../store'
 import type { Currency, Session, State } from '../types'
 import {
-  diffDays, fmt, fmtCur, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
+  diffDays, fmt, fmtCur, numText, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
 } from '../lib'
-import { C, Chips, closeSheet, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 import { Credits } from './Credits'
 import { CURRENCIES, Subscriptions } from './Subscriptions'
@@ -366,6 +366,7 @@ const Taxes = () => {
   const [dy, dm] = due.split('-').map(Number)
   const dueDate = `${dm === 12 ? dy + 1 : dy}-${String(dm === 12 ? 1 : dm + 1).padStart(2, '0')}-${String(st.settings.taxDueDay).padStart(2, '0')}`
   const inDays = diffDays(t, dueDate)
+  const payDate = dueDate.slice(0, 8) + String(st.settings.taxPayDay ?? st.settings.taxDueDay).padStart(2, '0')
   const revs = months.map((m) => taxFor(st, m).revenue)
   const past = months.map((m, i) => (m <= curM ? revs[i] : 0))
   const ytd = past.reduce((a, b) => a + b, 0)
@@ -387,7 +388,7 @@ const Taxes = () => {
     <>
       <div className="card dark" style={{ gap: 6 }}>
         <div className="between">
-          <span className="t15 w5">{monthName(due, true)} · pay by {fmtDay(dueDate)} ({inDays < 0 ? `${-inDays} days late` : `in ${inDays} days`})</span>
+          <span className="t15 w5">{monthName(due, true)} · {inDays < 0 ? `${-inDays} days late` : `you pay ${fmtDay(payDate)} · deadline ${fmtDay(dueDate)}`}</span>
           {tx.paid && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> paid</span>}
         </div>
         <div className="big" style={{ fontSize: 60 }}>{fmt(tx.total)}</div>
@@ -400,7 +401,7 @@ const Taxes = () => {
           <button className="btn money" onClick={() => update((d) => { d.taxMonths[due] = { ...(d.taxMonths[due] ?? {}), paid: !tx.paid } })}>{tx.paid ? 'Undo paid' : 'Mark as paid'}</button>
           <button className="btn ghost" onClick={copyAccount}>Copy {pick === 'zus' ? 'ZUS' : 'PIT'} account</button>
         </div>
-        <span className="t13" style={{ opacity: 0.7 }}>Already in your budget for {fmtDay(dueDate)}. Revenue {fmt(tx.revenue, true)} · <u onClick={() => editMonth(due)}>edit</u></span>
+        <span className="t13" style={{ opacity: 0.7 }}>Already in your budget for {fmtDay(payDate)}. Revenue {fmt(tx.revenue, true)} · <u onClick={() => editMonth(due)}>edit</u></span>
       </div>
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
@@ -417,7 +418,7 @@ const Taxes = () => {
         </div>
       </div>
       <List>
-        <Row dot={C.money} title={`${fmtDay(nextDue(dueDate))} · ${monthName(after, true)}`} meta={after > curM ? 'Grows as business income comes in' : 'Revenue so far'} trail={`${fmt(afterTx.revenue)}${after > curM ? ' planned' : ''}`} onClick={() => editMonth(after)} />
+        <Row dot={C.money} title={`${fmtDay(nextDue(payDate))} · ${monthName(after, true)}`} meta={after > curM ? 'Grows as business income comes in' : 'Revenue so far'} trail={`${fmt(afterTx.revenue)}${after > curM ? ' planned' : ''}`} onClick={() => editMonth(after)} />
         <Row dot={C.money} title={`Annual PIT-28`} meta={`By 30 Apr ${Number(year) + 1} · ${fmt(yearPit)} paid monthly this year`} onClick={() => editMonth(curM)} />
       </List>
       <div className="t13 muted" style={{ padding: '0 4px' }}>PIT = {Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA). Tap any month to check or correct it. Rates are in Settings.</div>
@@ -433,17 +434,41 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
   const st = useSt()
   const tm = st.taxMonths[m]
   const tx = taxFor(st, m)
+  const fromIncome = revenueFromIncome(st, m)
+  // both fields start filled in; PIT follows the revenue until you type your own number
+  const [rev, setRev] = useState(numText(r2(tx.revenue)))
+  const [pit, setPit] = useState(numText(r2(tx.pit)))
+  const [pitOwn, setPitOwn] = useState(tm?.pitOverride !== undefined)
+  const [paid, setPaid] = useState(!!tm?.paid)
+  const calcPit = (r: number) => Math.max(0, r2(st.settings.pitRate * (r - 0.5 * tx.dra)))
+  const revNum = parseNum(rev) ?? 0
+  const pitNum = pitOwn ? parseNum(pit) ?? 0 : calcPit(revNum)
   return (
-    <FormSheet title={`${monthName(m, true)} ${m.slice(0, 4)}`}
-      initial={{ revenueOverride: tm?.revenueOverride, pitOverride: tm?.pitOverride, paid: tm?.paid ?? false }}
-      fields={[
-        { key: 'revenueOverride', label: `Revenue (empty = from business income: ${fmt(tx.override ? 0 : tx.revenue, true)})`, type: 'number' },
-        { key: 'pitOverride', label: `PIT-28 (empty = calculated)`, type: 'number' },
-        { key: 'paid', label: 'Paid', type: 'toggle' }
-      ]}
-      extra={<div className="t14 muted">Now: DRA {fmt(tx.dra, true)} · RCA {fmt(tx.rca, true)} · PIT {fmt(tx.pit, true)} = <b>{fmt(tx.total, true)}</b></div>}
-      onSave={(v) => update((d) => { d.taxMonths[m] = { ...(d.taxMonths[m] ?? {}), revenueOverride: v.revenueOverride, pitOverride: v.pitOverride, paid: !!v.paid } })}
-    />
+    <Sheet title={`${monthName(m, true)} ${m.slice(0, 4)}`}>
+      <Field label={`Revenue (from business income: ${fmt(fromIncome, true)})`}>
+        <input className="input" inputMode="decimal" value={rev} onChange={(e) => { setRev(e.target.value); if (!pitOwn) setPit(numText(calcPit(parseNum(e.target.value) ?? 0))) }} />
+      </Field>
+      <Field label={pitOwn ? 'PIT-28 (your number)' : `PIT-28 (calculated: ${Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA))`}>
+        <input className="input" inputMode="decimal" value={pitOwn ? pit : numText(pitNum)} onChange={(e) => { setPit(e.target.value); setPitOwn(true) }} />
+        {pitOwn && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => { setPitOwn(false); setPit(numText(calcPit(revNum))) }}>Use the calculated amount</button>}
+      </Field>
+      <div className="seg">
+        <button className={'chip' + (paid ? ' on' : '')} onClick={() => setPaid(true)}>Paid</button>
+        <button className={'chip' + (!paid ? ' on' : '')} onClick={() => setPaid(false)}>Not paid</button>
+      </div>
+      <div className="t14 muted">DRA {fmt(tx.dra, true)} · RCA {fmt(tx.rca, true)} · PIT {fmt(pitNum, true)} = <b>{fmt(r2(tx.dra + tx.rca + pitNum), true)}</b></div>
+      <button className="btn full" onClick={() => {
+        update((d) => {
+          d.taxMonths[m] = {
+            ...(d.taxMonths[m] ?? {}),
+            revenueOverride: Math.abs(revNum - fromIncome) < 0.005 ? undefined : revNum,
+            pitOverride: pitOwn ? pitNum : undefined,
+            paid
+          }
+        })
+        closeSheet()
+      }}>Save</button>
+    </Sheet>
   )
 }
 
