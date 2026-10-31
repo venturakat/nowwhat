@@ -3,7 +3,7 @@ import { get as idbGet, set as idbSet } from 'idb-keyval'
 import type { BudgetItem, State } from './types'
 import { seed } from './seed'
 import { defaultCleanPlan, defaultCleanTasks } from './cleaning'
-import { periodItems, today, uid } from './lib'
+import { periodItems, periodOf, today, uid } from './lib'
 
 const KEY = 'now-what-state'
 
@@ -33,6 +33,14 @@ export const migrate = (s: State): State => {
     // v4: supplies "beauty" -> "care"
     out.supplies = out.supplies.map((x) => ((x.cat as string) === 'beauty' ? { ...x, cat: 'care' } : x))
     out.version = 4
+  }
+  if (out.version < 5) {
+    // v5: subscriptions get their own tab and flow into the budget automatically,
+    // so the hand-written "Subscriptions" lines are dropped from this half on
+    const now = periodOf(today(), out.settings).key
+    for (const [key, p] of Object.entries(out.periods)) if (key >= now) p.items = p.items.filter((i) => !(i.kind === 'expense' && i.label.trim().toLowerCase() === 'subscriptions'))
+    out.settings = { ...out.settings, uahPln: out.settings.uahPln ?? 0.0854, ratesAuto: out.settings.ratesAuto ?? true, subsFrom: now }
+    out.version = 5
   }
   return out
 }

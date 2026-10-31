@@ -2,12 +2,15 @@ import { exportJson, importJson, update, useSt, useStore } from './store'
 import { openSheet, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
+import { refreshRates } from './rates'
+import { fmtDay } from './lib'
 
 export const SettingsSheet = () => {
   const st = useSt()
   const s = st.settings
   return (
     <Sheet title="Settings">
+      <RatesCard />
       <FormInline />
       <div className="card" style={{ gap: 10 }}>
         <span className="t17">Backup</span>
@@ -19,7 +22,7 @@ export const SettingsSheet = () => {
         </label>
         <button className="btn soft" onClick={() => { if (confirm('Erase everything on this phone and start fresh? Save a backup first if you need it.')) { useStore.getState().replace(seed()); toast('Fresh start') } }}>Erase everything</button>
       </div>
-      <span className="t13 muted">EUR→PLN {s.eurPln} · PIT {Math.round(s.pitRate * 100)}% · DRA {s.dra} · RCA {s.rca}</span>
+      <span className="t13 muted">PIT {Math.round(s.pitRate * 100)}% · DRA {s.dra} · RCA {s.rca}</span>
     </Sheet>
   )
 }
@@ -30,7 +33,9 @@ const FormInline = () => {
     <button className="card" style={{ gap: 4 }} onClick={() => openSheet(
       <FormSheet title="Numbers" initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
         fields={[
-          { key: 'eurPln', label: '1 € in zł (for invoices)', type: 'number' },
+          { key: 'eurPln', label: '1 € in zł', type: 'number' },
+          { key: 'uahPln', label: '1 ₴ in zł', type: 'number' },
+          { key: 'ratesAuto', label: 'Update exchange rates automatically', type: 'toggle' },
           { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
           { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
@@ -47,7 +52,21 @@ const FormInline = () => {
       />
     )}>
       <span className="t17">Rates, taxes & accounts</span>
-      <span className="t14 muted">Exchange rate, ZUS amounts, PIT %, account numbers for transfers</span>
+      <span className="t14 muted">Exchange rates by hand, ZUS amounts, PIT %, account numbers for transfers</span>
     </button>
+  )
+}
+
+const RatesCard = () => {
+  const s = useSt().settings
+  const at = s.ratesAt ? new Date(s.ratesAt) : null
+  const when = at ? `${fmtDay(at.toISOString().slice(0, 10))}, ${at.toTimeString().slice(0, 5)}` : 'not yet'
+  return (
+    <div className="card" style={{ gap: 6 }}>
+      <span className="t17">Exchange rates</span>
+      <span className="t15">1 € = {s.eurPln.toFixed(4)} zł · 1 ₴ = {(s.uahPln ?? 0).toFixed(4)} zł <span className="muted">(100 ₴ = {((s.uahPln ?? 0) * 100).toFixed(2)} zł)</span></span>
+      <span className="t13 muted">{s.ratesAuto === false ? 'Set by hand' : `Updated ${when}${s.ratesNote ? ' · ' + s.ratesNote : ''}`}</span>
+      <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={async () => { toast('Updating…'); const ok = await refreshRates(true).catch(() => false); toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones') }}>Update now</button>
+    </div>
   )
 }

@@ -3,8 +3,15 @@ export type Energy = 'low' | 'okay' | 'lots'
 export type CleanMode = 1 | 2 | 3 // 1 light, 2 regular, 3 extra
 export type SupplyCat = 'meds' | 'groceries' | 'pets' | 'home' | 'care'
 
+export type Currency = 'PLN' | 'EUR' | 'UAH'
+
 export interface Settings {
-  eurPln: number
+  eurPln: number // PLN for 1 EUR (live: mid-market via Frankfurter/ECB)
+  uahPln?: number // PLN for 1 UAH (live: monobank)
+  ratesAuto?: boolean // keep rates updated from the internet (default on)
+  ratesAt?: string // when they were last updated
+  ratesNote?: string
+  subsFrom?: string // budget half from which subscriptions are added automatically
   pitRate: number // ryczałt, e.g. 0.14
   dra: number // ZUS health (DRA)
   rca: number // ZUS social (RCA)
@@ -161,9 +168,19 @@ export interface CreditExtra {
   amount: number
 }
 
+export interface Subscription {
+  id: ID
+  name: string
+  amount: number
+  currency: Currency
+  day: number // day of the month it's charged
+  paused?: boolean
+}
+
 export interface Credit {
   id: ID
   name: string // lender / what it's for
+  currency?: Currency // default PLN
   takenOn: string
   borrowed?: number // amount received (optional, for reference)
   installment: number // monthly payment
@@ -186,6 +203,7 @@ export interface State {
   timer: Timer | null
   taxMonths: Record<string, TaxMonth>
   credits: Credit[]
+  subscriptions: Subscription[]
   supplies: Supply[]
   cleanTasks: CleanTask[]
   cleanPlan: CleanPlan

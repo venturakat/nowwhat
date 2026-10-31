@@ -1,4 +1,4 @@
-import type { BudgetItem, Credit, Session, Settings, State, Supply, SupplyCat } from './types'
+import type { BudgetItem, Credit, Currency, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -99,7 +99,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
   return { items: [], isTemplate: true }
 }
 
-export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' }
+export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' }
 
 export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
@@ -136,8 +136,15 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   // credit installments falling in this half
   for (const c of st.credits ?? []) {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
-    if (inP.length) out.push({ id: 'credit-' + c.id, label: `Credit · ${c.name}`, amount: inP.reduce((a, x) => a + x.amount, 0), date: inP[0].date, meta: `${inP.map((x) => fmtDay(x.date)).join(', ')} · payment ${inP[0].n} of ${c.count}`, kind: 'credit' })
+    if (inP.length) {
+      const sum = inP.reduce((a, x) => a + x.amount, 0)
+      const cur = c.currency ?? 'PLN'
+      out.push({ id: 'credit-' + c.id, label: `Credit · ${c.name}`, amount: toPln(st.settings, sum, cur), date: inP[0].date, meta: `${inP.map((x) => fmtDay(x.date)).join(', ')} · payment ${inP[0].n} of ${c.count}${cur !== 'PLN' ? ' · ' + fmtCur(sum, cur) : ''}`, kind: 'credit' })
+    }
   }
+  // subscriptions charged in this half, as one line
+  const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
+  if (subs.length) out.push({ id: 'subs', label: 'Subscriptions', amount: subs.reduce((a, { x }) => a + toPln(st.settings, x.amount, x.currency), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
   return out
 }
 
@@ -239,3 +246,24 @@ export const supplyStatus = (sp: Supply, s: Settings, t = today()) => {
 
 // "glue, screws ,  hooks" -> ['glue', 'screws', 'hooks']
 export const splitList = (s?: string) => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+
+// ---------- currencies ----------
+export const CUR_SIGN: Record<Currency, string> = { PLN: 'zł', EUR: '€', UAH: '₴' }
+export const toPln = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'EUR' ? amount * s.eurPln : cur === 'UAH' ? amount * (s.uahPln ?? 0.0854) : amount)
+export const fmtCur = (amount: number, cur: Currency = 'PLN', dec = true) => {
+  if (cur === 'PLN') return fmt(amount, dec)
+  const v = (Math.round(amount * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0 })
+  return cur === 'EUR' ? '€' + v : v + ' ₴'
+}
+// "25 € ≈ 110 zł" for foreign amounts, plain zł otherwise
+export const fmtBoth = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'PLN' ? fmt(amount, true) : `${fmtCur(amount, cur)} ≈ ${fmt(toPln(s, amount, cur))}`)
+
+// ---------- subscriptions ----------
+export const subDate = (sub: Subscription, mk: string) => {
+  const [y, m] = mk.split('-').map(Number)
+  return `${mk}-${pad(Math.min(sub.day, daysInMonth(y, m)))}`
+}
+export const nextSubDate = (sub: Subscription, t = today()) => {
+  const d = subDate(sub, t.slice(0, 7))
+  return d >= t ? d : subDate(sub, nextMonth(t.slice(0, 7)))
+}

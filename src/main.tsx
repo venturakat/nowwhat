@@ -7,8 +7,9 @@ import '@fontsource/afacad/700.css'
 import './styles.css'
 import { App } from './App'
 import { hydrate } from './store'
+import { startRates } from './rates'
 
-hydrate()
+hydrate().then(startRates)
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
