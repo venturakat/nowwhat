@@ -14,7 +14,9 @@ const things = (st: State): Thing[] => {
   const out: Thing[] = []
   // supplies running out (soonest first)
   const sup = st.supplies.map((s) => ({ s, ...supplyStatus(s, st.settings) })).filter((x) => x.state !== 'ok').sort((a, b) => a.daysLeft - b.daysLeft)
-  for (const { s, daysLeft } of sup.filter((x) => x.daysLeft <= 2))
+  // meds come before everything else, as soon as it's time to buy them
+  const meds: Thing[] = sup.filter((x) => x.s.cat === 'meds').map(({ s, daysLeft }) => ({ id: 'sup-' + s.id, dot: daysLeft <= 2 ? C.alert : C.warn, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : `Runs out in ${daysLeft} days`} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', 'meds') }))
+  for (const { s, daysLeft } of sup.filter((x) => x.daysLeft <= 2 && x.s.cat !== 'meds'))
     out.push({ id: 'sup-' + s.id, dot: daysLeft <= 0 ? C.alert : C.warn, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : 'Runs out in 2 days'} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', s.cat) })
   // taxes due within 5 days
   const pm = prevMonth(monthKey(t))
@@ -62,12 +64,13 @@ const things = (st: State): Thing[] => {
     out.unshift({ id: 'clean-' + cl.occ.key, dot: C.home, title: `${MODE_NAME[cl.occ.mode]} clean`, meta: `${day} · ${left} of ${pr.tasks.length} steps left`, trail: '→', go: () => go('home', 'cleaning') })
   }
   // supplies soon (not urgent)
-  const soon = sup.filter((x) => x.daysLeft > 2)
+  const soon = sup.filter((x) => x.daysLeft > 2 && x.s.cat !== 'meds')
   if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s, st.settings), dot: C.supplies, title: `Shopping run · ${soon.length} ${soon.length === 1 ? 'thing' : 'things'}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · by ${fmtDay(soon[0].s.enoughUntil)}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
   // closet: saved thing ready to decide
   const ready = st.saved.find((s) => diffDays(s.savedAt, t) >= 7)
   if (ready) out.push({ id: 'saved-' + ready.id, dot: C.closet, title: `Still want ${ready.name}?`, meta: 'Waited a week · buy or let go', trail: fmt(ready.price), go: () => go('closet', 'buy') })
   out.push(...paidChecks)
+  out.unshift(...meds)
   const dis = st.dismissed.date === t ? st.dismissed.ids : []
   return out.filter((x) => !dis.includes(x.id))
 }
