@@ -80,7 +80,7 @@ export const Today = () => {
   const t = today()
   const s = summarize(st, periodOf(t, st.settings).key)
   const list = things(st)
-  const top = list.slice(0, 3)
+  const top = list.slice(0, 4)
   const nextP = summarize(st, shiftPeriod(s.info.key, 1))
   const nextIncome = nextP.items.filter((i) => i.kind === 'income').sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))[0]
   const pm = prevMonth(monthKey(t))
@@ -109,8 +109,8 @@ export const Today = () => {
       </button>
       <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
         <div className="list-h" style={{ paddingBottom: 4 }}>
-          <span className="t17">{top.length ? `Now, just ${top.length === 1 ? 'this' : top.length === 2 ? 'these 2' : 'these 3'}` : 'Nothing urgent'}</span>
-          {list.length > 3 && <span className="t14 w5 muted">{list.length - 3} more later</span>}
+          <span className="t17">{top.length ? `Now, just ${top.length === 1 ? 'this' : `these ${top.length}`}` : 'Nothing urgent'}</span>
+          {list.length > 4 && <span className="t14 w5 muted">{list.length - 4} more later</span>}
         </div>
         {top.length === 0 && <div className="list-empty">You’re free. Rest counts too.</div>}
         {top.map((x) => (
