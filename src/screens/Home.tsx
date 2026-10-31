@@ -1,23 +1,9 @@
 import { dismissToday, update, useSt } from '../store'
-import type { CleanMode, Project, State } from '../types'
+import type { Project, State } from '../types'
+import { Cleaning } from './Cleaning'
 import { fmt, today, uid } from '../lib'
-import { C, Check, Chips, closeSheet, Header, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, Chips, closeSheet, Header, List, openSheet, Row, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
-
-export const MODES: { m: CleanMode; name: string }[] = [{ m: 1, name: 'Light' }, { m: 2, name: 'Regular' }, { m: 3, name: 'Extra' }]
-export const energyMode = (st: State): CleanMode => {
-  const e = st.energy?.date === today() ? st.energy.level : 'okay'
-  return e === 'low' ? 1 : e === 'lots' ? 3 : 2
-}
-export const currentClean = (st: State) => {
-  const log = st.cleanLog?.date === today() ? st.cleanLog : null
-  const mode = log?.mode ?? energyMode(st)
-  const tasks = st.cleanTasks.filter((t) => t.mode <= mode)
-  const done = log?.done ?? []
-  const minutes = tasks.reduce((a, t) => a + t.minutes, 0)
-  return { mode, tasks, done, minutes, fromEnergy: !log }
-}
-const fmtMin = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + (m % 60) + ' min' : ''}` : `${m} min`)
 
 export const Home = () => {
   const sub = useUi((u) => u.sub.home)
@@ -30,86 +16,6 @@ export const Home = () => {
       <Chips items={[['cleaning', 'Cleaning'], ['projects', 'Projects']]} value={sub as any} onChange={setSub} />
       {sub === 'cleaning' ? <Cleaning /> : <Projects />}
     </div>
-  )
-}
-
-const Cleaning = () => {
-  const st = useSt()
-  const c = currentClean(st)
-  const setMode = (m: CleanMode) => update((d) => { d.cleanLog = { date: today(), mode: m, done: d.cleanLog?.date === today() ? d.cleanLog.done : [] } })
-  const toggle = (id: string) => update((d) => {
-    if (d.cleanLog?.date !== today()) d.cleanLog = { date: today(), mode: c.mode, done: [] }
-    const l = d.cleanLog!
-    l.done = l.done.includes(id) ? l.done.filter((x) => x !== id) : [...l.done, id]
-    const total = d.cleanTasks.filter((t) => t.mode <= l.mode).length
-    if (l.done.length === total) toast('All done. Go do something nice.')
-  })
-  const nDone = c.tasks.filter((t) => c.done.includes(t.id)).length
-  const energy = st.energy?.date === today() ? st.energy.level : null
-  return (
-    <>
-      <div className="row">
-        {MODES.map(({ m, name }) => {
-          const mins = st.cleanTasks.filter((t) => t.mode <= m).reduce((a, t) => a + t.minutes, 0)
-          return (
-            <button key={m} className="card grow" style={{ padding: 14, gap: 2, borderRadius: 20, background: c.mode === m ? 'var(--home)' : 'var(--card)' }} onClick={() => setMode(m)}>
-              <span className="t17" style={{ fontSize: 18 }}>{name}</span>
-              <span className="t14 muted">{fmtMin(mins)}</span>
-            </button>
-          )
-        })}
-      </div>
-      <div className="t14 muted" style={{ padding: '0 4px' }}>
-        {c.fromEnergy ? (energy ? `Picked because your energy is “${energy}”.` : 'Set your energy on Today and I’ll pick for you.') : 'Your pick for today.'} Switch anytime — no penalties.
-      </div>
-      <div className="list" style={{ padding: '14px 16px 8px' }}>
-        <div className="between" style={{ paddingBottom: 6 }}>
-          <span className="t17">{MODES[c.mode - 1].name} clean</span>
-          <span className="t15 w5 muted">{nDone} / {c.tasks.length}</span>
-        </div>
-        {c.tasks.map((t) => {
-          const on = c.done.includes(t.id)
-          return (
-            <button key={t.id} className="row" style={{ width: '100%', padding: '11px 0', gap: 12 }} onClick={() => toggle(t.id)}>
-              <Check on={on} />
-              <span className="grow t17 w5" style={{ fontWeight: 500, textDecoration: on ? 'line-through' : undefined, color: on ? 'var(--ink2)' : undefined }}>{t.name}</span>
-              <span className="t14 muted">{t.minutes} min</span>
-            </button>
-          )
-        })}
-      </div>
-      <button className="btn full soft" onClick={() => openSheet(<CleanEdit />)}>Edit cleaning list</button>
-    </>
-  )
-}
-
-const CleanEdit = () => {
-  const st = useSt()
-  const edit = (id?: string) => {
-    const t = st.cleanTasks.find((x) => x.id === id)
-    openSheet(
-      <FormSheet title={t ? 'Edit step' : 'New step'} initial={t ? { ...t, mode: String(t.mode) } : { minutes: 10, mode: '2' }}
-        fields={[{ key: 'name', label: 'Step', type: 'text' }, { key: 'minutes', label: 'Minutes', type: 'number', step: 1 }, { key: 'mode', label: 'Smallest mode it belongs to', type: 'select', options: [['1', 'Light'], ['2', 'Regular'], ['3', 'Extra']] }]}
-        onSave={(v) => { update((d) => {
-          const data = { name: v.name, minutes: v.minutes ?? 5, mode: Number(v.mode ?? 2) as CleanMode }
-          if (t) Object.assign(d.cleanTasks.find((x) => x.id === t.id)!, data)
-          else d.cleanTasks.push({ id: uid(), ...data })
-        }); setTimeout(() => openSheet(<CleanEdit />)) }}
-        onDelete={t ? () => { update((d) => { d.cleanTasks = d.cleanTasks.filter((x) => x.id !== t.id) }); setTimeout(() => openSheet(<CleanEdit />)) } : undefined}
-      />
-    )
-  }
-  return (
-    <Sheet title="Cleaning list">
-      <div className="t14 muted">Light is the minimum. Regular adds to Light, Extra adds to both.</div>
-      {MODES.map(({ m, name }) => (
-        <List key={m} title={name}>
-          {st.cleanTasks.filter((t) => t.mode === m).map((t) => <Row key={t.id} title={t.name} trail={<span className="t15 muted">{t.minutes} min</span>} onClick={() => edit(t.id)} />)}
-        </List>
-      ))}
-      <button className="btn full" onClick={() => edit()}>+ Add step</button>
-      <button className="btn full soft" onClick={closeSheet}>Done</button>
-    </Sheet>
   )
 }
 

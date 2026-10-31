@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
-import type { Energy, State } from '../types'
+import type { State } from '../types'
 import { addDays, diffDays, fmt, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
 import { C, Chips, Icon, openSettings, openSheet, Row, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
-import { currentClean, doFirstProject, MODES } from './Home'
+import { doFirstProject } from './Home'
+import { currentClean, MODE_NAME, progress } from '../cleaning'
 
 interface Thing { id: string; dot: string; title: string; meta: string; trail?: ReactNode; go: () => void }
 
@@ -37,9 +38,14 @@ const things = (st: State): Thing[] => {
     }
   }
   // cleaning
+  // cleaning: shows on its day (and stays until done, up to the next one), always first
   const cl = currentClean(st)
-  const left = cl.tasks.filter((x) => !cl.done.includes(x.id)).length
-  if (left > 0) out.push({ id: 'clean', dot: C.home, title: `${MODES[cl.mode - 1].name} clean`, meta: `${cl.minutes} min · ${left} ${left === 1 ? 'step' : 'steps'}${cl.done.length ? ' left' : ''}`, trail: '→', go: () => go('home', 'cleaning') })
+  if (cl?.due) {
+    const pr = progress(st, cl.occ)
+    const left = pr.tasks.length - pr.done.length
+    const day = cl.occ.date === t ? 'Today' : `Since ${fmtWeekday(cl.occ.date)}`
+    out.unshift({ id: 'clean-' + cl.occ.key, dot: C.home, title: `${MODE_NAME[cl.occ.mode]} clean`, meta: `${day} · ${left} of ${pr.tasks.length} steps left`, trail: '→', go: () => go('home', 'cleaning') })
+  }
   // supplies soon (not urgent)
   const soon = sup.filter((x) => x.daysLeft > 2)
   if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s), dot: C.supplies, title: `Shopping run · ${soon.length} ${soon.length === 1 ? 'thing' : 'things'}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · by ${fmtDay(soon[0].s.enoughUntil)}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
@@ -57,7 +63,6 @@ export const Today = () => {
   const st = useSt()
   const t = today()
   const s = summarize(st, periodOf(t, st.settings).key)
-  const energy = st.energy?.date === t ? st.energy.level : null
   const list = things(st)
   const top = list.slice(0, 3)
   const nextP = summarize(st, shiftPeriod(s.info.key, 1))
@@ -86,10 +91,6 @@ export const Today = () => {
             : `${fmt(s.left)} left for ${s.daysLeft} days · ${s.perDay >= 0 ? 'on track' : 'over — go easy'}`}
         </span>
       </button>
-      <div className="col" style={{ gap: 10 }}>
-        <span className="t17">How much energy do you have?</span>
-        <Chips<Energy> items={[['low', 'Low'], ['okay', 'Okay'], ['lots', 'Lots']]} value={(energy ?? '') as Energy} onChange={(e) => update((d) => { d.energy = { date: today(), level: e }; if (d.cleanLog?.date === today() && !d.cleanLog.done.length) d.cleanLog = null })} />
-      </div>
       <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
         <div className="list-h" style={{ paddingBottom: 4 }}>
           <span className="t17">{top.length ? `Now, just ${top.length === 1 ? 'this' : top.length === 2 ? 'these 2' : 'these 3'}` : 'Nothing urgent'}</span>

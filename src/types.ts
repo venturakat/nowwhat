@@ -82,8 +82,24 @@ export interface Supply {
 export interface CleanTask {
   id: ID
   name: string
-  minutes: number
-  mode: CleanMode // included in this mode and all bigger ones
+  mode: CleanMode // which list it belongs to (each list is complete on its own)
+  minutes?: number
+}
+
+export interface CleanPlan {
+  anchor: string // a Sunday
+  anchorMode: 1 | 2 // what that Sunday is; Light and Regular alternate weekly from there
+  moves: Record<string, string> // scheduled Sunday -> date it was moved to
+  extras: string[] // dates of planned Extra cleans (once a season)
+  skips: string[] // scheduled Sundays that were skipped
+  start: string // nothing before this date counts (when the rotation was set up)
+}
+
+export interface CleanDone {
+  mode: CleanMode
+  date: string
+  done: ID[]
+  finished?: boolean
 }
 
 export interface Project {
@@ -146,7 +162,9 @@ export interface State {
   taxMonths: Record<string, TaxMonth>
   supplies: Supply[]
   cleanTasks: CleanTask[]
-  cleanLog: { date: string; mode: CleanMode; done: ID[] } | null
+  cleanPlan: CleanPlan
+  cleanDone: Record<string, CleanDone> // key = occurrence id
+  cleanLog?: unknown // v1 leftover
   projects: Project[]
   closet: ClosetItem[]
   needs: Need[]
