@@ -33,17 +33,23 @@ const things = (st: State): Thing[] => {
     const dd = diffDays(t, n.date)
     if (dd >= 0 && dd <= 1) out.push({ id: `credit-${c.id}-${n.date}`, dot: C.money, title: `Credit payment · ${c.name}`, meta: `${dd === 0 ? 'Due today' : 'Due tomorrow'} · payment ${n.n} of ${c.count}`, trail: fmtCur(n.amount, c.currency), go: () => go('money', 'credits') })
   }
-  // clients
+  // clients: invoicing first (it's what gets the money moving), "paid yet?" checks go last
+  const paidChecks: Thing[] = []
   for (const c of st.clients.filter((c) => !c.archived)) {
     const ss = st.sessions.filter((s) => s.clientId === c.id)
-    const unInv = ss.filter((s) => !s.invoiced)
+    // a monthly fee only needs invoicing once its day has come
+    const unInv = ss.filter((s) => !s.invoiced && !s.paid && (!s.feeMonth || s.start.slice(0, 10) <= t))
     const unpaid = ss.filter((s) => s.invoiced && !s.paid)
     if (unInv.length) {
       const h = unInv.reduce((a, s) => a + hours(s), 0)
-      out.push({ id: 'inv-' + c.id, dot: C.work, title: `Invoice ${c.name}`, meta: (c.kind ?? "hourly") === "hourly" ? `${fmtHours(h)} not invoiced yet` : `${unInv.length} ${unInv.length === 1 ? "payment" : "payments"} not invoiced yet`, trail: fmtSum(st, unInv), go: () => go('money', 'work') })
-    } else if (unpaid.length) {
-      const since = unpaid.map((s) => s.start.slice(0, 10)).sort()[0]
-      out.push({ id: 'paid-' + c.id, dot: C.work, title: `${c.name} paid yet?`, meta: `Invoiced · waiting since ${fmtDay(since)}`, trail: fmt(unpaid.reduce((a, s) => a + sessionPln(st, s), 0)), go: () => go('money', 'work') })
+      const jobs = unInv.filter((s) => s.fee !== undefined)
+      out.push({ id: 'inv-' + c.id, dot: C.work, title: `Invoice ${c.name}`,
+        meta: (c.kind ?? 'hourly') === 'hourly' ? `${fmtHours(h)} not invoiced yet` : `${jobs.map((s) => s.task).filter(Boolean).slice(0, 2).join(', ') || `${jobs.length} ${jobs.length === 1 ? 'payment' : 'payments'}`}${jobs.length > 2 ? '…' : ''} · not invoiced yet`,
+        trail: fmtSum(st, unInv), go: () => go('money', 'work') })
+    }
+    if (unpaid.length) {
+      const since = unpaid.map((s) => s.invoiceDate ?? s.start.slice(0, 10)).sort()[0]
+      paidChecks.push({ id: 'paid-' + c.id, dot: C.work, title: `${c.name} paid yet?`, meta: `Invoiced · waiting since ${fmtDay(since)}`, trail: fmt(unpaid.reduce((a, s) => a + sessionPln(st, s), 0)), go: () => go('money', 'work') })
     }
   }
   // cleaning
@@ -61,6 +67,7 @@ const things = (st: State): Thing[] => {
   // closet: saved thing ready to decide
   const ready = st.saved.find((s) => diffDays(s.savedAt, t) >= 7)
   if (ready) out.push({ id: 'saved-' + ready.id, dot: C.closet, title: `Still want ${ready.name}?`, meta: 'Waited a week · buy or let go', trail: fmt(ready.price), go: () => go('closet', 'buy') })
+  out.push(...paidChecks)
   const dis = st.dismissed.date === t ? st.dismissed.ids : []
   return out.filter((x) => !dis.includes(x.id))
 }
