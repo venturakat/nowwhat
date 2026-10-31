@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { addIncome, ensurePeriod, update, useSt } from '../store'
+import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
 import type { Currency, Session, State } from '../types'
 import {
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, sessionPln, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
@@ -98,7 +98,7 @@ const Budget = () => {
       </div>
       {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>Copied from last month — edit anything and it becomes this half's own plan.</div>}
       <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
-        {s.auto.filter((a) => a.income).map((a) => (
+        {s.auto.filter((a) => a.income && !a.expected).map((a) => (
           <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
         ))}
         {incomes.map((i) => (
@@ -106,6 +106,14 @@ const Budget = () => {
         ))}
         <Row title={<span className="muted">+ Add money in</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
+      {s.auto.some((a) => a.expected) && (
+        <List title="Expected from clients" right={<span className="muted">{fmt(s.auto.filter((a) => a.expected).reduce((x, a) => x + a.amount, 0))}</span>}>
+          {s.auto.filter((a) => a.expected).map((a) => (
+            <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={<span className="muted">{fmt(a.amount)}</span>} onClick={() => useUi.getState().go('money', 'work')} />
+          ))}
+          <div className="t13 muted" style={{ padding: '4px 16px 8px' }}>Not counted yet — moves to “Came in” when you mark it paid.</div>
+        </List>
+      )}
       <List title="Fixed this half" right={fmt(s.fixed)}>
         {s.auto.filter((a) => !a.income).map((a) => (
           <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : 'credits')} />
@@ -298,34 +306,72 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
   const c = st.clients.find((x) => x.id === clientId)
   // fee entries (monthly or per job) have an amount and a date instead of start/stop times
   if (s?.fee !== undefined || (!s && c?.kind && c.kind !== 'hourly')) {
-    const init = s ? { task: s.task, fee: s.fee, feeCur: s.feeCur ?? 'EUR', date: toLocalDate(s.start), invoiced: s.invoiced, paid: s.paid } : { date: today(), feeCur: c?.kind === 'job' ? ([...st.sessions].reverse().find((x) => x.clientId === c.id && x.fee != null)?.feeCur ?? 'PLN') : (c?.fixedCur ?? 'EUR'), invoiced: false, paid: false }
+    const init = s ? { task: s.task, fee: s.fee, feeCur: s.feeCur ?? 'EUR', date: toLocalDate(s.start), invoiced: s.invoiced, invoiceDate: s.invoiceDate, paid: s.paid } : { date: today(), feeCur: c?.kind === 'job' ? ([...st.sessions].reverse().find((x) => x.clientId === c.id && x.fee != null)?.feeCur ?? 'PLN') : (c?.fixedCur ?? 'EUR'), invoiced: false, paid: false }
     return (
       <FormSheet title={s ? 'Edit payment' : 'New job'} initial={init}
-        fields={[{ key: 'task', label: 'What for', type: 'text', placeholder: 'Logo redesign' }, { key: 'fee', label: 'Amount', type: 'number' }, { key: 'feeCur', label: 'Currency', type: 'select', options: [['PLN', 'zł'], ['EUR', '€']] }, { key: 'date', label: 'Date (when it’s due)', type: 'date' }, { key: 'invoiced', label: 'Invoiced', type: 'toggle' }, { key: 'paid', label: 'Paid', type: 'toggle' }]}
+        fields={[{ key: 'task', label: 'What for', type: 'text', placeholder: 'Logo redesign' }, { key: 'fee', label: 'Amount', type: 'number' }, { key: 'feeCur', label: 'Currency', type: 'select', options: [['PLN', 'zł'], ['EUR', '€']] }, { key: 'date', label: 'Date (when it’s due)', type: 'date' }, { key: 'invoiced', label: 'Invoiced', type: 'toggle' }, { key: 'invoiceDate', label: 'Invoice date (counts for taxes in this month)', type: 'date' }, { key: 'paid', label: 'Paid', type: 'toggle' }]}
         onSave={(v) => update((d) => {
           const at = new Date((v.date || today()) + 'T12:00:00').toISOString()
-          const data = { task: v.task, fee: v.fee ?? 0, feeCur: (v.feeCur ?? 'EUR') as 'EUR' | 'PLN', start: at, end: at, invoiced: !!v.invoiced, paid: !!v.paid }
-          if (s) Object.assign(d.sessions.find((x) => x.id === s.id)!, data)
-          else d.sessions.push({ id: uid(), clientId, ...data })
+          const data = { task: v.task, fee: v.fee ?? 0, feeCur: (v.feeCur ?? 'EUR') as 'EUR' | 'PLN', start: at, end: at }
+          const sid = s?.id ?? uid()
+          if (s) {
+            const x = d.sessions.find((y) => y.id === s.id)!
+            if (x.fee !== data.fee || (x.feeCur ?? 'EUR') !== data.feeCur) { delete x.nbpRate; delete x.nbpTable }
+            Object.assign(x, data)
+          } else d.sessions.push({ id: sid, clientId, ...data, invoiced: false, paid: false })
+          setStatus(d, sid, !!v.invoiced || !!v.paid && !!v.invoiceDate, !!v.paid, v.invoiceDate || undefined)
+          setTimeout(() => fetchMissingRates([sid]))
         })}
         onDelete={s ? () => update((d) => { d.sessions = d.sessions.filter((x) => x.id !== s.id) }) : undefined}
       />
     )
   }
   const now = new Date()
-  const init = s ? { task: s.task, start: toLocalInput(s.start), end: toLocalInput(s.end), invoiced: s.invoiced, paid: s.paid }
+  const init = s ? { task: s.task, start: toLocalInput(s.start), end: toLocalInput(s.end), invoiced: s.invoiced, invoiceDate: s.invoiceDate, paid: s.paid }
     : { start: toLocalInput(new Date(now.getTime() - 3600000).toISOString()), end: toLocalInput(now.toISOString()), invoiced: false, paid: false }
   return (
     <FormSheet title={s ? 'Edit hours' : 'Add hours'} initial={init}
-      fields={[{ key: 'task', label: 'Task', type: 'text' }, { key: 'start', label: 'Start', type: 'datetime' }, { key: 'end', label: 'Stop', type: 'datetime' }, { key: 'invoiced', label: 'Invoiced', type: 'toggle' }, { key: 'paid', label: 'Paid', type: 'toggle' }]}
+      fields={[{ key: 'task', label: 'Task', type: 'text' }, { key: 'start', label: 'Start', type: 'datetime' }, { key: 'end', label: 'Stop', type: 'datetime' }, { key: 'invoiced', label: 'Invoiced', type: 'toggle' }, { key: 'invoiceDate', label: 'Invoice date (counts for taxes in this month)', type: 'date' }, { key: 'paid', label: 'Paid', type: 'toggle' }]}
       onSave={(v) => update((d) => {
-        const data = { task: v.task, start: new Date(v.start).toISOString(), end: new Date(v.end).toISOString(), invoiced: !!v.invoiced, paid: !!v.paid }
+        const data = { task: v.task, start: new Date(v.start).toISOString(), end: new Date(v.end).toISOString() }
+        const sid = s?.id ?? uid()
         if (s) Object.assign(d.sessions.find((x) => x.id === s.id)!, data)
-        else d.sessions.push({ id: uid(), clientId, ...data })
+        else d.sessions.push({ id: sid, clientId, ...data, invoiced: false, paid: false })
+        setStatus(d, sid, !!v.invoiced || !!v.paid && !!v.invoiceDate, !!v.paid, v.invoiceDate || undefined)
+        setTimeout(() => fetchMissingRates([sid]))
       })}
       onDelete={s ? () => update((d) => { d.sessions = d.sessions.filter((x) => x.id !== s.id) }) : undefined}
     />
   )
+}
+
+// set invoiced / paid on one entry and keep taxes and the budget in step:
+// invoiced → revenue in the invoice month (needs an invoice date); paid → income in today's half
+const setStatus = (d: State, id: string, invoiced: boolean, paid: boolean, invoiceDate?: string) => {
+  const s = d.sessions.find((x) => x.id === id)
+  if (!s) return
+  const wasPaid = s.paid
+  if (invoiced) {
+    if (invoiceDate && invoiceDate !== s.invoiceDate) { s.invoiceDate = invoiceDate; delete s.nbpRate; delete s.nbpTable }
+    s.invoiceDate ??= today()
+  } else { delete s.invoiceDate; delete s.nbpRate; delete s.nbpTable }
+  s.invoiced = invoiced
+  s.paid = paid
+  if (paid && !wasPaid) {
+    const c = d.clients.find((x) => x.id === s.clientId)
+    // already counted as revenue in its invoice month → plain income; paid without an invoice → revenue now
+    addIncome(d, periodOf(today(), d.settings).key, { label: c?.name ?? 'Client', amount: r2(sessionPln(d, s)), date: today(), taxable: !s.invoiceDate, fromClient: s.clientId, fromSession: s.id })
+  }
+  if (!paid && wasPaid) for (const p of Object.values(d.periods)) p.items = p.items.filter((i) => i.fromSession !== s.id)
+}
+// € entries invoiced from the form get their NBP rate in the background
+const fetchMissingRates = (ids: string[]) => {
+  const st = useStore.getState().st
+  for (const s of st.sessions.filter((x) => ids.includes(x.id) && x.invoiced && x.invoiceDate && !x.nbpRate && needsRate(x)))
+    nbpRateForInvoice(s.invoiceDate!).then((r) => update((d) => {
+      const x = d.sessions.find((y) => y.id === s.id)
+      if (x && x.invoiceDate === s.invoiceDate) { x.nbpRate = r.rate; x.nbpTable = r.table }
+    })).catch(() => {})
 }
 
 const invoiceLines = (st: State, l: Session[]) =>
@@ -390,6 +436,11 @@ const ClientSheet = ({ id }: { id: string }) => {
     // hours with an invoice date are already counted as revenue (in their invoice month), so that part
     // of the payment is plain income; older hours without one still count as revenue when paid
     const old = r2(pln(unpaid.filter((s) => !s.invoiceDate)))
+    if (c.kind && c.kind !== 'hourly') {
+      update((d) => { for (const s of unpaid) setStatus(d, s.id, true, true) })
+      toast(`${fmt(amount, true)} added to income`)
+      return
+    }
     update((d) => {
       for (const s of d.sessions) if (s.clientId === id && s.invoiced && !s.paid) s.paid = true
       const key = periodOf(today(), d.settings).key

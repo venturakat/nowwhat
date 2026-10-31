@@ -33,6 +33,7 @@ export interface BudgetItem {
   date?: string // YYYY-MM-DD
   taxable?: boolean // counts as revenue for PIT/ZUS
   fromClient?: ID
+  fromSession?: ID // a client payment marked paid — removed again if it's unmarked
   oneOff?: boolean // purchases logged from Supplies/Closet: not copied to next month
 }
 

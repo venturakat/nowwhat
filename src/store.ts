@@ -60,6 +60,15 @@ export const migrate = (s: State): State => {
     }
     out.version = 7
   }
+  if (out.version < 8) {
+    // v8: fees marked invoiced in the edit form had no invoice date, so they never reached taxes —
+    // use the entry's own date (open it to change)
+    for (const x of out.sessions) if (x.fee !== undefined && x.invoiced && !x.invoiceDate) {
+      const d = new Date(x.start)
+      x.invoiceDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+    out.version = 8
+  }
   return out
 }
 
