@@ -19,6 +19,16 @@ export const migrate = (s: State): State => {
     delete out.energy
     out.version = 2
   }
+  if (out.version < 3) {
+    // v3: supplies "cats" -> "pets"; projects become DIY / Outsource with planned steps
+    out.supplies = out.supplies.map((x) => ((x.cat as string) === 'cats' ? { ...x, cat: 'pets' } : x))
+    out.projects = out.projects.map((p: any) => ({
+      id: p.id, name: p.name, toBuy: p.toBuy, cost: p.cost, done: p.done,
+      kind: p.kind ?? (p.size === 'big' ? 'outsource' : 'diy'),
+      steps: p.steps ?? (p.nextStep ? [{ id: uid(), text: p.nextStep }] : [])
+    }))
+    out.version = 3
+  }
   return out
 }
 

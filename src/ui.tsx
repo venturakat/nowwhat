@@ -71,6 +71,8 @@ const GARMENT: Record<ClosetCat, string> = {
   shoes: 'M2 17v-6l5 1 3-3 4 4 6 2 2 2v3H2z',
   dress: 'M9 3h6l-1 5 6 13H4l6-13z',
   bag: 'M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2',
+  underwear: 'M3 6h18v3c-3.5 1-5.5 4-6.5 9h-5C8.5 13 6.5 10 3 9z',
+  jewelry: 'M7 4h10l4 5-9 12L3 9z',
   other: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z'
 }
 export const Garment = ({ cat, size = 40 }: { cat: ClosetCat; size?: number }) => (
@@ -110,12 +112,12 @@ export const Row = (p: { title: ReactNode; meta?: ReactNode; trail?: ReactNode; 
   </button>
 )
 
-export const List = ({ title, right, children, empty }: { title?: ReactNode; right?: ReactNode; children?: ReactNode; empty?: string }) => {
+export const List = ({ title, right, children, empty, roomy }: { title?: ReactNode; right?: ReactNode; children?: ReactNode; empty?: string; roomy?: boolean }) => {
   const has = Array.isArray(children) ? children.flat().filter(Boolean).length > 0 : !!children
   return (
     <div className="list">
       {title && (
-        <div className="list-h">
+        <div className="list-h" style={roomy ? { paddingBottom: 12 } : undefined}>
           <span className="t17">{title}</span>
           {right && <span className="t14 w5 muted">{right}</span>}
         </div>

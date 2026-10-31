@@ -4,7 +4,6 @@ import type { State } from '../types'
 import { addDays, diffDays, fmt, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
 import { C, Chips, Icon, openSettings, openSheet, Row, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
-import { doFirstProject } from './Home'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
 
 interface Thing { id: string; dot: string; title: string; meta: string; trail?: ReactNode; go: () => void }
@@ -49,9 +48,6 @@ const things = (st: State): Thing[] => {
   // supplies soon (not urgent)
   const soon = sup.filter((x) => x.daysLeft > 2)
   if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s), dot: C.supplies, title: `Shopping run · ${soon.length} ${soon.length === 1 ? 'thing' : 'things'}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · by ${fmtDay(soon[0].s.enoughUntil)}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
-  // project
-  const p = doFirstProject(st)
-  if (p) out.push({ id: 'proj-' + p.id, dot: C.home, title: p.name, meta: `Next: ${p.nextStep}`, trail: '→', go: () => go('home', 'projects') })
   // closet: saved thing ready to decide
   const ready = st.saved.find((s) => diffDays(s.savedAt, t) >= 7)
   if (ready) out.push({ id: 'saved-' + ready.id, dot: C.closet, title: `Still want ${ready.name}?`, meta: 'Waited a week · buy or let go', trail: fmt(ready.price), go: () => go('closet', 'buy') })

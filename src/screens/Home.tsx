@@ -1,9 +1,9 @@
-import { dismissToday, update, useSt } from '../store'
-import type { Project, State } from '../types'
+import { useState } from 'react'
+import { update, useSt } from '../store'
+import type { Project } from '../types'
 import { Cleaning } from './Cleaning'
-import { fmt, today, uid } from '../lib'
-import { C, Chips, closeSheet, Header, List, openSheet, Row, toast, useUi } from '../ui'
-import { FormSheet } from '../form'
+import { fmt, splitList, uid } from '../lib'
+import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 
 export const Home = () => {
   const sub = useUi((u) => u.sub.home)
@@ -20,100 +20,92 @@ export const Home = () => {
 }
 
 // ================= PROJECTS =================
-export const doFirstProject = (st: State) => {
-  const open = st.projects.filter((p) => !p.done)
-  return open.find((p) => p.doFirst) ?? open.find((p) => p.size === 'quick') ?? open[0]
-}
+export const projectNext = (p: Project) => p.steps.find((x) => !x.done)
 
 const Projects = () => {
   const st = useSt()
   const open = st.projects.filter((p) => !p.done)
-  const first = doFirstProject(st)
-  const dismissed = st.dismissed.date === today() && first && st.dismissed.ids.includes('proj-' + first.id)
-  const rest = open.filter((p) => p.id !== first?.id || dismissed)
   const done = st.projects.filter((p) => p.done)
-  const buys = open.filter((p) => p.toBuy)
+  const buys = open.flatMap((p) => splitList(p.toBuy))
+  const row = (p: Project) => {
+    const next = projectNext(p)
+    const n = p.steps.filter((x) => x.done).length
+    const meta = [next ? `Next: ${next.text}` : p.steps.length ? 'All steps done' : 'No steps planned yet', p.steps.length ? `${n}/${p.steps.length}` : '', p.cost ? `~${fmt(p.cost)}` : ''].filter(Boolean).join(' · ')
+    return <Row key={p.id} dot={p.kind === 'diy' ? C.home : C.ink} title={p.name} meta={meta} trail="→" onClick={() => openSheet(<ProjectSheet id={p.id} />)} />
+  }
   return (
     <>
-      {first && !dismissed && (
-        <div className="card dark" style={{ gap: 6 }}>
-          <span className="t14 w5">Do this one first</span>
-          <span className="mid" style={{ fontSize: 26 }}>{first.name}</span>
-          <span className="t15">Next step: {first.nextStep}</span>
-          <div className="row" style={{ paddingTop: 8 }}>
-            <button className="btn home grow" onClick={() => openSheet(<ProjectStep id={first.id} />)}>Did a step</button>
-            <button className="btn ghost grow" onClick={() => dismissToday('proj-' + first.id)}>Not today</button>
-          </div>
-        </div>
-      )}
-      <ProjList title="Quick fixes" right="under 30 min" items={rest.filter((p) => p.size === 'quick')} />
-      <ProjList title="Need a measure + shop" right="an afternoon each" items={rest.filter((p) => p.size === 'shop')} />
-      {rest.some((p) => p.size === 'big') && <div className="t17" style={{ padding: '0 4px' }}>Big ones · plan & save up</div>}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {rest.filter((p) => p.size === 'big').map((p) => (
-          <button key={p.id} className="card home" style={{ padding: 16, gap: 6, borderRadius: 20 }} onClick={() => openSheet(<ProjectEdit id={p.id} />)}>
-            <span className="t17" style={{ fontSize: 18 }}>{p.name}</span>
-            <span className="t14">Next: {p.nextStep}</span>
-            <span className="t13 w5 muted" style={{ paddingTop: 4 }}>{p.cost ? `~${fmt(p.cost)}` : '+ add cost'}</span>
-          </button>
-        ))}
-      </div>
+      <List title="DIY" right="I can do it myself" empty="Nothing here.">{open.filter((p) => p.kind === 'diy').map(row)}</List>
+      <List title="Outsource" right="need someone for it" empty="Nothing here.">{open.filter((p) => p.kind === 'outsource').map(row)}</List>
       {buys.length > 0 && (
         <button className="card supplies" style={{ gap: 4, padding: 16 }} onClick={() => useUi.getState().go('supplies', 'home')}>
-          <span className="t14 w5">On your Home shopping list</span>
-          <span className="t17">{buys.map((p) => p.toBuy).join(', ')}</span>
+          <span className="t14 w5">On your Home shopping list · {buys.length}</span>
+          <span className="t17">{buys.join(', ')}</span>
         </button>
       )}
-      <button className="btn full dashed" onClick={() => openSheet(<ProjectEdit />)}>+ Add a project</button>
+      <button className="btn full dashed" onClick={() => openSheet(<ProjectSheet />)}>+ Add a project</button>
       {done.length > 0 && (
         <List title="Done" right={String(done.length)}>
-          {done.map((p) => <Row key={p.id} done title={p.name} onClick={() => openSheet(<ProjectEdit id={p.id} />)} />)}
+          {done.map((p) => <Row key={p.id} done title={p.name} onClick={() => openSheet(<ProjectSheet id={p.id} />)} />)}
         </List>
       )}
     </>
   )
 }
 
-const ProjList = ({ title, right, items }: { title: string; right: string; items: Project[] }) =>
-  items.length ? (
-    <List title={title} right={right}>
-      {items.map((p) => <Row key={p.id} dot={C.home} title={p.name} meta={`Next: ${p.nextStep}`} trail="→" onClick={() => openSheet(<ProjectEdit id={p.id} />)} />)}
-    </List>
-  ) : null
-
-const ProjectStep = ({ id }: { id: string }) => {
+// One card for everything about a project: name, DIY/Outsource, planned steps, what to buy, cost
+export const ProjectSheet = ({ id }: { id?: string }) => {
   const st = useSt()
-  const p = st.projects.find((x) => x.id === id)!
+  const orig = st.projects.find((x) => x.id === id)
+  const [p, setP] = useState<Project>(() => orig ? structuredClone(orig) : { id: uid(), name: '', kind: 'diy', steps: [] })
+  const [newStep, setNewStep] = useState('')
+  const set = (patch: Partial<Project>) => setP((o) => ({ ...o, ...patch }))
+  const addStep = () => { const t = newStep.trim(); if (!t) return; set({ steps: [...p.steps, { id: uid(), text: t }] }); setNewStep('') }
+  const save = (extra: Partial<Project> = {}) => {
+    const steps = newStep.trim() ? [...p.steps, { id: uid(), text: newStep.trim() }] : p.steps
+    const out = { ...p, steps, ...extra, name: p.name.trim(), toBuy: splitList(p.toBuy).join(', ') || undefined }
+    update((d) => { const i = d.projects.findIndex((x) => x.id === out.id); if (i >= 0) d.projects[i] = out; else d.projects.push(out) })
+    closeSheet()
+  }
+  const items = splitList(p.toBuy)
   return (
-    <FormSheet title="Nice. What’s next?" initial={{ nextStep: '' }} saveLabel="Save next step"
-      fields={[{ key: 'nextStep', label: `Next step for “${p.name}”`, type: 'text', placeholder: p.nextStep }]}
-      extra={<button className="btn full home" onClick={() => { update((d) => { const x = d.projects.find((x) => x.id === id)!; x.done = true; x.doFirst = false }); closeSheet(); toast('Project done!') }}>It’s finished</button>}
-      onSave={(v) => update((d) => { d.projects.find((x) => x.id === id)!.nextStep = v.nextStep })}
-    />
-  )
-}
-
-const ProjectEdit = ({ id }: { id?: string }) => {
-  const st = useSt()
-  const p = st.projects.find((x) => x.id === id)
-  return (
-    <FormSheet title={p ? 'Project' : 'New project'} initial={p ?? { size: 'quick' }}
-      fields={[
-        { key: 'name', label: 'Project', type: 'text' },
-        { key: 'nextStep', label: 'Next tiny step', type: 'text' },
-        { key: 'size', label: 'Size', type: 'select', options: [['quick', 'Quick fix'], ['shop', 'Measure + shop'], ['big', 'Big one']] },
-        { key: 'toBuy', label: 'Need to buy (goes to Home shopping list)', type: 'text' },
-        { key: 'cost', label: 'Rough cost (zł)', type: 'number' },
-        { key: 'doFirst', label: 'Do this one first?', type: 'toggle' },
-        ...(p ? ([{ key: 'done', label: 'Finished', type: 'toggle' }] as const) : [])
-      ]}
-      onSave={(v) => update((d) => {
-        if (v.doFirst) d.projects.forEach((x) => (x.doFirst = false))
-        const data = { name: v.name, nextStep: v.nextStep || 'Decide the first step', size: v.size || 'quick', toBuy: v.toBuy || undefined, cost: v.cost, doFirst: !!v.doFirst, done: !!v.done }
-        if (p) Object.assign(d.projects.find((x) => x.id === p.id)!, data)
-        else d.projects.push({ id: uid(), ...data })
-      })}
-      onDelete={p ? () => update((d) => { d.projects = d.projects.filter((x) => x.id !== p.id) }) : undefined}
-    />
+    <Sheet title={orig ? 'Project' : 'New project'}>
+      <Field label="Project"><input className="input" value={p.name} placeholder="Kitchen rack" onChange={(e) => set({ name: e.target.value })} /></Field>
+      <div className="seg">
+        <button className={'chip' + (p.kind === 'diy' ? ' on' : '')} onClick={() => set({ kind: 'diy' })}>DIY</button>
+        <button className={'chip' + (p.kind === 'outsource' ? ' on' : '')} onClick={() => set({ kind: 'outsource' })}>Outsource</button>
+      </div>
+      <div className="field">
+        <label>Plan</label>
+        <div className="list" style={{ padding: '4px 14px' }}>
+          {p.steps.map((x, i) => (
+            <div key={x.id} className="row" style={{ padding: '9px 0', gap: 10 }}>
+              <button onClick={() => set({ steps: p.steps.map((y) => (y.id === x.id ? { ...y, done: !y.done } : y)) })}><Check on={!!x.done} /></button>
+              <input className="grow" value={x.text} onChange={(e) => set({ steps: p.steps.map((y) => (y.id === x.id ? { ...y, text: e.target.value } : y)) })}
+                style={{ border: 0, outline: 'none', background: 'transparent', fontSize: 17, fontWeight: 500, textDecoration: x.done ? 'line-through' : undefined, color: x.done ? 'var(--ink2)' : undefined }} />
+              {i > 0 && <button className="link" aria-label="Move up" style={{ padding: 4 }} onClick={() => { const s2 = [...p.steps]; [s2[i - 1], s2[i]] = [s2[i], s2[i - 1]]; set({ steps: s2 }) }}>↑</button>}
+              <button aria-label="Remove step" style={{ padding: 4, color: 'var(--ink2)' }} onClick={() => set({ steps: p.steps.filter((y) => y.id !== x.id) })}><Icon.x /></button>
+            </div>
+          ))}
+          <div className="row" style={{ padding: '9px 0', gap: 10 }}>
+            <span className="check" style={{ borderStyle: 'dashed' }} />
+            <input className="grow" value={newStep} placeholder={p.steps.length ? 'Add a step' : 'First step, e.g. measure the wall'} onChange={(e) => setNewStep(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()}
+              style={{ border: 0, outline: 'none', background: 'transparent', fontSize: 17 }} />
+            {newStep.trim() && <button className="btn sm" onClick={addStep}>Add</button>}
+          </div>
+        </div>
+      </div>
+      <Field label="Need to buy (separate with commas)">
+        <input className="input" value={p.toBuy ?? ''} placeholder="mounting glue, screws, hooks" onChange={(e) => set({ toBuy: e.target.value })} />
+        {items.length > 0 && <span className="t13 muted">Goes to the Home shopping list as {items.length} {items.length === 1 ? 'item' : 'items'}</span>}
+      </Field>
+      <Field label="Rough cost (zł)">
+        <input className="input" type="number" inputMode="decimal" value={p.cost ?? ''} onChange={(e) => set({ cost: e.target.value === '' ? undefined : Number(e.target.value) })} />
+      </Field>
+      <button className="btn full" disabled={!p.name.trim()} onClick={() => save()}>Save</button>
+      {orig && !orig.done && <button className="btn full home" onClick={() => { save({ done: true }); toast('Project done!') }}>It’s finished</button>}
+      {orig?.done && <button className="btn full soft" onClick={() => save({ done: false })}>Not finished after all</button>}
+      {orig && <button className="btn full soft" onClick={() => { update((d) => { d.projects = d.projects.filter((x) => x.id !== orig.id) }); closeSheet() }}>Delete</button>}
+    </Sheet>
   )
 }

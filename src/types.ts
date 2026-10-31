@@ -1,7 +1,7 @@
 export type ID = string
 export type Energy = 'low' | 'okay' | 'lots'
 export type CleanMode = 1 | 2 | 3 // 1 light, 2 regular, 3 extra
-export type SupplyCat = 'meds' | 'groceries' | 'cats' | 'home' | 'beauty'
+export type SupplyCat = 'meds' | 'groceries' | 'pets' | 'home' | 'beauty'
 
 export interface Settings {
   eurPln: number
@@ -102,18 +102,23 @@ export interface CleanDone {
   finished?: boolean
 }
 
+export interface ProjectStep {
+  id: ID
+  text: string
+  done?: boolean
+}
+
 export interface Project {
   id: ID
   name: string
-  size: 'quick' | 'shop' | 'big'
-  nextStep: string
+  kind: 'diy' | 'outsource' // can I do it myself or not
+  steps: ProjectStep[]
+  toBuy?: string // comma-separated; each item lands on the Home shopping list separately
   cost?: number
-  doFirst?: boolean
   done?: boolean
-  toBuy?: string // things to add to next shopping run
 }
 
-export type ClosetCat = 'top' | 'bottom' | 'outer' | 'shoes' | 'dress' | 'bag' | 'other'
+export type ClosetCat = 'top' | 'bottom' | 'outer' | 'shoes' | 'dress' | 'bag' | 'underwear' | 'jewelry' | 'other'
 
 export interface ClosetItem {
   id: ID

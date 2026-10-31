@@ -5,8 +5,8 @@ import { diffDays, fmt, fmtDay, fmtWeekday, addDays, periodOf, shiftPeriod, summ
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 
-const CATS: [ClosetCat, string][] = [['top', 'Tops'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['outer', 'Outer'], ['shoes', 'Shoes'], ['bag', 'Bags'], ['other', 'Other']]
-const CAT1: Record<ClosetCat, string> = { top: 'Top', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', other: 'Other' }
+const CATS: [ClosetCat, string][] = [['top', 'Tops'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['outer', 'Outer'], ['shoes', 'Shoes'], ['bag', 'Bags'], ['underwear', 'Underwear'], ['jewelry', 'Jewelry'], ['other', 'Other']]
+const CAT1: Record<ClosetCat, string> = { top: 'Top', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Jewelry', other: 'Other' }
 const WAIT = 7
 
 // shrink a photo to ~480px JPEG so storage stays small

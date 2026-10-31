@@ -152,7 +152,7 @@ const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
   return (
     <Sheet title="Cleaning lists">
       <Chips items={[['1', 'Light'], ['2', 'Regular'], ['3', 'Extra']]} value={String(mode)} onChange={(v) => setMode(Number(v) as CleanMode)} />
-      <List title={`${MODE_NAME[mode]} · ${tasks.length} steps`}>
+      <List roomy title={`${MODE_NAME[mode]} · ${tasks.length} steps`}>
         {tasks.map((t, i) => (
           <div key={t.id} className="row" style={{ paddingRight: 10 }}>
             <div className="grow"><Row title={t.name} onClick={() => edit(t.id)} /></div>
