@@ -70,6 +70,7 @@ export interface Session {
   invoiced: boolean
   paid: boolean
   invoiceDate?: string
+  paidDate?: string // when the money came in — the budget adds it to that half
   fee?: number // fixed fee (instead of hours × rate), in feeCur
   feeCur?: 'EUR' | 'PLN' // default EUR
   feeMonth?: string // YYYY-MM the fee is for

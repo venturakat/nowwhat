@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { closeSheet, Field, Sheet } from './ui'
-import { numText, parseNum } from './lib'
+import { addDays, numText, parseNum, today } from './lib'
 
 export type FieldDef =
-  | { key: string; label: string; type: 'text' | 'date' | 'datetime' | 'url'; placeholder?: string }
+  | { key: string; label: string; type: 'text' | 'date' | 'datetime' | 'url'; placeholder?: string; clearable?: boolean }
   | { key: string; label: string; type: 'number'; step?: number; placeholder?: string }
   | { key: string; label: string; type: 'select'; options: [string, string][] }
   | { key: string; label: string; type: 'toggle' }
@@ -38,6 +38,20 @@ export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals
               <button type="button" className={'chip' + (v[f.key] ? ' on' : '')} onClick={() => set(f.key, true)}>Yes</button>
               <button type="button" className={'chip' + (!v[f.key] ? ' on' : '')} onClick={() => set(f.key, false)}>No</button>
             </div>
+          ) : 'clearable' in f && f.clearable && f.type === 'date' ? (
+            // optional date: "Not yet" until it happens, then the date with a way back
+            v[f.key] ? (
+              <div className="row" style={{ gap: 8 }}>
+                <input className="input grow" type="date" value={v[f.key]} onChange={(e) => set(f.key, e.target.value)} />
+                <button type="button" className="btn soft sm" onClick={() => set(f.key, '')}>Clear</button>
+              </div>
+            ) : (
+              <div className="seg">
+                <button type="button" className="chip on">Not yet</button>
+                <button type="button" className="chip" onClick={() => set(f.key, today())}>Today</button>
+                <button type="button" className="chip" onClick={() => set(f.key, addDays(today(), -1))}>Other day…</button>
+              </div>
+            )
           ) : (
             <input
               className="input"

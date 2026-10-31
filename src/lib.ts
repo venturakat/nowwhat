@@ -145,7 +145,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     if (s.fee === undefined || s.paid) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
-    const d = localDay(s.start)
+    const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
     if (d < p.start || d > p.end) continue
     out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced ≈') : s.feeCur === 'PLN' ? 'expected' : 'expected ≈'}`, kind: 'fee', income: true, expected: true })
   }
