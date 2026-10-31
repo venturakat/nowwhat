@@ -53,7 +53,8 @@ export interface Client {
   name: string
   rateEur: number // hourly clients
   kind?: 'hourly' | 'fixed' | 'job' // job = a fixed fee per piece of work, whenever it comes
-  fixedEur?: number // fixed clients: monthly fee in €
+  fixedEur?: number // fixed clients: monthly fee (in fixedCur)
+  fixedCur?: 'EUR' | 'PLN' // default EUR
   payDay?: number // fixed clients: day of the month the fee is due
   since?: string // fixed clients: first month (YYYY-MM)
   archived?: boolean
@@ -68,7 +69,8 @@ export interface Session {
   invoiced: boolean
   paid: boolean
   invoiceDate?: string
-  fee?: number // fixed monthly fee in € (instead of hours × rate)
+  fee?: number // fixed fee (instead of hours × rate), in feeCur
+  feeCur?: 'EUR' | 'PLN' // default EUR
   feeMonth?: string // YYYY-MM the fee is for
   nbpRate?: number // NBP table A mid rate from the last working day before the invoice date
   nbpTable?: string // e.g. 212/A/NBP/2026

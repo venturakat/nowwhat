@@ -147,7 +147,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     if (!c || c.archived) continue
     const d = localDay(s.start)
     if (d < p.start || d > p.end) continue
-    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · €${s.fee} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate ? 'invoiced' : 'invoiced ≈') : 'expected ≈'}`, kind: 'fee', income: true })
+    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced ≈') : s.feeCur === 'PLN' ? 'expected' : 'expected ≈'}`, kind: 'fee', income: true })
   }
   // future months of monthly clients (their entry is only created when the month comes)
   for (const c of st.clients) {
@@ -155,7 +155,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const d = feeDate(c, p.month)
     if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
     if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
-    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · €${c.fixedEur} · ${fmtDay(d)} · expected ≈`, kind: 'fee', income: true })
+    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedCur === 'PLN' ? c.fixedEur : c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · ${c.fixedCur === 'PLN' ? fmt(c.fixedEur, true) : fmtEur(c.fixedEur)} · ${fmtDay(d)} · expected${c.fixedCur === 'PLN' ? '' : ' ≈'}`, kind: 'fee', income: true })
   }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
@@ -258,8 +258,9 @@ export const taxFor = (st: State, mk: string) => {
 
 // ---------- work ----------
 export const hours = (s: Session) => (new Date(s.end).getTime() - new Date(s.start).getTime()) / 3600000
+// the € part of an entry (0 for fees in zł)
 export const sessionEur = (st: State, s: Session) => {
-  if (s.fee !== undefined) return s.fee
+  if (s.fee !== undefined) return s.feeCur === 'PLN' ? 0 : s.fee
   const c = st.clients.find((c) => c.id === s.clientId)
   return hours(s) * (c?.rateEur ?? 0)
 }
@@ -275,14 +276,21 @@ export const ensureFees = (d: State) => {
     let mk = c.since ?? cur
     for (let i = 0; i < 60 && mk <= cur; i++, mk = nextMonth(mk)) {
       const ex = d.sessions.find((s) => s.clientId === c.id && s.feeMonth === mk)
-      if (ex) { if (!ex.invoiced) ex.fee = c.fixedEur; continue }
+      if (ex) { if (!ex.invoiced) { ex.fee = c.fixedEur; ex.feeCur = c.fixedCur ?? 'EUR' } continue }
       const at = new Date(feeDate(c, mk) + 'T12:00:00').toISOString()
-      d.sessions.push({ id: uid(), clientId: c.id, task: `${monthName(mk, true)} fee`, start: at, end: at, invoiced: false, paid: false, fee: c.fixedEur, feeMonth: mk })
+      d.sessions.push({ id: uid(), clientId: c.id, task: `${monthName(mk, true)} fee`, start: at, end: at, invoiced: false, paid: false, fee: c.fixedEur, feeCur: c.fixedCur ?? 'EUR', feeMonth: mk })
     }
   }
 }
 // zł value of hours: invoiced ones use the NBP rate of their invoice, others today's rate (an estimate)
-export const sessionPln = (st: State, s: Session) => sessionEur(st, s) * (s.nbpRate ?? st.settings.eurPln)
+export const sessionPln = (st: State, s: Session) => (s.fee !== undefined && s.feeCur === 'PLN' ? s.fee : sessionEur(st, s) * (s.nbpRate ?? st.settings.eurPln))
+// a list's total in its own currency: "€600", "1 200,00 zł" or "€600 + 1 200,00 zł"
+export const fmtSum = (st: State, l: Session[]) => {
+  const eur = l.reduce((a, s) => a + sessionEur(st, s), 0)
+  const pln = l.filter((s) => s.fee !== undefined && s.feeCur === 'PLN').reduce((a, s) => a + (s.fee ?? 0), 0)
+  return [eur || !pln ? fmtEur(eur) : '', pln ? fmt(pln, true) : ''].filter(Boolean).join(' + ')
+}
+export const needsRate = (s: Session) => !(s.fee !== undefined && s.feeCur === 'PLN')
 export const fmtHours = (h: number) => (Math.round(h * 10) / 10).toString().replace(/\.0$/, '') + ' h'
 export const fmtClock = (ms: number) => {
   const t = Math.max(0, Math.floor(ms / 1000))
