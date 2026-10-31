@@ -141,12 +141,29 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
   const localDay = (iso: string) => { const x = new Date(iso); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}` }
+  // still unpaid from an earlier half → shows in the current half, so nothing gets lost
+  const inHalf = (d: string) => (d >= p.start && d <= p.end) || (d < p.start && t >= p.start && t <= p.end)
+  // invoiced hours, one line per client and invoice
+  const hourly: Record<string, { c: string; d: string; h: number; eur: number; pln: number; approx: boolean }> = {}
+  for (const s of st.sessions) {
+    if (s.fee !== undefined || !s.invoiced || s.paid) continue
+    const c = st.clients.find((x) => x.id === s.clientId)
+    if (!c || c.archived) continue
+    const d = s.invoiceDate ?? localDay(s.start)
+    if (!inHalf(d)) continue
+    const k = `${c.id}@${s.invoiceDate ?? ''}`
+    const g = (hourly[k] ??= { c: c.name, d, h: 0, eur: 0, pln: 0, approx: false })
+    g.h += hours(s); g.eur += sessionEur(st, s); g.pln += sessionPln(st, s); g.approx ||= !s.nbpRate
+    if (d > g.d) g.d = d
+  }
+  for (const [k, g] of Object.entries(hourly))
+    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtEur(g.eur)} · ${fmtDay(g.d)} · invoiced${g.approx ? ' ≈' : ''}`, kind: 'fee', income: true, expected: true })
   for (const s of st.sessions) {
     if (s.fee === undefined || s.paid) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
     const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
-    if (d < p.start || d > p.end) continue
+    if (!inHalf(d)) continue
     out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced ≈') : s.feeCur === 'PLN' ? 'expected' : 'expected ≈'}`, kind: 'fee', income: true, expected: true })
   }
   // future months of monthly clients (their entry is only created when the month comes)
