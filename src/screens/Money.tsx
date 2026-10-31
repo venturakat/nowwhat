@@ -111,7 +111,6 @@ const Budget = () => {
           {s.auto.filter((a) => a.expected).map((a) => (
             <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={<span className="muted">{fmt(a.amount)}</span>} onClick={() => useUi.getState().go('money', 'work')} />
           ))}
-          <div className="t13 muted" style={{ padding: '4px 16px 8px' }}>Not counted yet — moves to “Came in” when you mark it paid.</div>
         </List>
       )}
       <List title="Fixed this half" right={fmt(s.fixed)}>
