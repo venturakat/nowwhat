@@ -353,13 +353,16 @@ const ClientSheet = ({ id }: { id: string }) => {
   const shown = all ? ss : ss.slice(0, 8)
   const markPaid = () => {
     const amount = r2(pln(unpaid))
-    const tax = r2(amount * st.settings.pitRate)
+    // hours with an invoice date are already counted as revenue (in their invoice month), so that part
+    // of the payment is plain income; older hours without one still count as revenue when paid
+    const old = r2(pln(unpaid.filter((s) => !s.invoiceDate)))
     update((d) => {
       for (const s of d.sessions) if (s.clientId === id && s.invoiced && !s.paid) s.paid = true
       const key = periodOf(today(), d.settings).key
-      addIncome(d, key, { label: c.name, amount, date: today(), taxable: true, fromClient: id })
+      if (amount - old > 0.004) addIncome(d, key, { label: c.name, amount: r2(amount - old), date: today(), taxable: false, fromClient: id })
+      if (old > 0) addIncome(d, key, { label: c.name, amount: old, date: today(), taxable: true, fromClient: id })
     })
-    toast(`${fmt(amount, true)} added to income · ~${fmt(tax, true)} goes to taxes`)
+    toast(`${fmt(amount, true)} added to income`)
   }
   return (
     <Sheet title={c.name}>
@@ -465,7 +468,7 @@ const Taxes = () => {
         </div>
       </div>
       <List>
-        <Row dot={C.money} title={`${fmtDay(nextDue(payDate))} · ${monthName(after, true)}`} meta={after > curM ? 'Grows as business income comes in' : 'Revenue so far'} trail={`${fmt(afterTx.revenue)}${after > curM ? ' planned' : ''}`} onClick={() => editMonth(after)} />
+        <Row dot={C.money} title={`${fmtDay(nextDue(payDate))} · ${monthName(after, true)}`} meta={after > curM ? 'Grows as you invoice' : 'Revenue so far'} trail={`${fmt(afterTx.revenue)}${after > curM ? ' planned' : ''}`} onClick={() => editMonth(after)} />
         <Row dot={C.money} title={`Annual PIT-28`} meta={`By 30 Apr ${Number(year) + 1} · ${fmt(yearPit)} paid monthly this year`} onClick={() => editMonth(curM)} />
       </List>
       <div className="t13 muted" style={{ padding: '0 4px' }}>PIT = {Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA). Tap any month to check or correct it. Rates are in Settings.</div>
@@ -492,7 +495,7 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
   const pitNum = pitOwn ? parseNum(pit) ?? 0 : calcPit(revNum)
   return (
     <Sheet title={`${monthName(m, true)} ${m.slice(0, 4)}`}>
-      <Field label={`Revenue (from business income: ${fmt(fromIncome, true)})`}>
+      <Field label={`Revenue (invoices + business income: ${fmt(fromIncome, true)})`}>
         <input className="input" inputMode="decimal" value={rev} onChange={(e) => { setRev(e.target.value); if (!pitOwn) setPit(numText(calcPit(parseNum(e.target.value) ?? 0))) }} />
       </Field>
       <Field label={pitOwn ? 'PIT-28 (your number)' : `PIT-28 (calculated: ${Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA))`}>

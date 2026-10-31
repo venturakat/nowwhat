@@ -222,6 +222,8 @@ export const revenueFromIncome = (st: State, mk: string) => {
     if (!key.startsWith(mk)) continue
     for (const it of p.items) if (it.kind === 'income' && it.taxable) sum += toPln(st.settings, it.amount, it.currency ?? 'PLN')
   }
+  // invoices count as revenue in the month of the invoice date, at their NBP rate — no need to wait for payment
+  for (const s of st.sessions) if (s.invoiced && s.invoiceDate && s.invoiceDate.startsWith(mk)) sum += sessionPln(st, s)
   return sum
 }
 export const taxFor = (st: State, mk: string) => {
