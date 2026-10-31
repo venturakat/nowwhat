@@ -47,6 +47,19 @@ export const migrate = (s: State): State => {
     out.settings = { ...out.settings, taxPayDay: out.settings.taxPayDay ?? 1 }
     out.version = 6
   }
+  if (out.version < 7) {
+    // v7: dated entries that were added to the wrong half move to the half of their date
+    for (const [key, p] of Object.entries(out.periods)) {
+      const keep = []
+      for (const it of p.items) {
+        const k = it.date ? periodOf(it.date, out.settings).key : key
+        if (k === key) keep.push(it)
+        else (out.periods[k] ??= { items: periodItems(out, k).items }).items.push(it)
+      }
+      p.items = keep
+    }
+    out.version = 7
+  }
   return out
 }
 

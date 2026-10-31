@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { addIncome, ensurePeriod, update, useSt } from '../store'
 import type { Currency, Session, State } from '../types'
 import {
-  diffDays, fmt, fmtCur, numText, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
+  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
@@ -48,13 +48,18 @@ const Budget = () => {
             ? ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const)
             : [])
         ]}
-        onSave={(v) =>
+        onSave={(v) => {
+          // a dated entry always lives in the half its date belongs to, whichever half it was added from
+          const target = v.date ? periodOf(v.date, st.settings).key : key
           update((d) => {
             const p = ensurePeriod(d, key)
-            if (it) Object.assign(p.items.find((x) => x.id === it.id)!, { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? 'PLN', date: v.date, taxable: v.taxable })
-            else p.items.push({ id: uid(), kind, label: v.label, amount: v.amount ?? 0, currency: v.currency ?? 'PLN', date: v.date, taxable: v.taxable })
+            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? 'PLN', date: v.date, taxable: v.taxable }
+            const item = it ? { ...p.items.find((x) => x.id === it.id)!, ...data } : { id: uid(), kind, ...data }
+            if (it) p.items = p.items.filter((x) => x.id !== it.id)
+            ensurePeriod(d, target).items.push(item as any)
           })
-        }
+          if (target !== key) toast(`Moved to ${periodFromKey(target, st.settings).label}`)
+        }}
         onDelete={it ? () => update((d) => { const p = ensurePeriod(d, key); p.items = p.items.filter((x) => x.id !== it.id) }) : undefined}
       />
     )
