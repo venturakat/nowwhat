@@ -272,3 +272,15 @@ export const nextSubDate = (sub: Subscription, t = today()) => {
   const d = subDate(sub, t.slice(0, 7))
   return d >= t ? d : subDate(sub, nextMonth(t.slice(0, 7)))
 }
+
+// numbers typed by hand: "12,50", "12.50", "1 234,5", "1.234,56" -> number (undefined if empty / not a number)
+export const parseNum = (x: unknown): number | undefined => {
+  if (typeof x === 'number') return isFinite(x) ? x : undefined
+  let t = String(x ?? '').replace(/\s/g, '')
+  if (!t) return undefined
+  if (t.includes(',') && t.includes('.')) t = t.replace(/\./g, '')
+  const n = Number(t.replace(',', '.'))
+  return isFinite(n) ? n : undefined
+}
+// show stored numbers with a comma, the way the bank does
+export const numText = (n?: number) => (n === undefined || n === null ? '' : String(n).replace('.', ','))

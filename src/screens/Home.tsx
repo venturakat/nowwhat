@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { update, useSt } from '../store'
 import type { Project } from '../types'
 import { Cleaning } from './Cleaning'
-import { fmt, splitList, uid } from '../lib'
+import { fmt, numText, parseNum, splitList, uid } from '../lib'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 
 export const Home = () => {
@@ -59,6 +59,7 @@ export const ProjectSheet = ({ id }: { id?: string }) => {
   const orig = st.projects.find((x) => x.id === id)
   const [p, setP] = useState<Project>(() => orig ? structuredClone(orig) : { id: uid(), name: '', kind: 'diy', steps: [] })
   const [newStep, setNewStep] = useState('')
+  const [costText, setCostText] = useState(numText(orig?.cost))
   const set = (patch: Partial<Project>) => setP((o) => ({ ...o, ...patch }))
   const addStep = () => { const t = newStep.trim(); if (!t) return; set({ steps: [...p.steps, { id: uid(), text: t }] }); setNewStep('') }
   const save = (extra: Partial<Project> = {}) => {
@@ -100,7 +101,7 @@ export const ProjectSheet = ({ id }: { id?: string }) => {
         {items.length > 0 && <span className="t13 muted">Goes to the Home shopping list as {items.length} {items.length === 1 ? 'item' : 'items'}</span>}
       </Field>
       <Field label="Rough cost (zł)">
-        <input className="input" type="number" inputMode="decimal" value={p.cost ?? ''} onChange={(e) => set({ cost: e.target.value === '' ? undefined : Number(e.target.value) })} />
+        <input className="input" type="text" inputMode="decimal" value={costText} onChange={(e) => { setCostText(e.target.value); set({ cost: parseNum(e.target.value) }) }} />
       </Field>
       <button className="btn full" disabled={!p.name.trim()} onClick={() => save()}>Save</button>
       {orig && !orig.done && <button className="btn full home" onClick={() => { save({ done: true }); toast('Project done!') }}>It’s finished</button>}
