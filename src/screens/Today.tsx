@@ -92,7 +92,7 @@ export const Today = () => {
   const due = `${monthKey(t)}-${String(st.settings.taxPayDay ?? st.settings.taxDueDay).padStart(2, '0')}`
   return (
     <div className="screen withfab">
-      <Header sub={fmtWeekday(t)} title="now what?" />
+      <Header sub={fmtWeekday(t)} title="Now what?" />
       {Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0 && (
         <button className="card money" style={{ gap: 6 }} onClick={() => openSettings()}>
           <span className="t17">Fresh start</span>

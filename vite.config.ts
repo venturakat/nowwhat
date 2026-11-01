@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'now what?',
-        short_name: 'now what?',
+        name: 'Now what?',
+        short_name: 'Now what?',
         description: 'Daily hub: money, taxes, work, supplies, home, closet',
         theme_color: '#F3F1EC',
         background_color: '#F3F1EC',

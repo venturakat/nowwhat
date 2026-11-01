@@ -147,6 +147,6 @@ export const exportJson = () => {
 export const importJson = async (file: File) => {
   const text = await file.text()
   const s = JSON.parse(text) as State
-  if (!s || !s.version || !s.settings) throw new Error('Not a now what? backup')
+  if (!s || !s.version || !s.settings) throw new Error('Not a Now what? backup')
   useStore.getState().replace(migrate(s))
 }
