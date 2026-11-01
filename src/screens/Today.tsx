@@ -72,7 +72,7 @@ const things = (st: State): Thing[] => {
   // Spanish classes: from 3 days before the first unpaid class
   const lb = lessonBatch(st)
   if (lb && lb.blue && t >= addDays(lb.due, -3))
-    out.push({ id: 'lessons-' + lb.due, dot: C.money, title: 'Pay for Spanish', meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtArs(lb.ars)} · ${lb.due < t ? 'since' : 'first class'} ${fmtDay(lb.due)}`, trail: fmt(lb.pln), go: () => go('money', 'spanish') })
+    out.push({ id: 'lessons-' + lb.due, dot: C.money, title: 'Pay for Spanish', meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtArs(lb.ars)} · ${lb.due < t ? 'since' : 'by'} ${fmtDay(lb.due)}`, trail: fmt(lb.pln), go: () => go('money', 'spanish') })
   out.push(...paidChecks)
   out.unshift(...meds)
   const dis = st.dismissed.date === t ? st.dismissed.ids : []

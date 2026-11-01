@@ -32,7 +32,7 @@ export const Spanish = () => {
         <div className="card money" style={{ gap: 6 }}>
           <span className="t15 w5">Next payment · {monthName(b.month, true)}</span>
           <button className="big" style={{ fontSize: 52, textAlign: 'left' }} onClick={() => b.ars && copyText(String(b.ars), `${fmtArs(b.ars)} copied`)}>{b.blue ? fmtArs(b.ars) : '—'}</button>
-          <span className="t14">{b.dates.length} {b.dates.length === 1 ? 'class' : 'classes'} × {numText(l.usd)} USD{b.blue ? ` × ${numText(b.blue)} blue · ${fmt(b.pln)}` : ''} · first class {fmtDay(b.due)}</span>
+          <span className="t14">{b.dates.length} {b.dates.length === 1 ? 'class' : 'classes'} × {numText(l.usd)} USD{b.blue ? ` × ${numText(b.blue)} blue` : ''} · {fmt(b.pln)} with the {fmt(b.fee)} fee · pay {fmtDay(b.due)}</span>
           <div className="row" style={{ gap: 8 }}>
             <button className="btn grow" onClick={() => openSheet(<PaySheet />)}>Paid…</button>
             <button className="btn soft" disabled={busy} onClick={refresh}>{busy ? 'Updating…' : 'Update rate'}</button>
@@ -100,7 +100,7 @@ const PaySheet = () => {
   const [blue, setBlue] = useState(b.blue ? numText(b.blue) : '')
   const bl = parseNum(blue) ?? 0
   const ars = Math.round(l.usd * bl) * b.dates.length
-  const est = r2(l.usd * b.dates.length * (st.settings.usdPln ?? 4))
+  const est = r2(l.usd * b.dates.length * (st.settings.usdPln ?? 4) + b.fee)
   const [pln, setPln] = useState('')
   const zl = parseNum(pln) ?? est
   return (
@@ -109,12 +109,12 @@ const PaySheet = () => {
       <Field label="Paid on"><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       <Field label="Dólar blue that day"><input className="input" inputMode="decimal" value={blue} onChange={(e) => setBlue(e.target.value)} /></Field>
       <div className="card money" style={{ gap: 2, padding: 16 }}><span className="t14 w5">Sent</span><span className="mid">{fmtArs(ars)}</span></div>
-      <Field label="It cost you (zł)"><input className="input" inputMode="decimal" value={pln} placeholder={numText(est)} onChange={(e) => setPln(e.target.value)} /></Field>
+      <Field label={`It cost you in zł, with the ${fmt(b.fee)} fee`}><input className="input" inputMode="decimal" value={pln} placeholder={numText(est)} onChange={(e) => setPln(e.target.value)} /></Field>
       <button className="btn full" disabled={!bl || !date} onClick={() => {
         update((d) => {
           const L = d.lessons!
           const itemId = uid()
-          ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: itemId, kind: 'expense', label: 'Spanish classes', amount: zl, date, oneOff: true })
+          ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: itemId, kind: 'expense', label: 'Spanish classes (paid)', amount: zl, date, oneOff: true })
           L.pays.push({ id: uid(), date, dates: b.dates, usd: L.usd, blue: bl, ars, pln: zl, itemId })
         })
         closeSheet(); toast(`Paid · ${fmt(zl)} added to the budget`)
@@ -148,6 +148,7 @@ export const LessonSetup = () => {
   const [usd, setUsd] = useState(l ? numText(l.usd) : '')
   const [days, setDays] = useState<number[]>(l?.days ?? [])
   const [time, setTime] = useState(l?.time ?? '')
+  const [fee, setFee] = useState(numText(l?.fee ?? 70))
   const [since, setSince] = useState(l?.since ?? today())
   const u = parseNum(usd)
   return (
@@ -160,12 +161,13 @@ export const LessonSetup = () => {
           ))}
         </div>
       </Field>
+      <Field label="Transfer fee each time (zł)"><input className="input" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></Field>
       <Field label="Time (yours)"><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
       {!l?.pays.length && <Field label="First class you haven’t paid for yet"><input className="input" type="date" value={since} onChange={(e) => setSince(e.target.value)} /></Field>}
       <button className="btn full" disabled={!u || !days.length} onClick={() => {
         update((d) => {
           const base: Lessons = d.lessons ?? { usd: 0, days: [], since, extra: [], skips: [], pays: [] }
-          d.lessons = { ...base, usd: u!, days: [...days].sort(), time: time || undefined, since: base.pays.length ? base.since : since }
+          d.lessons = { ...base, usd: u!, days: [...days].sort(), time: time || undefined, fee: parseNum(fee) ?? 0, since: base.pays.length ? base.since : since }
         })
         closeSheet()
         if (!st.lessons) refreshRates(true).catch(() => {})

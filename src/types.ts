@@ -217,6 +217,7 @@ export interface Lessons {
   usd: number // price per class in USD
   days: number[] // weekdays of the classes (0 Sun … 6 Sat)
   time?: string // your local time, e.g. 17:00
+  fee?: number // transfer fee in zł added to every payment (default 70, WU)
   since: string // first class that isn't paid yet when this was set up
   extra: string[] // one-off extra classes
   skips: string[] // cancelled classes
