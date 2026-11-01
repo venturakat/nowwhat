@@ -84,7 +84,6 @@ export const Today = () => {
   const t = today()
   const s = summarize(st, periodOf(t, st.settings).key)
   const list = things(st)
-  const perDay = fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0))
   const top = list.slice(0, 4)
   const nextP = summarize(st, shiftPeriod(s.info.key, 1))
   const nextIncome = nextP.items.filter((i) => i.kind === 'income').sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))[0]
@@ -100,22 +99,15 @@ export const Today = () => {
           <span className="t15">Have a backup file? Open Settings → Restore from backup. Or just start adding money in, clients and supplies.</span>
         </button>
       )}
-      <div className="duo">
-        <button className="card dark" style={{ gap: 6, justifyContent: 'space-between' }} onClick={() => useUi.getState().go('money', 'budget')}>
-          <span className="t15 w5">You can spend today</span>
-          <span className="big" style={{ fontSize: perDay.length <= 6 ? 44 : perDay.length <= 8 ? 36 : 30, whiteSpace: 'nowrap', color: s.perDay < 0 ? 'var(--alert)' : undefined }}>{perDay}</span>
-          <span className="t14">
-            {s.daysLeft <= 1
-              ? `Last day${nextIncome ? ` · ${nextIncome.label.toLowerCase()} ${nextIncome.date === shiftDay(t) ? 'tomorrow' : fmtDay(nextIncome.date ?? nextP.info.start)}` : ''}`
-              : `${fmt(s.left)} for ${s.daysLeft} days`}
-          </span>
-        </button>
-        <button className="card money" style={{ gap: 6, justifyContent: 'space-between' }} onClick={() => openSheet(<SpendSheet />)}>
-          <span className="t15 w5">Spent something?</span>
-          <span className="duo-plus"><Icon.plus /></span>
-          <span className="t17">Log spending</span>
-        </button>
-      </div>
+      <button className="card dark" style={{ gap: 6, paddingTop: 22, paddingBottom: 22 }} onClick={() => useUi.getState().go('money', 'budget')}>
+        <span className="t15 w5">You can spend today</span>
+        <span className="big" style={{ fontSize: 72, color: s.perDay < 0 ? 'var(--alert)' : undefined }}>{fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0))}</span>
+        <span className="t15">
+          {s.daysLeft <= 1
+            ? `Last day of this fortnight${nextIncome ? ` · ${nextIncome.label.toLowerCase()} lands ${nextIncome.date === shiftDay(t) ? 'tomorrow' : fmtDay(nextIncome.date ?? nextP.info.start)}` : ''}`
+            : `${fmt(s.left)} left for ${s.daysLeft} days · ${s.perDay >= 0 ? 'on track' : 'over — go easy'}`}
+        </span>
+      </button>
       <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
         <div className="list-h" style={{ paddingBottom: 4 }}>
           <span className="t17">{top.length ? `Now, just ${top.length === 1 ? 'this' : `these ${top.length}`}` : 'Nothing urgent'}</span>

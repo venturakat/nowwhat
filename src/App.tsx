@@ -3,7 +3,7 @@ import { useSt, useStore } from './store'
 import { Icon, openSheet, registerSettings, useUi, type Tab } from './ui'
 import { SettingsSheet } from './settings'
 import { Today } from './screens/Today'
-import { Money, StartTimerSheet, stopTimer } from './screens/Money'
+import { Money, SpendSheet, StartTimerSheet, stopTimer } from './screens/Money'
 import { Supplies } from './screens/Supplies'
 import { Home } from './screens/Home'
 import { Closet } from './screens/Closet'
@@ -46,7 +46,12 @@ export const App = () => {
       {tab === 'supplies' && <Supplies />}
       {tab === 'home' && <Home />}
       {tab === 'closet' && <Closet />}
-      {tab === 'today' && <TimerFab />}
+      {tab === 'today' && (
+        <div className="fabs">
+          <button className="fab money" onClick={() => openSheet(<SpendSheet />)}><Icon.plus /> Log spending</button>
+          <TimerFab />
+        </div>
+      )}
       <nav className="tabbar">
         {TABS.map(([k, label, I]) => (
           <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => go(k)}>

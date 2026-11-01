@@ -100,6 +100,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; text-align: l
 .tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 10px; border-radius: 24px; font-size: 12px; font-weight: 500; color: var(--ink2); }
 .tab.on { background: var(--ink); color: var(--inv); }
 
+.fabs { position: fixed; left: max(16px, calc(50% - 224px)); right: max(16px, calc(50% - 224px)); bottom: calc(var(--safe-b) + 104px); z-index: 19; display: flex; gap: 10px; justify-content: flex-end; }
+.fabs .fab { position: static; flex: 1; justify-content: center; }
+.fab.money { background: var(--money); }
 .fab { position: fixed; right: max(20px, calc(50% - 220px)); bottom: calc(var(--safe-b) + 104px); z-index: 19; display: flex; align-items: center; gap: 10px; padding: 14px 20px 14px 18px; border-radius: 100px; background: var(--work); font-weight: 600; font-size: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
 
 /* sheet */
@@ -162,7 +165,3 @@ input.input { -webkit-appearance: none; appearance: none; display: block; min-wi
 input.input[type='date'], input.input[type='datetime-local'] { min-height: 50px; line-height: 22px; text-align: left; }
 input.input::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 22px; }
 input.input::-webkit-datetime-edit { padding: 0; }
-/* Today: spend + log side by side */
-.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.duo > .card { padding: 18px; min-height: 170px; text-align: left; align-items: flex-start; }
-.duo-plus { width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--money); display: grid; place-items: center; }
