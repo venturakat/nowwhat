@@ -162,3 +162,7 @@ input.input { -webkit-appearance: none; appearance: none; display: block; min-wi
 input.input[type='date'], input.input[type='datetime-local'] { min-height: 50px; line-height: 22px; text-align: left; }
 input.input::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 22px; }
 input.input::-webkit-datetime-edit { padding: 0; }
+/* Today: spend + log side by side */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.duo > .card { padding: 18px; min-height: 170px; text-align: left; align-items: flex-start; }
+.duo-plus { width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--money); display: grid; place-items: center; }
