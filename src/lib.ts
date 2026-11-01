@@ -385,6 +385,6 @@ export const lessonBatch = (st: State, t = today()) => {
   const perClass = Math.round(l.usd * blue)
   const fee = l.fee ?? 70
   // paid mid-month: the day the second fortnight starts
-  const due = `${mk}-${pad(st.settings.splitDay)}`
+  const due = `${mk}-${pad(Math.min(l.payDay ?? st.settings.splitDay, daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7))))}`
   return { month: mk, dates, first, due, usd: l.usd * dates.length, blue, perClass, ars: perClass * dates.length, fee, pln: r2(l.usd * dates.length * (st.settings.usdPln ?? 4) + fee) }
 }

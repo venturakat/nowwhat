@@ -149,6 +149,7 @@ export const LessonSetup = () => {
   const [days, setDays] = useState<number[]>(l?.days ?? [])
   const [time, setTime] = useState(l?.time ?? '')
   const [fee, setFee] = useState(numText(l?.fee ?? 70))
+  const [payDay, setPayDay] = useState(String(l?.payDay ?? st.settings.splitDay))
   const [since, setSince] = useState(l?.since ?? today())
   const u = parseNum(usd)
   return (
@@ -161,13 +162,14 @@ export const LessonSetup = () => {
           ))}
         </div>
       </Field>
+      <Field label="I pay on day of the month"><input className="input" inputMode="numeric" value={payDay} onChange={(e) => setPayDay(e.target.value.replace(/\D/g, ''))} /></Field>
       <Field label="Transfer fee each time (zł)"><input className="input" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></Field>
       <Field label="Time (yours)"><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
       {!l?.pays.length && <Field label="First class you haven’t paid for yet"><input className="input" type="date" value={since} onChange={(e) => setSince(e.target.value)} /></Field>}
       <button className="btn full" disabled={!u || !days.length} onClick={() => {
         update((d) => {
           const base: Lessons = d.lessons ?? { usd: 0, days: [], since, extra: [], skips: [], pays: [] }
-          d.lessons = { ...base, usd: u!, days: [...days].sort(), time: time || undefined, fee: parseNum(fee) ?? 0, since: base.pays.length ? base.since : since }
+          d.lessons = { ...base, usd: u!, days: [...days].sort(), time: time || undefined, fee: parseNum(fee) ?? 0, payDay: Math.min(31, Math.max(1, Number(payDay) || d.settings.splitDay)), since: base.pays.length ? base.since : since }
         })
         closeSheet()
         if (!st.lessons) refreshRates(true).catch(() => {})
