@@ -49,14 +49,14 @@ export const Supplies = () => {
       <List title="Buy now" empty={items.length ? 'Nothing to buy — you’re covered.' : undefined}>
         {buy.map(({ s, daysLeft, state }) => (
           <Row key={s.id} dot={state === 'out' ? C.alert : C.warn} title={s.name}
-            meta={`${daysLeft <= 0 ? 'Ran out' : 'Runs out'} ${fmtDay(s.enoughUntil)} · ${s.buyQty} ${s.unit ?? (s.buyQty === 1 ? 'pack' : 'packs')}`}
+            meta={<>{s.details && <div className="details">{s.details}</div>}{`${daysLeft <= 0 ? 'Ran out' : 'Runs out'} ${fmtDay(s.enoughUntil)} · ${s.buyQty} ${s.unit ?? (s.buyQty === 1 ? 'pack' : 'packs')}`}</>}
             trail={fmt(s.pricePerUnit * s.buyQty)} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
         ))}
         {projectBuys.map(({ p, item }) => <Row key={p.id + item} dot={C.home} title={item} meta={`For project: ${p.name}`} onClick={() => openSheet(<ProjectBuySheet pid={p.id} item={item} />)} />)}
       </List>
       <List title="You’re fine" empty={items.length ? undefined : EMPTY[cat]}>
         {ok.map(({ s, daysLeft }) => (
-          <Row key={s.id} dot={C.ok} title={s.name} meta={`Enough till ${fmtDay(s.enoughUntil)} · then ${s.buyQty} × ${fmt(s.pricePerUnit, true)}`} trail={`${daysLeft} d`} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
+          <Row key={s.id} dot={C.ok} title={s.name} meta={<>{s.details && <div className="details">{s.details}</div>}{`Enough till ${fmtDay(s.enoughUntil)} · then ${s.buyQty} × ${fmt(s.pricePerUnit, true)}`}</>} trail={`${daysLeft} d`} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
         ))}
       </List>
       <button className="btn full soft" onClick={() => openSheet(<SupplyEdit cat={cat} />)}>+ Add to {CAT_LABEL[cat]}</button>
@@ -72,6 +72,7 @@ const SupplySheet = ({ id }: { id: string }) => {
   const { daysLeft } = supplyStatus(s, st.settings)
   return (
     <Sheet title={s.name}>
+      {s.details && <div className="t17" style={{ marginTop: -4 }}>{s.details}</div>}
       <div className="t15 muted">{daysLeft <= 0 ? `Ran out ${relDays(daysLeft)}` : `Enough till ${fmtDay(s.enoughUntil)} (${relDays(daysLeft)})`} · one buy = {s.buyQty} × {fmt(s.pricePerUnit, true)}, lasts {s.lastsDays} days</div>
       <div className="card supplies" style={{ gap: 10 }}>
         <span className="t15 w5">Just bought it?</span>
@@ -98,6 +99,7 @@ const SupplyEdit = ({ id, cat }: { id?: string; cat: SupplyCat }) => {
     <FormSheet title={s ? 'Edit' : `New in ${CAT_LABEL[cat]}`} initial={init}
       fields={[
         { key: 'name', label: 'Name', type: 'text' },
+        { key: 'details', label: 'Details', type: 'text', placeholder: 'Dosage, pack size, amount, flavour…' },
         { key: 'pricePerUnit', label: 'Price per pack (zł)', type: 'number' },
         { key: 'buyQty', label: 'Packs per buy', type: 'number', step: 1 },
         { key: 'lastsDays', label: 'One buy lasts (days)', type: 'number', step: 1 },
@@ -105,7 +107,7 @@ const SupplyEdit = ({ id, cat }: { id?: string; cat: SupplyCat }) => {
         { key: 'cat', label: 'List', type: 'select', options: CATS }
       ]}
       onSave={(v) => update((d) => {
-        const data = { name: v.name, pricePerUnit: v.pricePerUnit ?? 0, buyQty: v.buyQty || 1, lastsDays: v.lastsDays || 30, enoughUntil: v.enoughUntil || today(), cat: v.cat || cat }
+        const data = { name: v.name, details: v.details?.trim() || undefined, pricePerUnit: v.pricePerUnit ?? 0, buyQty: v.buyQty || 1, lastsDays: v.lastsDays || 30, enoughUntil: v.enoughUntil || today(), cat: v.cat || cat }
         if (s) Object.assign(d.supplies.find((x) => x.id === s.id)!, data)
         else d.supplies.push({ id: uid(), ...data })
       })}

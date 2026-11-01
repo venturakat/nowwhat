@@ -104,6 +104,7 @@ export interface Supply {
   lastsDays: number // how long one buy lasts
   enoughUntil: string // YYYY-MM-DD
   unit?: string // "pack" by default
+  details?: string // dosage, pack size, amount, flavour…
 }
 
 export interface CleanTask {
