@@ -176,7 +176,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   }
   // the next batch of classes to pay for, on the day of its first class (until it's paid)
   const lb = lessonBatch(st)
-  if (lb && inHalf(lb.due)) out.push({ id: 'lessons', label: 'Spanish classes', amount: lb.pln, date: lb.due, meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtArs(lb.ars)}${lb.fee ? ` · incl. ${fmt(lb.fee)} fee` : ''} · ${fmtDay(lb.due)}`, kind: 'lessons' })
+  if (lb && inHalf(lb.due)) out.push({ id: 'lessons', label: 'Spanish classes', amount: lb.pln, date: lb.due, meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtDay(lb.due)}`, kind: 'lessons' })
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
