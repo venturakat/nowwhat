@@ -126,6 +126,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
         byCat[sp.cat].amount += sp.pricePerUnit * sp.buyQty
         byCat[sp.cat].n += 1
       }
+      if (sp.once) break // bought once, never again
       d = addDays(d, Math.max(1, sp.lastsDays))
     }
   }
@@ -324,6 +325,7 @@ export const fmtClock = (ms: number) => {
 
 // ---------- supplies ----------
 export const supplyStatus = (sp: Supply, s: Settings, t = today()) => {
+  if (sp.once) return { daysLeft: 0, state: 'buy' as const } // one-time buys wait on the list until bought
   const left = diffDays(t, sp.enoughUntil)
   const state: 'out' | 'buy' | 'ok' = left <= 0 ? 'out' : left <= leadFor(s, sp.cat) ? 'buy' : 'ok'
   return { daysLeft: left, state }

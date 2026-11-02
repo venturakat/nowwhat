@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { closeSheet, Field, Sheet } from './ui'
+import { Check, closeSheet, Field, Sheet } from './ui'
 import { addDays, numText, parseNum, today } from './lib'
 
 export type FieldDef =
@@ -7,11 +7,14 @@ export type FieldDef =
   | { key: string; label: string; type: 'number'; step?: number; placeholder?: string }
   | { key: string; label: string; type: 'select'; options: [string, string][] }
   | { key: string; label: string; type: 'toggle' }
+  | { key: string; label: string; type: 'check' } // a tick box with its label next to it
 
 type Vals = Record<string, any>
+// off: the field is greyed out and can't be changed while this returns true (e.g. one-time purchase ticked)
+type Def = FieldDef & { off?: (v: Vals) => boolean }
 
 // Generic bottom-sheet form. Number fields come back as numbers (or undefined when empty).
-export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode; onBack?: () => void; full?: boolean }) => {
+export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode; onBack?: () => void; full?: boolean }) => {
   const full = p.full ?? !!p.onBack
   // number fields are kept as typed text (so "12,50" works) and parsed on save
   const [v, setV] = useState<Vals>(() => {
@@ -42,8 +45,13 @@ export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals
   )
   return (
     <Sheet title={p.title} onBack={p.onBack} full={full}>
-      {p.fields.map((f) => (
-        <Field key={f.key} label={f.label}>
+      {p.fields.map((f) => f.type === 'check' ? (
+        <button key={f.key} type="button" className="row" style={{ gap: 10, alignSelf: 'flex-start', marginTop: -4 }} onClick={() => set(f.key, !v[f.key])}>
+          <Check on={!!v[f.key]} /><span className="t15">{f.label}</span>
+        </button>
+      ) : (
+        <fieldset key={f.key} className="fset" disabled={!!f.off?.(v)}>
+        <Field label={f.label}>
           {f.type === 'select' ? (
             <div className="seg">
               {f.options.map(([k, l]) => (
@@ -82,6 +90,7 @@ export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals
             />
           )}
         </Field>
+        </fieldset>
       ))}
       {p.extra}
       {full ? <div className="sheet-foot">{buttons}</div> : buttons}

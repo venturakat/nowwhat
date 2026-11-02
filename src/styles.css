@@ -181,3 +181,7 @@ input.input::-webkit-datetime-edit { padding: 0; }
 
 /* the logo in the Today header sits where the big title would be */
 .h1 .logo { display: block; margin: 2px 0 4.67px; } /* baseline lands where a 44px title's baseline is; total height = the title's 41.8px line */
+
+/* form fields that are switched off by another choice */
+.fset { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; transition: opacity .15s; }
+.fset:disabled { opacity: .35; }

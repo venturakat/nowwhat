@@ -106,6 +106,7 @@ export interface Supply {
   enoughUntil: string // YYYY-MM-DD
   unit?: string // "pack" by default
   details?: string // dosage, pack size, amount, flavour…
+  once?: boolean // one-time purchase: on the list until bought, then it's gone
 }
 
 export interface CleanTask {
