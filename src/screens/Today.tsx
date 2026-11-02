@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey } from '../lib'
-import { C, Chips, Header, Icon, openSettings, openSheet, Row, toast, useUi } from '../ui'
+import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
+import { C, Check, Chips, closeSheet, Header, Icon, openSettings, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
 
@@ -84,7 +84,7 @@ export const Today = () => {
   const t = today()
   const s = summarize(st, periodOf(t, st.settings).key)
   const list = things(st)
-  const top = list.slice(0, 4)
+  const top = list
   const nextP = summarize(st, shiftPeriod(s.info.key, 1))
   const nextIncome = nextP.items.filter((i) => i.kind === 'income').sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))[0]
   const pm = prevMonth(monthKey(t))
@@ -111,7 +111,6 @@ export const Today = () => {
       <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
         <div className="list-h" style={{ paddingBottom: 4 }}>
           <span className="t17">{top.length ? `Now, just ${top.length === 1 ? 'this' : `these ${top.length}`}` : 'Nothing urgent'}</span>
-          {list.length > 4 && <span className="t14 w5 muted">{list.length - 4} more later</span>}
         </div>
         {top.length === 0 && <div className="list-empty">You’re free. Rest counts too.</div>}
         {top.map((x) => (
@@ -121,6 +120,7 @@ export const Today = () => {
           </div>
         ))}
       </div>
+      <OtherTasks />
       {tx.total > 0 && !tx.paid && diffDays(t, due) > 5 && (
         <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: ZUS + PIT on {fmtDay(due)} · {fmt(tx.total)} · already in your budget</div>
       )}
@@ -129,3 +129,56 @@ export const Today = () => {
 }
 const shiftDay = (d: string) => addDays(d, 1)
 
+
+// ---------- other tasks: a plain checklist with my own colour dots ----------
+const TASK_COLORS: [string, string][] = [['money', C.money], ['work', C.work], ['supplies', C.supplies], ['closet', C.closet], ['home', C.home], ['alert', C.alert]]
+const dotOf = (c: string) => TASK_COLORS.find((x) => x[0] === c)?.[1] ?? C.line
+
+const OtherTasks = () => {
+  const st = useSt()
+  const t = today()
+  const tasks = (st.tasks ?? []).filter((x) => !x.doneAt || x.doneAt >= t)
+  const open = tasks.filter((x) => !x.doneAt)
+  const done = tasks.filter((x) => x.doneAt)
+  const toggle = (id: string) => update((d) => { const x = d.tasks?.find((y) => y.id === id); if (x) x.doneAt = x.doneAt ? undefined : today() })
+  return (
+    <div className="list">
+      <div className="list-h"><span className="t17">Other tasks</span>{open.length > 0 && <span className="t14 w5 muted">{open.length}</span>}</div>
+      {[...open, ...done].map((x) => (
+        <Row key={x.id} done={!!x.doneAt} title={x.text} dot={dotOf(x.color)}
+          trail={<span onClick={(e) => { e.stopPropagation(); toggle(x.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!x.doneAt} /></span>}
+          onClick={() => openSheet(<TaskSheet id={x.id} />)} />
+      ))}
+      <Row title={<span className="muted">+ Add a task</span>} onClick={() => openSheet(<TaskSheet />)} />
+    </div>
+  )
+}
+
+const TaskSheet = ({ id }: { id?: string }) => {
+  const st = useSt()
+  const x = st.tasks?.find((y) => y.id === id)
+  const [text, setText] = useState(x?.text ?? '')
+  const [color, setColor] = useState(x?.color ?? 'money')
+  const save = () => {
+    if (!text.trim()) return
+    update((d) => {
+      d.tasks ??= []
+      const y = d.tasks.find((z) => z.id === id)
+      if (y) Object.assign(y, { text: text.trim(), color })
+      else d.tasks.push({ id: uid(), text: text.trim(), color })
+    })
+    closeSheet()
+  }
+  return (
+    <Sheet title={x ? 'Task' : 'New task'}>
+      <input className="input" autoFocus value={text} placeholder="What needs doing" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} />
+      <div className="row" style={{ gap: 10 }}>
+        {TASK_COLORS.map(([k, c]) => (
+          <button key={k} aria-label={k} onClick={() => setColor(k)} style={{ width: 34, height: 34, borderRadius: '50%', background: c, outline: color === k ? '2px solid var(--ink)' : 'none', outlineOffset: 3 }} />
+        ))}
+      </div>
+      <button className="btn full" disabled={!text.trim()} onClick={save}>Save</button>
+      {x && <button className="btn full soft" onClick={() => { update((d) => { d.tasks = d.tasks!.filter((z) => z.id !== id) }); closeSheet() }}>Delete</button>}
+    </Sheet>
+  )
+}

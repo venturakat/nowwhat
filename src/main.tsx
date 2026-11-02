@@ -7,14 +7,14 @@ import '@fontsource/afacad/700.css'
 import './styles.css'
 import { App } from './App'
 import { hydrate, update } from './store'
-import { ensureFees } from './lib'
+import { ensureFees, purgeTasks } from './lib'
 import { startRates } from './rates'
 
 hydrate().then(() => {
-  update(ensureFees)
+  update((d) => { ensureFees(d); purgeTasks(d) })
   startRates()
   // a new month adds the next fixed fee
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') update(ensureFees) })
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') update((d) => { ensureFees(d); purgeTasks(d) }) })
 })
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

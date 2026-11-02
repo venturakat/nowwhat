@@ -237,6 +237,13 @@ export interface LessonPay {
   itemId?: ID // its line in the budget
 }
 
+export interface Task {
+  id: ID
+  text: string
+  color: string // one of TASK_COLORS
+  doneAt?: string // YYYY-MM-DD it was ticked — gone after that midnight
+}
+
 export interface State {
   version: number
   settings: Settings
@@ -250,6 +257,7 @@ export interface State {
   credits: Credit[]
   subscriptions: Subscription[]
   lessons?: Lessons
+  tasks?: Task[]
   supplies: Supply[]
   cleanTasks: CleanTask[]
   cleanPlan: CleanPlan

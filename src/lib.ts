@@ -289,6 +289,11 @@ export const feeDate = (c: { payDay?: number }, mk: string) => {
   return `${mk}-${pad(Math.min(c.payDay ?? 1, daysInMonth(y, m)))}`
 }
 // make sure every fixed-fee client has an entry for each month up to now (they get invoiced like hours)
+// ticked tasks disappear the midnight after they were done
+export const purgeTasks = (d: State) => {
+  const t = today()
+  if (d.tasks?.some((x) => x.doneAt && x.doneAt < t)) d.tasks = d.tasks.filter((x) => !x.doneAt || x.doneAt >= t)
+}
 export const ensureFees = (d: State) => {
   const cur = today().slice(0, 7)
   for (const c of d.clients) {
