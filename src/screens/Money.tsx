@@ -638,7 +638,7 @@ const Taxes = () => {
       <List>
         <Row dot={C.money} title={`${monthName(after, true)} cash flow`} meta={after > curM ? 'Grows as you invoice' : 'Revenue so far'} trail={`${fmt(afterTx.revenue)}${after > curM ? ' planned' : ''}`} onClick={() => editMonth(after)} />
         {/* what next month's PIT will roughly be, from the revenue counted so far (even before this month is paid) */}
-        <Row dot={C.money} title={`Estimated PIT-28 for ${monthName(after, true)}`} meta={`So far · to be paid on ${fmtDay(nextDue(payDate))}`} trail={fmt(afterTx.pit)} onClick={() => editMonth(after)} />
+        <Row dot={C.money} title={`Estimated PIT-28 for ${monthName(after, true)}`} meta={`So far · to be paid before ${fmtDay(nextDue(dueDate))}`} trail={fmt(afterTx.pit)} onClick={() => editMonth(after)} />
         <Row dot={C.money} title={`Annual PIT-28`} meta={`By 30 Apr ${Number(year) + 1} · ${fmt(yearPit)} paid monthly this year`} onClick={() => editMonth(curM)} />
       </List>
       <div className="t13 muted" style={{ padding: '0 4px' }}>PIT = {Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA). Tap any month to check or correct it. Rates are in Settings.</div>
