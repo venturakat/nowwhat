@@ -13,20 +13,30 @@ export const SettingsSheet = () => {
       <RatesCard />
       <TaxesCard />
       <DaysCard />
-      <div className="card" style={{ gap: 10 }}>
+      <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<BackupSheet />)}>
         <span className="t17">Backup</span>
-        <span className="t14 muted">Everything lives only on this phone. Save a backup file now and then (e.g. to iCloud Drive).</span>
-        <button className="btn" onClick={exportJson}>Save backup file</button>
-        <label className="btn soft" style={{ cursor: 'pointer' }}>
-          Restore from backup
-          <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { await importJson(f); toast('Restored') } catch { toast('That file is not a backup') } }} />
-        </label>
-        <button className="btn soft" onClick={() => { if (confirm('Erase everything on this phone and start fresh? Save a backup first if you need it.')) { useStore.getState().replace(seed()); toast('Fresh start') } }}>Erase everything</button>
-      </div>
+        <span className="t14 muted">Save a backup file, restore one, or start fresh</span>
+      </button>
       <span className="t13 muted">PIT {Math.round(s.pitRate * 100)}% · DRA {s.dra} · RCA {s.rca}</span>
     </Sheet>
   )
 }
+
+// backup lives on its own page, so "Erase everything" can't be tapped by accident from the main menu
+const BackupSheet = () => (
+  <Sheet title="Backup" full onBack={popSheet}>
+    <span className="t15 muted">Everything lives only on this phone. Save a backup file now and then (e.g. to iCloud Drive).</span>
+    <button className="btn" onClick={exportJson}>Save backup file</button>
+    <label className="btn soft" style={{ cursor: 'pointer' }}>
+      Restore from backup
+      <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { await importJson(f); toast('Restored') } catch { toast('That file is not a backup') } }} />
+    </label>
+    <div style={{ marginTop: 'auto', paddingTop: 32, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span className="t13 muted">Removes all your data from this phone. Save a backup first if you need it.</span>
+      <button className="btn soft" style={{ color: 'var(--alert)' }} onClick={() => { if (confirm('Erase everything on this phone and start fresh? This can’t be undone.')) { useStore.getState().replace(seed()); toast('Fresh start') } }}>Erase everything</button>
+    </div>
+  </Sheet>
+)
 
 const TaxesCard = () => {
   const st = useSt()

@@ -110,7 +110,7 @@ export const Today = () => {
       {Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0 && (
         <button className="card money" style={{ gap: 6 }} onClick={() => openSettings()}>
           <span className="t17">Fresh start</span>
-          <span className="t15">Have a backup file? Open Settings → Restore from backup. Or just start adding money in, clients and supplies.</span>
+          <span className="t15">Have a backup file? Open Settings → Backup → Restore from backup. Or just start adding money in, clients and supplies.</span>
         </button>
       )}
       <button className="card dark" style={{ gap: 6, paddingTop: 22, paddingBottom: 22 }} onClick={() => useUi.getState().go('money', 'budget')}>
