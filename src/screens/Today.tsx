@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
+import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Header, Icon, openSettings, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
+import { RecipeSheet } from './Recipes'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
 
 interface Thing { id: string; dot: string; title: string; meta: string; trail?: ReactNode; go: () => void }
@@ -135,6 +136,7 @@ export const Today = () => {
         ))}
       </div>
       <OtherTasks />
+      <CookToday />
       <BrainDump />
       {tx.total > 0 && !tx.paid && diffDays(t, due) > 5 && (
         <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: ZUS + PIT on {fmtDay(due)} · {fmt(tx.total)} · already in your budget</div>
@@ -195,6 +197,29 @@ const TaskSheet = ({ id }: { id?: string }) => {
       <button className="btn full" disabled={!text.trim()} onClick={save}>Save</button>
       {x && <button className="btn full soft" onClick={() => { update((d) => { d.tasks = d.tasks!.filter((z) => z.id !== id) }); closeSheet() }}>Delete</button>}
     </Sheet>
+  )
+}
+
+// ---------- what to cook today: two recipes with everything at home ----------
+// (ingredients matched to Groceries; the ones not cooked for the longest come first, for variety)
+const CookToday = () => {
+  const st = useSt()
+  const all = st.recipes ?? []
+  if (!all.length) return null
+  const ready = all
+    .filter((r) => { const ing = recipeStatus(st, r); return ing.length > 0 && ing.every((x) => x.state === 'home') })
+    .sort((a, b) => (a.lastCooked ?? '').localeCompare(b.lastCooked ?? '') || a.name.localeCompare(b.name))
+    .slice(0, 2)
+  return (
+    <div className="list">
+      <div className="list-h"><span className="t17">What to cook today</span></div>
+      {ready.length === 0 && <div className="list-empty">Nothing has everything at home right now.</div>}
+      {ready.map((r) => (
+        <Row key={r.id} dot={C.home} title={r.name}
+          meta={[r.minutes ? `${r.minutes} min` : '', 'all at home', r.lastCooked ? `cooked ${fmtDay(r.lastCooked)}` : ''].filter(Boolean).join(' · ')}
+          trail="→" onClick={() => openSheet(<RecipeSheet id={r.id} />)} />
+      ))}
+    </div>
   )
 }
 

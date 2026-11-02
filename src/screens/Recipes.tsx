@@ -30,7 +30,7 @@ export const Recipes = () => {
 }
 
 // a recipe: what's at home, what to buy, the steps, and "cooked it"
-const RecipeSheet = ({ id }: { id: string }) => {
+export const RecipeSheet = ({ id }: { id: string }) => {
   const st = useSt()
   const r = st.recipes?.find((x) => x.id === id)
   if (!r) return null
