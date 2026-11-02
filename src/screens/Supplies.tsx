@@ -21,7 +21,7 @@ export const buySupply = (id: string, qty?: number) =>
     const from = sp.enoughUntil < today() ? today() : sp.enoughUntil
     sp.enoughUntil = addDays(from, Math.round((sp.lastsDays * q) / Math.max(1, sp.buyQty)))
     const key = periodOf(today(), d.settings).key
-    ensurePeriod(d, key).items.push({ id: uid(), kind: 'expense', label: `${sp.name} (bought)`, amount: Math.round(sp.pricePerUnit * q * 100) / 100, date: today(), oneOff: true })
+    ensurePeriod(d, key).items.push({ id: uid(), kind: 'expense', label: `${sp.name} (bought)`, bought: true, amount: Math.round(sp.pricePerUnit * q * 100) / 100, date: today(), oneOff: true })
   })
 
 export const Supplies = () => {

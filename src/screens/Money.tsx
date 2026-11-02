@@ -34,6 +34,7 @@ const Budget = () => {
   const st = useSt()
   const [key, setKey] = useState(() => periodOf(today(), st.settings).key)
   const s = summarize(st, key)
+  const [showBought, setShowBought] = useState(false)
   const isNow = today() >= s.info.start && today() <= s.info.end
   const pct = s.income > 0 ? Math.min(1, (s.fixed + s.spent) / s.income) : 0
 
@@ -75,7 +76,10 @@ const Budget = () => {
   // foreign amounts: "€25.00" with the zł value under it
   const amt = (x: { amount: number; currency?: Currency }) => !x.currency || x.currency === 'PLN' ? fmt(x.amount) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(x.amount, x.currency)}<br /><span className="t13 muted" style={{ fontWeight: 400 }}>{fmt(toPln(st.settings, x.amount, x.currency))}</span></span>
   const incomes = s.items.filter((i) => i.kind === 'income')
-  const expenses = s.items.filter((i) => i.kind === 'expense')
+  const isBought = (i: { bought?: boolean; label: string }) => !!i.bought || i.label.endsWith(' (bought)')
+  const expenses = s.items.filter((i) => i.kind === 'expense' && !isBought(i))
+  const bought = s.items.filter((i) => i.kind === 'expense' && isBought(i))
+  const boughtSum = bought.reduce((a, i) => a + toPln(st.settings, i.amount, i.currency ?? 'PLN'), 0)
   const spends = st.spends.filter((x) => x.date >= s.info.start && x.date <= s.info.end).sort((a, b) => b.date.localeCompare(a.date))
   return (
     <>
@@ -115,7 +119,7 @@ const Budget = () => {
           ))}
         </List>
       )}
-      <List title="Fixed this fortnight" right={fmt(s.fixed)}>
+      <List title="Fixed this fortnight" right={fmt(s.fixed - boughtSum)}>
         {s.auto.filter((a) => !a.income).map((a) => (
           <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'lessons' ? 'spanish' : 'credits')} />
         ))}
@@ -124,6 +128,17 @@ const Budget = () => {
         ))}
         <Row title={<span className="muted">+ Add fixed expense</span>} onClick={() => editItem(undefined, 'expense')} />
       </List>
+      {bought.length > 0 && (
+        <div className="list">
+          <button className="list-h" style={{ width: '100%', paddingBottom: showBought ? undefined : 8 }} onClick={() => setShowBought(!showBought)}>
+            <span className="t17 row" style={{ gap: 6 }}>Supplies bought <span className="muted" style={{ display: 'inline-flex', transform: showBought ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><Icon.chevR /></span></span>
+            <span className="t14 w5 muted">{fmt(boughtSum)}</span>
+          </button>
+          {showBought && bought.map((i) => (
+            <Row key={i.id} dot={C.supplies} title={i.label.replace(/ \(bought\)$/, '')} meta={i.date ? fmtDay(i.date) : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+          ))}
+        </div>
+      )}
       <List title="Day-to-day spending" right={fmt(s.spent)} empty="Nothing logged. Tap “Log spending” on Today.">
         {spends.map((x) => (
           <Row key={x.id} title={x.note || 'Spending'} meta={fmtDay(x.date)} trail={amt(x)} onClick={() => editSpend(x.id)} />
