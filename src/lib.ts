@@ -586,9 +586,14 @@ export const recipeNutrition = (st: State, r: Recipe) => {
 // daily needs: protein by body weight and activity (EFSA 0.83 g/kg as the floor, more when active; 1.0 from 65),
 // fiber 25 g (EFSA adequate intake for adults)
 export const PROTEIN_PER_KG = { low: 0.83, light: 1.0, active: 1.3, very: 1.6 } as const
+// protein a day from weight + activity (no activity chosen = the minimum)
+export const autoProtein = (weightKg?: number, activity?: Settings['activity'], age?: number) => {
+  if (!weightKg) return undefined
+  let k: number = PROTEIN_PER_KG[activity ?? 'low']
+  if ((age ?? 0) >= 65) k = Math.max(k, 1.0)
+  return Math.round(weightKg * k)
+}
 export const dailyNeeds = (s: Settings) => {
-  if (!s.weightKg) return undefined
-  let k: number = PROTEIN_PER_KG[s.activity ?? 'light']
-  if ((s.age ?? 0) >= 65) k = Math.max(k, 1.0)
-  return { protein: Math.round(s.weightKg * k), fiber: 25 }
+  const protein = s.proteinGoal || autoProtein(s.weightKg, s.activity, s.age) // your own goal wins
+  return protein ? { protein, fiber: 25 } : undefined
 }

@@ -4,7 +4,7 @@ import { addDays, numText, parseNum, today } from './lib'
 
 export type FieldDef =
   | { key: string; label: string; type: 'text' | 'date' | 'datetime' | 'url'; placeholder?: string; clearable?: boolean }
-  | { key: string; label: string; type: 'number'; step?: number; placeholder?: string }
+  | { key: string; label: string; type: 'number'; step?: number; placeholder?: string | ((v: Record<string, any>) => string) } // a function: placeholder follows the other fields
   | { key: string; label: string; type: 'select'; options: [string, string][] }
   | { key: string; label: string; type: 'toggle' }
   | { key: string; label: string; type: 'check' } // a tick box with its label next to it
@@ -84,7 +84,7 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
               className="input"
               type={f.type === 'datetime' ? 'datetime-local' : f.type === 'number' ? 'text' : f.type}
               inputMode={f.type === 'number' ? (f.step === 1 ? 'numeric' : 'decimal') : undefined}
-              placeholder={'placeholder' in f ? f.placeholder : undefined}
+              placeholder={'placeholder' in f ? (typeof f.placeholder === 'function' ? f.placeholder(v) : f.placeholder) : undefined}
               value={v[f.key] ?? ''}
               onChange={(e) => set(f.key, f.type === 'number' ? e.target.value.replace(/[^0-9.,\-\s]/g, '') : e.target.value)}
             />
