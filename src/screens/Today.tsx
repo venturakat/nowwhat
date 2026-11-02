@@ -145,7 +145,7 @@ const OtherTasks = () => {
   const toggle = (id: string) => update((d) => { const x = d.tasks?.find((y) => y.id === id); if (x) x.doneAt = x.doneAt ? undefined : today() })
   return (
     <div className="list">
-      <div className="list-h"><span className="t17">Parking lot</span>{open.length > 0 && <span className="t14 w5 muted">{open.length}</span>}</div>
+      <div className="list-h"><span className="t17">Parking lot</span></div>
       {[...open, ...done].map((x) => (
         <Row key={x.id} done={!!x.doneAt} title={x.text} dot={dotOf(x.color)}
           trail={<span onClick={(e) => { e.stopPropagation(); toggle(x.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!x.doneAt} /></span>}
