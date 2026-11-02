@@ -168,3 +168,7 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .lrow .meta .details { color: var(--ink); opacity: .75; margin-bottom: 1px; }
 .note { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; padding: 10px 16px; text-align: left; }
 .note-text { font-size: 16px; line-height: 1.35; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* full-screen sheets (Settings) with the Save button pinned to the bottom */
+.sheet:has(.sheet-full) { height: 100%; }
+.sheet-foot { margin-top: auto; position: sticky; bottom: calc(-1 * (var(--safe-b) + 24px)); margin-bottom: calc(-1 * (var(--safe-b) + 24px)); padding: 12px 0 calc(var(--safe-b) + 24px); background: var(--bg); display: flex; flex-direction: column; gap: 10px; }

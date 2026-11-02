@@ -156,8 +156,17 @@ export const List = ({ title, right, children, empty, roomy }: { title?: ReactNo
 export const Check = ({ on }: { on: boolean }) => <span className={'check' + (on ? ' on' : '')}>{on && <Icon.check />}</span>
 
 // onBack: a sub-page (e.g. a Settings category) gets a ‹ back arrow next to its title
-export const Sheet = ({ title, children, onBack }: { title: string; children: ReactNode; onBack?: () => void }) => (
+// and a swipe to the right goes back too (see swipe.ts). full: the sheet takes the whole screen.
+let sheetBack: (() => void) | null = null
+export const currentSheetBack = () => sheetBack
+export const Sheet = ({ title, children, onBack, full }: { title: string; children: ReactNode; onBack?: () => void; full?: boolean }) => {
+  useEffect(() => {
+    sheetBack = onBack ?? null
+    return () => { if (sheetBack === onBack) sheetBack = null }
+  }, [onBack])
+  return (
   <>
+    {full && <span className="sheet-full" hidden />}
     <div className="grab" />
     <div className="between">
       <div className="row" style={{ gap: 2, alignItems: 'center' }}>
@@ -168,7 +177,8 @@ export const Sheet = ({ title, children, onBack }: { title: string; children: Re
     </div>
     {children}
   </>
-)
+  )
+}
 
 export const Field = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="field">

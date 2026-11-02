@@ -9,12 +9,13 @@ import { App } from './App'
 import { hydrate, update } from './store'
 import { ensureFees, purgeTasks } from './lib'
 import { startRates } from './rates'
-import { startSwipe } from './swipe'
+import { startSheetSwipe, startSwipe } from './swipe'
 
 hydrate().then(() => {
   update((d) => { ensureFees(d); purgeTasks(d) })
   startRates()
   startSwipe()
+  startSheetSwipe()
   // a new month adds the next fixed fee
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') update((d) => { ensureFees(d); purgeTasks(d) }) })
 })

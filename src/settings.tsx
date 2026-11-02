@@ -9,7 +9,7 @@ export const SettingsSheet = () => {
   const st = useSt()
   const s = st.settings
   return (
-    <Sheet title="Settings">
+    <Sheet title="Settings" full>
       <RatesCard />
       <TaxesCard />
       <DaysCard />
