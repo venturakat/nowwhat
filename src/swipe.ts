@@ -42,20 +42,20 @@ export const startSwipe = () => {
     const dir: 1 | -1 = g.dx < 0 ? 1 : -1
     const w = window.innerWidth
     const speed = Math.abs(g.dx) / Math.max(1, Date.now() - g.t)
-    if (!canSwipe(dir) || !(Math.abs(g.dx) > w * 0.25 || (speed > 0.35 && Math.abs(g.dx) > 30))) {
-      set(g.els, 0, 1, 'transform .28s cubic-bezier(.2,.9,.3,1.2), opacity .2s') // spring back
+    if (!canSwipe(dir) || !(Math.abs(g.dx) > w * 0.2 || (speed > 0.35 && Math.abs(g.dx) > 30))) {
+      set(g.els, 0, 1, 'transform .22s cubic-bezier(.2,.9,.3,1.2), opacity .16s') // spring back
       return
     }
-    set(g.els, -dir * w, 0, 'transform .16s ease-in, opacity .16s ease-in')
+    set(g.els, -dir * w, 0, 'transform .11s ease-in, opacity .11s ease-in')
     setTimeout(() => {
       set(g.els, 0, 1)
       flushSync(() => swipeSub(dir))
       window.scrollTo({ top: 0 })
       const next = content()
       set(next, dir * w * 0.35, 0)
-      requestAnimationFrame(() => requestAnimationFrame(() => set(next, 0, 1, 'transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s ease-out')))
-      setTimeout(() => set(next, 0, 1, ''), 360)
-    }, 150)
+      requestAnimationFrame(() => requestAnimationFrame(() => set(next, 0, 1, 'transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease-out')))
+      setTimeout(() => set(next, 0, 1, ''), 270)
+    }, 100)
   }
   document.addEventListener('touchend', end)
   document.addEventListener('touchcancel', end)
