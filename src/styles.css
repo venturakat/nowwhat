@@ -199,3 +199,8 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .pstep.end .pdot { background: var(--card); box-shadow: 0 0 0 2px var(--line) inset; }
 .pstep.end .ptime { color: var(--ink2); }
 .ptext { display: flex; flex-direction: column; gap: 2px; line-height: 1.35; padding-top: 1px; }
+
+/* loading screen */
+.splash { position: fixed; inset: 0; z-index: 100; background: var(--bg); color: var(--ink); display: flex; align-items: center; justify-content: center; transition: opacity .3s ease; }
+.splash.out { opacity: 0; pointer-events: none; }
+.splash svg { width: min(78vw, 420px); height: auto; overflow: visible; }

@@ -1,6 +1,6 @@
 // The now what logo: the doom-pile sign + lowercase wordmark (Afacad Bold, outlined).
 // Exported from Figma (Components → "now what · logo & icon" → logo/lockup, tone=ink). Uses currentColor.
-const PATHS = [
+export const LOGO_PATHS = [
   'M44.833 40.4649C45.9528 40.4649 46.8606 41.3727 46.8606 42.4925V44.5201C46.8605 45.6399 45.9528 46.5478 44.833 46.5478H2.02762C0.907858 46.5478 9.66352e-05 45.6399 0 44.5201V42.4925C0 41.3727 0.907798 40.4649 2.02762 40.4649H44.833Z',
   'M4.98545 29.7996L39.5959 32.2202C40.713 32.2983 41.5551 33.2671 41.477 34.3842L41.3357 36.4066C41.2576 37.5236 40.2887 38.3662 39.1717 38.2881L4.56127 35.868C3.44418 35.7899 2.60206 34.8206 2.68018 33.7035L2.82142 31.6812C2.89954 30.5641 3.8684 29.7216 4.98545 29.7996Z',
   'M44.1963 20.5187C45.3145 20.4601 46.2686 21.319 46.3273 22.4372L46.4334 24.4622C46.492 25.5804 45.6331 26.5345 44.5149 26.5932L5.36783 28.6446C4.24956 28.7032 3.29545 27.8443 3.23681 26.7261L3.13076 24.7011C3.07219 23.5829 3.93105 22.6287 5.04926 22.5701L44.1963 20.5187Z',
@@ -21,7 +21,7 @@ export const Logo = ({ size = 44 }: { size?: number }) => {
   const height = (47 * size) / FONT
   return (
   <svg className="logo" viewBox="0 0 269 47" height={height} width={(height * 269) / 47} fill="currentColor" role="img" aria-label="now what">
-    {PATHS.map((d, i) => <path key={i} d={d} />)}
+    {LOGO_PATHS.map((d, i) => <path key={i} d={d} />)}
   </svg>
   )
 }

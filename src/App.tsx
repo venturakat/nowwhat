@@ -8,6 +8,7 @@ import { Supplies } from './screens/Supplies'
 import { Home } from './screens/Home'
 import { Closet } from './screens/Closet'
 import { fmtClock } from './lib'
+import { Splash } from './Splash'
 
 registerSettings(() => <SettingsSheet />)
 
@@ -54,8 +55,10 @@ export const App = () => {
   const ready = useStore((s) => s.ready)
   const { tab, sheet, under, toast, go, close } = useUi()
   const area = useVisibleArea()
+  const [splash, setSplash] = useState(true) // the loading animation, once per app start
   return (
     <div className="app">
+      {splash && <Splash onDone={() => setSplash(false)} />}
       {tab === 'today' && <Today />}
       {tab === 'money' && <Money />}
       {tab === 'supplies' && <Supplies />}
