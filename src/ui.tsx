@@ -93,6 +93,11 @@ export const Header = ({ sub, title, right }: { sub: string; title: string; righ
 
 // the sub-tabs of the current screen, so a sideways swipe can switch them
 let swipeTabs: { keys: string[]; value: string; onChange: (v: string) => void; owner: object } | null = null
+export const canSwipe = (dir: 1 | -1) => {
+  if (!swipeTabs) return false
+  const i = swipeTabs.keys.indexOf(swipeTabs.value) + dir
+  return i >= 0 && i < swipeTabs.keys.length
+}
 export const swipeSub = (dir: 1 | -1) => {
   if (!swipeTabs) return
   const i = swipeTabs.keys.indexOf(swipeTabs.value) + dir

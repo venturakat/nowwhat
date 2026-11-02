@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSt, useStore } from './store'
-import { Icon, openSheet, registerSettings, swipeSub, useUi, type Tab } from './ui'
+import { Icon, openSheet, registerSettings, useUi, type Tab } from './ui'
 import { SettingsSheet } from './settings'
 import { Today } from './screens/Today'
 import { Money, SpendSheet, StartTimerSheet, stopTimer } from './screens/Money'
@@ -54,21 +54,8 @@ export const App = () => {
   const ready = useStore((s) => s.ready)
   const { tab, sheet, toast, go, close } = useUi()
   const area = useVisibleArea()
-  // sideways swipe on a screen switches its sub-tabs
-  const touch = useRef<{ x: number; y: number; t: number } | null>(null)
-  const onStart = (e: React.TouchEvent) => {
-    const el = e.target as HTMLElement
-    touch.current = sheet || e.touches.length > 1 || el.closest('.chips, input, textarea, select, .noswipe') ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
-  }
-  const onEnd = (e: React.TouchEvent) => {
-    const s = touch.current; touch.current = null
-    if (!s) return
-    const dx = e.changedTouches[0].clientX - s.x, dy = e.changedTouches[0].clientY - s.y
-    if (Math.abs(dx) > 60 && Math.abs(dy) < Math.abs(dx) * 0.5 && Date.now() - s.t < 700) swipeSub(dx < 0 ? 1 : -1)
-  }
-  if (!ready) return null
   return (
-    <div className="app" onTouchStart={onStart} onTouchEnd={onEnd}>
+    <div className="app">
       {tab === 'today' && <Today />}
       {tab === 'money' && <Money />}
       {tab === 'supplies' && <Supplies />}
