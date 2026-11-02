@@ -479,6 +479,12 @@ export const recipeStatus = (st: State, r: Recipe) => r.ingredients.map((line) =
   const state: 'home' | 'buy' | 'none' = !sp ? 'none' : sp.once ? 'buy' : supplyStatus(sp, st.settings).state === 'ok' ? 'home' : 'buy'
   return { line, sp, state }
 })
+// aerogrill steps written as "minutes left on the timer" -> how long each step takes
+export const leftToDurations = (steps: CookStep[]): CookStep[] => {
+  const xs = steps.slice().sort((a, b) => (b.min ?? 0) - (a.min ?? 0))
+  return xs.map((x, i) => ({ text: x.text, min: x.min === undefined ? undefined : x.min - (xs[i + 1]?.min ?? 0) || undefined }))
+}
+
 // turn pasted text (e.g. a recipe from a chat) into a recipe draft:
 // headings Ingredients / Stove / Aerogrill (air fryer) / Glaze · Sauce / Notes; "12 min" in a step line becomes its time
 export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
@@ -497,7 +503,7 @@ export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
   const bullet = /^([-•*–—]|\d+[.)]|step\s*\d+[:.)]?)\s*/i
   let sec: Sec = 'none'
   const r = { ingredients: [] as string[], stove: [] as CookStep[], air: [] as CookStep[], sauce: [] as string[], notes: [] as string[] }
-  let minutes: number | undefined, airTemp: number | undefined
+  let minutes: number | undefined, airTemp: number | undefined, airLeft = false
   const step = (b: string): CookStep => {
     const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(min|mins|minutes)\b/i)
     // the time moves to the timeline, so drop "– 12 min" / ", 8 min left" / "(5 min)" from the end of the text
@@ -517,7 +523,7 @@ export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
     if (!body) continue
     if (sec === 'ing') r.ingredients.push(body)
     else if (sec === 'stove') r.stove.push(step(body))
-    else if (sec === 'air') { r.air.push(step(body)); const t = body.match(/(\d{3})\s*°\s*C/i); if (t && !airTemp) airTemp = Number(t[1]) }
+    else if (sec === 'air') { if (/\d+\s*(min|mins|minutes)\s+left\b/i.test(body)) airLeft = true; r.air.push(step(body)); const t = body.match(/(\d{3})\s*°\s*C/i); if (t && !airTemp) airTemp = Number(t[1]) }
     else if (sec === 'sauce') r.sauce.push(body)
     else if (sec === 'note') r.notes.push(body)
     else if (/^[-•*–—]/.test(l)) r.ingredients.push(body)
@@ -525,7 +531,7 @@ export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
     else if (!minutes && /(\d+)\s*(min|minutes)\b/i.test(l)) minutes = Number(l.match(/(\d+)\s*(min|minutes)\b/i)![1])
     else r.notes.push(body)
   }
-  // aerogrill steps go from the longest time left to the shortest
-  r.air.sort((a, b) => (b.min ?? 0) - (a.min ?? 0))
-  return { name, minutes, ingredients: r.ingredients, stove: r.stove, air: r.air, airTemp, sauce: r.sauce, notes: r.notes.join('\n') || undefined }
+  // pasted aerogrill times written as "8 min left" become how long each step takes
+  const air = airLeft ? leftToDurations(r.air) : r.air
+  return { name, minutes, ingredients: r.ingredients, stove: r.stove, air, airTemp, airDur: true, sauce: r.sauce, notes: r.notes.join('\n') || undefined }
 }

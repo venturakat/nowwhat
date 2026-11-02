@@ -3,7 +3,7 @@ import { get as idbGet, set as idbSet } from 'idb-keyval'
 import type { BudgetItem, State } from './types'
 import { seed } from './seed'
 import { defaultCleanPlan, defaultCleanTasks } from './cleaning'
-import { periodItems, periodOf, syncProjectBuys, today, uid } from './lib'
+import { leftToDurations, periodItems, periodOf, syncProjectBuys, today, uid } from './lib'
 
 const KEY = 'now-what-state'
 
@@ -71,7 +71,12 @@ export const migrate = (s: State): State => {
   }
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
   // recipes: the old plain "steps" list becomes the Stove block
-  for (const r of out.recipes ?? []) if (r.steps) { if (r.steps.length && !r.stove?.length) r.stove = r.steps.map((text) => ({ text })); delete r.steps }
+  for (const r of out.recipes ?? []) {
+    if (r.steps) { if (r.steps.length && !r.stove?.length) r.stove = r.steps.map((text) => ({ text })); delete r.steps }
+    // aerogrill steps used to be "minutes left"; now they're how long each step takes, like the stove
+    if (r.air?.length && !r.airDur) r.air = leftToDurations(r.air)
+    r.airDur = true
+  }
   return out
 }
 
