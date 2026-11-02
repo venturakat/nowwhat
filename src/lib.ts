@@ -331,6 +331,25 @@ export const supplyStatus = (sp: Supply, s: Settings, t = today()) => {
   return { daysLeft: left, state }
 }
 
+// A project's "need to buy" items live on the Supplies list as one-time buys (so they can get a price).
+// The project's text stays the source: new items appear, removed ones go, done projects take theirs away.
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+export const syncProjectBuys = (d: State) => {
+  const open = new Map(d.projects.filter((p) => !p.done).map((p) => [p.id, splitList(p.toBuy)]))
+  d.supplies = d.supplies.filter((s) => !s.projectId || (open.get(s.projectId) ?? []).some((n) => same(n, s.name)))
+  for (const [pid, items] of open)
+    for (const name of items)
+      if (!d.supplies.some((s) => s.projectId === pid && same(s.name, name)))
+        d.supplies.push({ id: uid(), cat: 'home', name, pricePerUnit: 0, buyQty: 1, lastsDays: 30, enoughUntil: today(), once: true, projectId: pid })
+}
+// change / drop one item in a project's "need to buy" text
+export const editProjectBuy = (d: State, pid: string, name: string, to?: string) => {
+  const p = d.projects.find((x) => x.id === pid)
+  if (!p) return
+  const items = splitList(p.toBuy).flatMap((n) => (same(n, name) ? (to?.trim() ? [to.trim()] : []) : [n]))
+  p.toBuy = items.join(', ') || undefined
+}
+
 // "glue, screws ,  hooks" -> ['glue', 'screws', 'hooks']
 export const splitList = (s?: string) => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean)
 

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, splitList, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
+import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Header, Icon, openSettings, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
@@ -68,10 +68,9 @@ const things = (st: State): Thing[] => {
   // supplies soon (not urgent)
   const soon = sup.filter((x) => x.daysLeft > 2 && x.s.cat !== 'meds')
   if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s, st.settings), dot: C.supplies, title: `Shopping run · ${soon.length} ${soon.length === 1 ? 'thing' : 'things'}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · by ${fmtDay(soon[0].s.enoughUntil)}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
-  // one-off things to buy: one-time supplies + what projects still need
+  // one-off things to buy: one-time supplies (projects' "need to buy" items are among them)
   const onceBuys = st.supplies.filter((s) => s.once)
-  const projBuys = st.projects.filter((p) => !p.done).flatMap((p) => splitList(p.toBuy))
-  const names = [...onceBuys.map((s) => s.name), ...projBuys]
+  const names = onceBuys.map((s) => s.name)
   if (names.length) {
     const sum = onceBuys.reduce((a, s) => a + s.pricePerUnit * s.buyQty, 0)
     out.push({ id: 'tobuy-' + names.length, dot: C.home, title: `To buy · ${names.length} ${names.length === 1 ? 'thing' : 'things'}`, meta: `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''}`, trail: sum > 0 ? fmt(sum) : '→', go: () => go('supplies', onceBuys[0]?.cat ?? 'home') })

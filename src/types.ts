@@ -107,6 +107,7 @@ export interface Supply {
   unit?: string // "pack" by default
   details?: string // dosage, pack size, amount, flavour…
   once?: boolean // one-time purchase: on the list until bought, then it's gone
+  projectId?: ID // came from a project's "need to buy" (kept in sync with it)
 }
 
 export interface CleanTask {

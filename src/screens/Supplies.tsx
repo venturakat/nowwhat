@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Supply, SupplyCat } from '../types'
-import { addDays, CAT_LABEL, splitList, fmt, fmtDay, nextBuy, periodOf, relDays, supplyStatus, today, uid } from '../lib'
+import { addDays, CAT_LABEL, editProjectBuy, fmt, fmtDay, nextBuy, periodOf, relDays, supplyStatus, today, uid } from '../lib'
 import { C, Chips, Header, List, openSheet, Row, Sheet, closeSheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 
@@ -20,7 +20,11 @@ export const buySupply = (id: string, qty?: number) =>
     const q = qty ?? sp.buyQty
     const key = periodOf(today(), d.settings).key
     ensurePeriod(d, key).items.push({ id: uid(), kind: 'expense', label: `${sp.name} (bought)`, bought: true, amount: Math.round(sp.pricePerUnit * q * 100) / 100, date: today(), oneOff: true })
-    if (sp.once) { d.supplies = d.supplies.filter((x) => x.id !== id); return } // one-time: done
+    if (sp.once) { // one-time: done (and ticked off its project)
+      d.supplies = d.supplies.filter((x) => x.id !== id)
+      if (sp.projectId) editProjectBuy(d, sp.projectId, sp.name)
+      return
+    }
     const from = sp.enoughUntil < today() ? today() : sp.enoughUntil
     sp.enoughUntil = addDays(from, Math.round((sp.lastsDays * q) / Math.max(1, sp.buyQty)))
   })
@@ -35,7 +39,7 @@ export const Supplies = () => {
   const ok = withStatus.filter((x) => x.state === 'ok')
   const total = buy.reduce((a, x) => a + x.s.pricePerUnit * x.s.buyQty, 0)
   const runDate = buy.length ? buy.map((x) => nextBuy(x.s, st.settings)).sort()[0] : null
-  const projectBuys = cat === 'home' ? st.projects.filter((p) => !p.done).flatMap((p) => splitList(p.toBuy).map((item) => ({ p, item }))) : []
+  const projName = (pid?: string) => st.projects.find((p) => p.id === pid)?.name
   return (
     <div className="screen">
       <Header sub="Everything that runs out" title="Supplies" />
@@ -50,10 +54,9 @@ export const Supplies = () => {
       <List title="Buy now" empty={items.length ? 'Nothing to buy — you’re covered.' : undefined}>
         {buy.map(({ s, daysLeft, state }) => (
           <Row key={s.id} dot={s.once ? C.home : state === 'out' ? C.alert : C.warn} title={s.name}
-            meta={<>{s.details && <div className="details">{s.details}</div>}{s.once ? 'One-time buy' : `${daysLeft <= 0 ? 'Ran out' : 'Runs out'} ${fmtDay(s.enoughUntil)} · ${s.buyQty} ${s.unit ?? (s.buyQty === 1 ? 'item' : 'items')}`}</>}
-            trail={fmt(s.pricePerUnit * s.buyQty)} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
+            meta={<>{s.details && <div className="details">{s.details}</div>}{s.once ? (s.projectId ? `For project: ${projName(s.projectId)}` : 'One-time buy') : `${daysLeft <= 0 ? 'Ran out' : 'Runs out'} ${fmtDay(s.enoughUntil)} · ${s.buyQty} ${s.unit ?? (s.buyQty === 1 ? 'item' : 'items')}`}</>}
+            trail={s.pricePerUnit ? fmt(s.pricePerUnit * s.buyQty) : s.once ? 'add price' : fmt(0)} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
         ))}
-        {projectBuys.map(({ p, item }) => <Row key={p.id + item} dot={C.home} title={item} meta={`For project: ${p.name}`} onClick={() => openSheet(<ProjectBuySheet pid={p.id} item={item} />)} />)}
       </List>
       <List title="You’re fine" empty={items.length ? undefined : EMPTY[cat]}>
         {ok.map(({ s, daysLeft }) => (
@@ -74,7 +77,7 @@ const SupplySheet = ({ id }: { id: string }) => {
   return (
     <Sheet title={s.name}>
       {s.details && <div className="t17" style={{ marginTop: -4 }}>{s.details}</div>}
-      <div className="t15 muted">{s.once ? `One-time buy · ${fmt(s.pricePerUnit, true)} each` : <>{daysLeft <= 0 ? `Ran out ${relDays(daysLeft)}` : `Enough till ${fmtDay(s.enoughUntil)} (${relDays(daysLeft)})`} · one buy = {s.buyQty} × {fmt(s.pricePerUnit, true)}, lasts {s.lastsDays} days</>}</div>
+      <div className="t15 muted">{s.once ? `${s.projectId ? `For project: ${st.projects.find((p) => p.id === s.projectId)?.name}` : 'One-time buy'} · ${s.pricePerUnit ? `${fmt(s.pricePerUnit, true)} each` : 'no price yet'}` : <>{daysLeft <= 0 ? `Ran out ${relDays(daysLeft)}` : `Enough till ${fmtDay(s.enoughUntil)} (${relDays(daysLeft)})`} · one buy = {s.buyQty} × {fmt(s.pricePerUnit, true)}, lasts {s.lastsDays} days</>}</div>
       <div className="card supplies" style={{ gap: 10 }}>
         <span className="t15 w5">Just bought it?</span>
         <div className="between">
@@ -87,7 +90,8 @@ const SupplySheet = ({ id }: { id: string }) => {
         </div>
         <button className="btn" onClick={() => { buySupply(s.id, qty); closeSheet(); toast(s.once ? 'Got it · off the list, added to spending' : 'Got it · added to this fortnight’s spending') }}>Bought {qty}</button>
       </div>
-      <button className="btn full soft" onClick={() => openSheet(<SupplyEdit id={s.id} cat={s.cat} />)}>Edit</button>
+      <button className="btn full soft" onClick={() => openSheet(<SupplyEdit id={s.id} cat={s.cat} />)}>{s.once && !s.pricePerUnit ? 'Add price & details' : 'Edit'}</button>
+      {s.projectId && <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'projects') }}>Open projects</button>}
     </Sheet>
   )
 }
@@ -111,26 +115,11 @@ const SupplyEdit = ({ id, cat }: { id?: string; cat: SupplyCat }) => {
       onSave={(v) => update((d) => {
         const once = !!v.once
         const data = { name: v.name, details: v.details?.trim() || undefined, pricePerUnit: v.pricePerUnit ?? 0, buyQty: once ? 1 : v.buyQty || 1, lastsDays: v.lastsDays || 30, enoughUntil: once ? today() : v.enoughUntil || today(), cat: v.cat || cat, once: once || undefined }
+        if (s?.projectId && data.name.trim() !== s.name) editProjectBuy(d, s.projectId, s.name, data.name) // renamed: rename it in the project too
         if (s) Object.assign(d.supplies.find((x) => x.id === s.id)!, data)
         else d.supplies.push({ id: uid(), ...data })
       })}
-      onDelete={s ? () => update((d) => { d.supplies = d.supplies.filter((x) => x.id !== s.id) }) : undefined}
+      onDelete={s ? () => update((d) => { d.supplies = d.supplies.filter((x) => x.id !== s.id); if (s.projectId) editProjectBuy(d, s.projectId, s.name) }) : undefined}
     />
-  )
-}
-
-// an item from a project's "need to buy": tick it off, or open the project
-const ProjectBuySheet = ({ pid, item }: { pid: string; item: string }) => {
-  const st = useSt()
-  const p = st.projects.find((x) => x.id === pid)
-  return (
-    <Sheet title={item}>
-      <span className="t15 muted">For project: {p?.name}</span>
-      <button className="btn full" onClick={() => {
-        update((d) => { const x = d.projects.find((y) => y.id === pid); if (x) x.toBuy = splitList(x.toBuy).filter((i) => i !== item).join(', ') || undefined })
-        closeSheet(); toast('Got it')
-      }}>Got it</button>
-      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'projects') }}>Open projects</button>
-    </Sheet>
   )
 }

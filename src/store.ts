@@ -3,7 +3,7 @@ import { get as idbGet, set as idbSet } from 'idb-keyval'
 import type { BudgetItem, State } from './types'
 import { seed } from './seed'
 import { defaultCleanPlan, defaultCleanTasks } from './cleaning'
-import { periodItems, periodOf, today, uid } from './lib'
+import { periodItems, periodOf, syncProjectBuys, today, uid } from './lib'
 
 const KEY = 'now-what-state'
 
@@ -69,6 +69,7 @@ export const migrate = (s: State): State => {
     }
     out.version = 8
   }
+  syncProjectBuys(out) // project "need to buy" items → one-time supplies
   return out
 }
 
@@ -91,6 +92,7 @@ export const useStore = create<Store>((set, get) => ({
   update: (recipe) => {
     const d = structuredClone(get().st)
     recipe(d)
+    syncProjectBuys(d)
     set({ st: d })
     persist(d)
   },
