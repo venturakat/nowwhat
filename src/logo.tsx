@@ -15,8 +15,13 @@ const PATHS = [
   'M256.333 44.1069V25.218H251.754V19.5758H256.456V11.3988H263.325V19.5758H268.19V25.218H263.447V44.1069H256.333Z',
 ]
 
-export const Logo = ({ height = 40 }: { height?: number }) => (
+// the wordmark was outlined at 58.87px, so size 44 = the same letters as a 44px .h1 title
+const FONT = 58.87464904785156
+export const Logo = ({ size = 44 }: { size?: number }) => {
+  const height = (47 * size) / FONT
+  return (
   <svg className="logo" viewBox="0 0 269 47" height={height} width={(height * 269) / 47} fill="currentColor" role="img" aria-label="now what">
     {PATHS.map((d, i) => <path key={i} d={d} />)}
   </svg>
-)
+  )
+}
