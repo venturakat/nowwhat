@@ -13,7 +13,7 @@ export const Home = () => {
   return (
     <div className="screen">
       <Header sub={sub === 'projects' ? `Home · ${open} open` : 'Home'} title={sub === 'projects' ? 'Projects' : 'Cleaning'} />
-      <Chips items={[['cleaning', 'Cleaning'], ['projects', 'Projects']]} value={sub as any} onChange={setSub} />
+      <Chips items={[['cleaning', 'Cleaning'], ['projects', 'Projects']]} value={sub as any} onChange={setSub} swipe />
       {sub === 'cleaning' ? <Cleaning /> : <Projects />}
     </div>
   )

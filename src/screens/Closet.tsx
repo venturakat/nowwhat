@@ -41,7 +41,7 @@ export const Closet = () => {
   return (
     <div className="screen">
       <Header sub={sub === 'own' ? `Closet · ${st.closet.length} things` : 'Closet'} title={sub === 'own' ? 'Wardrobe' : sub === 'buy' ? 'To buy' : 'Outfits'} />
-      <Chips items={[['own', 'I own'], ['buy', 'To buy'], ['outfits', 'Outfits']]} value={sub as any} onChange={setSub} />
+      <Chips items={[['own', 'I own'], ['buy', 'To buy'], ['outfits', 'Outfits']]} value={sub as any} onChange={setSub} swipe />
       {sub === 'own' && <Own />}
       {sub === 'buy' && <ToBuy />}
       {sub === 'outfits' && <Outfits />}

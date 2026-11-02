@@ -38,7 +38,7 @@ export const Supplies = () => {
   return (
     <div className="screen">
       <Header sub="Everything that runs out" title="Supplies" />
-      <Chips items={CATS} value={cat} onChange={setSub} />
+      <Chips items={CATS} value={cat} onChange={setSub} swipe />
       {buy.length > 0 && (
         <div className="card supplies" style={{ gap: 6 }}>
           <span className="t15 w5">Shopping run · {runDate === today() ? 'today' : fmtDay(runDate!)} · already in budget</span>

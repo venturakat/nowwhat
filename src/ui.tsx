@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { ClosetCat } from './types'
 
 // ---------- navigation / sheets / toast ----------
@@ -91,15 +91,35 @@ export const Header = ({ sub, title, right }: { sub: string; title: string; righ
   </div>
 )
 
-export const Chips = <T extends string>({ items, value, onChange }: { items: [T, string][]; value: T; onChange: (v: T) => void }) => (
-  <div className="chips">
-    {items.map(([k, l]) => (
-      <button key={k} className={'chip' + (k === value ? ' on' : '')} onClick={() => onChange(k)}>
-        {l}
-      </button>
-    ))}
-  </div>
-)
+// the sub-tabs of the current screen, so a sideways swipe can switch them
+let swipeTabs: { keys: string[]; value: string; onChange: (v: string) => void; owner: object } | null = null
+export const swipeSub = (dir: 1 | -1) => {
+  if (!swipeTabs) return
+  const i = swipeTabs.keys.indexOf(swipeTabs.value) + dir
+  if (i >= 0 && i < swipeTabs.keys.length) swipeTabs.onChange(swipeTabs.keys[i])
+}
+
+export const Chips = <T extends string>({ items, value, onChange, swipe }: { items: [T, string][]; value: T; onChange: (v: T) => void; swipe?: boolean }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  const me = useRef({})
+  if (swipe) swipeTabs = { keys: items.map((x) => x[0]), value, onChange: onChange as (v: string) => void, owner: me.current }
+  // a screen that's leaving only clears its own tabs (the next screen may have registered already)
+  useEffect(() => () => { if (swipeTabs?.owner === me.current) swipeTabs = null }, [])
+  // keep the chosen chip in view when the row scrolls sideways
+  useEffect(() => {
+    const row = ref.current, on = row?.querySelector<HTMLElement>('.chip.on')
+    if (row && on) row.scrollTo({ left: on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2, behavior: 'smooth' })
+  }, [value])
+  return (
+    <div className="chips" ref={ref}>
+      {items.map(([k, l]) => (
+        <button key={k} className={'chip' + (k === value ? ' on' : '')} onClick={() => onChange(k)}>
+          {l}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export const Row = (p: { title: ReactNode; meta?: ReactNode; trail?: ReactNode; dot?: string; onClick?: () => void; done?: boolean; lead?: ReactNode }) => (
   <button className={'lrow' + (p.done ? ' done' : '')} onClick={p.onClick} disabled={!p.onClick} style={{ cursor: p.onClick ? 'pointer' : 'default' }}>
