@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { update, useSt } from '../store'
-import type { Recipe } from '../types'
+import type { CookStep, Recipe } from '../types'
 import { fmtDay, ingredientName, parseRecipe, recipeStatus, today, uid } from '../lib'
-import { C, closeSheet, Field, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 
 const lines = (t: string) => t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -59,21 +59,87 @@ const RecipeSheet = ({ id }: { id: string }) => {
         ))}
       </List>
       {missing.length > 1 && <button className="btn soft" onClick={() => addToList()}>Put all {missing.length} on the shopping list</button>}
-      {r.steps.length > 0 && (
-        <div className="card" style={{ gap: 12 }}>
-          <span className="t17">Steps</span>
-          {r.steps.map((s, i) => (
-            <div key={i} className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
-              <span className="t15 w5" style={{ minWidth: 18, color: 'var(--ink2)' }}>{i + 1}</span>
-              <span className="t15" style={{ lineHeight: 1.4 }}>{s}</span>
-            </div>
-          ))}
+      {(r.stove?.length ?? 0) > 0 && <StoveBlock steps={r.stove!} />}
+      {(r.air?.length ?? 0) > 0 && <AirBlock steps={r.air!} temp={r.airTemp} />}
+      {(r.sauce?.length ?? 0) > 0 && (
+        <div className="card" style={{ gap: 8 }}>
+          <span className="t17">Glaze / Sauce</span>
+          <span className="t13 muted" style={{ marginTop: -4 }}>Mix together</span>
+          {r.sauce!.map((l, i) => <div key={i} className="row" style={{ gap: 10 }}><span style={{ width: 6, height: 6, borderRadius: 3, background: 'var(--ink2)', flex: 'none' }} /><span className="t15">{l}</span></div>)}
         </div>
       )}
       {r.notes && <div className="t15 muted" style={{ whiteSpace: 'pre-wrap', padding: '0 4px' }}>{r.notes}</div>}
       <button className="btn full home" onClick={() => { update((d) => { const x = d.recipes!.find((y) => y.id === id)!; x.lastCooked = today(); x.cooked = (x.cooked ?? 0) + 1 }); closeSheet(); toast('Cooked · nice') }}>Cooked it</button>
       <button className="btn full soft" onClick={() => openSheet(<RecipeEdit id={r.id} />)}>Edit</button>
     </Sheet>
+  )
+}
+
+// Stove: a pipeline from the start, each step at the minute it begins
+const StoveBlock = ({ steps }: { steps: CookStep[] }) => {
+  let at = 0
+  const total = steps.reduce((a, x) => a + (x.min ?? 0), 0)
+  return (
+    <div className="card" style={{ gap: 12 }}>
+      <div className="between"><span className="t17">Stove</span>{total > 0 && <span className="t14 muted">{total} min</span>}</div>
+      <div className="pipe">
+        {steps.map((x, i) => {
+          const start = at
+          const same = i > 0 && (steps[i - 1].min ?? 0) === 0 // previous step took no time: same moment, no second time label
+          at += x.min ?? 0
+          return (
+            <div key={i} className="pstep">
+              <span className="ptime">{same ? '' : start === 0 ? 'start' : <>{start}<small> min</small></>}</span>
+              <span className={'pdot' + (i === 0 ? ' first' : '')} />
+              <div className="ptext"><span className="t15">{x.text}</span>{x.min ? <span className="t13 muted">takes {x.min} min</span> : null}</div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Aerogrill: the first step sets the timer for the whole time; every next step shows
+// the minutes LEFT on the timer when it's due, so you just watch the aerogrill's display
+const AirBlock = ({ steps, temp }: { steps: CookStep[]; temp?: number }) => {
+  const list = steps.slice().sort((a, b) => (b.min ?? 0) - (a.min ?? 0))
+  const total = list[0]?.min ?? 0
+  return (
+    <div className="card" style={{ gap: 12 }}>
+      <div className="between"><span className="t17">Aerogrill</span><span className="t14 muted">{[temp ? `${temp} °C` : '', total ? `timer ${total} min` : ''].filter(Boolean).join(' · ')}</span></div>
+      <div className="pipe">
+        {list.map((x, i) => (
+          <div key={i} className="pstep">
+            <span className="ptime">{x.min !== undefined ? <>{x.min}<small>{i === 0 ? ' min' : ' left'}</small></> : '–'}</span>
+            <span className={'pdot' + (i === 0 ? ' first' : '')} />
+            <div className="ptext"><span className="t15">{x.text}</span>{i === 0 && total ? <span className="t13 muted">put it in, set the timer to {total} min</span> : x.min === 0 ? <span className="t13 muted">timer’s done</span> : null}</div>
+          </div>
+        ))}
+        <div className="pstep end">
+          <span className="ptime">0<small> left</small></span>
+          <span className="pdot" />
+          <div className="ptext"><span className="t15 muted">Done</span></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// editable list of steps: minutes + what to do
+const StepsEdit = ({ value, onChange, minLabel, placeholder }: { value: CookStep[]; onChange: (v: CookStep[]) => void; minLabel: string; placeholder: string }) => {
+  const set = (i: number, patch: Partial<CookStep>) => onChange(value.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  return (
+    <div className="col" style={{ gap: 8 }}>
+      {value.map((x, i) => (
+        <div key={i} className="row" style={{ gap: 8 }}>
+          <input className="input" style={{ width: 64, flex: 'none', textAlign: 'center', padding: '13px 6px' }} type="text" inputMode="numeric" placeholder={minLabel} value={x.min ?? ''} onChange={(e) => set(i, { min: e.target.value === '' ? undefined : Number(e.target.value.replace(/\D/g, '')) })} />
+          <input className="input grow" value={x.text} placeholder={placeholder} onChange={(e) => set(i, { text: e.target.value })} />
+          <button type="button" aria-label="Remove" style={{ color: 'var(--ink2)', padding: 4 }} onClick={() => onChange(value.filter((_, j) => j !== i))}><Icon.x /></button>
+        </div>
+      ))}
+      <button type="button" className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => onChange([...value, { text: '' }])}>+ Add a step</button>
+    </div>
   )
 }
 
@@ -89,10 +155,14 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
   const [name, setName] = useState(src?.name ?? '')
   const [minutes, setMinutes] = useState(src?.minutes ? String(src.minutes) : '')
   const [ing, setIng] = useState((src?.ingredients ?? []).join('\n'))
-  const [steps, setSteps] = useState((src?.steps ?? []).join('\n'))
+  const [stove, setStove] = useState<CookStep[]>(src?.stove ?? [])
+  const [air, setAir] = useState<CookStep[]>(src?.air ?? [])
+  const [airTemp, setAirTemp] = useState(src?.airTemp ? String(src.airTemp) : '')
+  const [sauce, setSauce] = useState((src?.sauce ?? []).join('\n'))
   const [notes, setNotes] = useState(src?.notes ?? '')
   const save = () => {
-    const data = { name: name.trim(), minutes: Number(minutes) || undefined, ingredients: lines(ing), steps: lines(steps), notes: notes.trim() || undefined }
+    const tidy = (xs: CookStep[]) => xs.map((x) => ({ text: x.text.trim(), min: x.min })).filter((x) => x.text)
+    const data = { name: name.trim(), minutes: Number(minutes) || undefined, ingredients: lines(ing), stove: tidy(stove), air: tidy(air).sort((a, b) => (b.min ?? 0) - (a.min ?? 0)), airTemp: Number(airTemp) || undefined, sauce: lines(sauce), notes: notes.trim() || undefined }
     update((d) => {
       d.recipes ??= []
       const x = orig && d.recipes.find((y) => y.id === orig.id)
@@ -106,7 +176,10 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
       <Field label="Name"><input className="input" value={name} placeholder="Lemon-soy chicken" onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Takes (minutes)"><input className="input" type="text" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ''))} /></Field>
       <Field label="Ingredients · one per line"><Area value={ing} onChange={setIng} placeholder={'200 g chicken breast\n2 tbsp soy sauce\n½ lemon'} /></Field>
-      <Field label="Steps · one per line"><Area value={steps} onChange={setSteps} placeholder={'Slice the chicken\nAir-fry 12 min at 200 °C'} /></Field>
+      <Field label="Stove · minutes each step takes"><StepsEdit value={stove} onChange={setStove} minLabel="min" placeholder="Boil the rice" /></Field>
+      <Field label="Aerogrill · minutes left on the timer"><StepsEdit value={air} onChange={setAir} minLabel="left" placeholder="Chicken in" /></Field>
+      <Field label="Aerogrill temperature (°C)"><input className="input" type="text" inputMode="numeric" value={airTemp} placeholder="200" onChange={(e) => setAirTemp(e.target.value.replace(/\D/g, ''))} /></Field>
+      <Field label="Glaze / Sauce · one per line"><Area rows={3} value={sauce} onChange={setSauce} placeholder={'2 tbsp soy sauce\n1 tsp honey\n½ lemon, juiced'} /></Field>
       <Field label="Notes"><Area rows={2} value={notes} onChange={setNotes} placeholder="Serve with rice, tastes better with more lemon…" /></Field>
       <button className="btn full" disabled={!name.trim()} onClick={save}>Save</button>
       {orig && <button className="btn full soft" onClick={() => { if (confirm(`Delete ${orig.name}?`)) { update((d) => { d.recipes = (d.recipes ?? []).filter((y) => y.id !== orig.id) }); closeSheet() } }}>Delete</button>}
@@ -119,7 +192,7 @@ const PasteSheet = () => {
   const [text, setText] = useState('')
   return (
     <Sheet title="Paste a recipe">
-      <span className="t15 muted" style={{ marginTop: -4 }}>Paste the whole thing: name on the first line, then ingredients and steps. You can check it before saving.</span>
+      <span className="t15 muted" style={{ marginTop: -4 }}>Paste the whole thing: name on the first line, then Ingredients, Stove, Aerogrill and Glaze / Sauce. You can check it before saving.</span>
       <textarea className="input" autoFocus rows={10} value={text} onChange={(e) => setText(e.target.value)} style={{ resize: 'vertical', minHeight: 200, lineHeight: 1.35 }} />
       <button className="btn full" disabled={!text.trim()} onClick={() => openSheet(<RecipeEdit draft={parseRecipe(text)} />)}>Next</button>
     </Sheet>

@@ -70,6 +70,8 @@ export const migrate = (s: State): State => {
     out.version = 8
   }
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
+  // recipes: the old plain "steps" list becomes the Stove block
+  for (const r of out.recipes ?? []) if (r.steps) { if (r.steps.length && !r.stove?.length) r.stove = r.steps.map((text) => ({ text })); delete r.steps }
   return out
 }
 

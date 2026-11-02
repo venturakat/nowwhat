@@ -1,4 +1,4 @@
-import type { BudgetItem, Credit, Currency, Lessons, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { BudgetItem, CookStep, Credit, Currency, Lessons, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -479,33 +479,53 @@ export const recipeStatus = (st: State, r: Recipe) => r.ingredients.map((line) =
   const state: 'home' | 'buy' | 'none' = !sp ? 'none' : sp.once ? 'buy' : supplyStatus(sp, st.settings).state === 'ok' ? 'home' : 'buy'
   return { line, sp, state }
 })
-// turn pasted text (e.g. a recipe from a chat) into a recipe draft
+// turn pasted text (e.g. a recipe from a chat) into a recipe draft:
+// headings Ingredients / Stove / Aerogrill (air fryer) / Glaze · Sauce / Notes; "12 min" in a step line becomes its time
 export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
   const clean = (l: string) => l.replace(/\*\*|__|`/g, '').replace(/^#+\s*/, '').trim()
   const lines = text.split(/\r?\n/).map(clean).filter(Boolean)
   const name = (lines.shift() ?? 'New recipe').replace(/[:.]$/, '')
-  const ING = /^(ingredients|you('ll)? need|what you need|shopping list)\b/i
-  const STEP = /^(steps|method|instructions|directions|how to( make| cook)?|preparation|cooking)\b/i
-  const NOTE = /^(notes?|tips?|serving|to serve)\b/i
+  const H: [RegExp, Sec][] = [
+    [/^(ingredients|you('ll)? need|what you need|shopping list)\b/i, 'ing'],
+    [/^(stove|stovetop|pan|pot|hob|on the stove)\b/i, 'stove'],
+    [/^(aero ?grill|air ?fryer|airfryer|air-fryer|air fry|air-fry)\b/i, 'air'],
+    [/^(glaze|sauce|marinade|dressing|glaze\s*\/\s*sauce)\b/i, 'sauce'],
+    [/^(steps|method|instructions|directions|how to( make| cook)?|preparation|cooking)\b/i, 'stove'],
+    [/^(notes?|tips?|serving|to serve)\b/i, 'note']
+  ]
+  type Sec = 'none' | 'ing' | 'stove' | 'air' | 'sauce' | 'note'
   const bullet = /^([-•*–—]|\d+[.)]|step\s*\d+[:.)]?)\s*/i
-  let sec: 'none' | 'ing' | 'step' | 'note' = 'none'
-  const ingredients: string[] = [], steps: string[] = [], notes: string[] = []
-  let minutes: number | undefined
+  let sec: Sec = 'none'
+  const r = { ingredients: [] as string[], stove: [] as CookStep[], air: [] as CookStep[], sauce: [] as string[], notes: [] as string[] }
+  let minutes: number | undefined, airTemp: number | undefined
+  const step = (b: string): CookStep => {
+    const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(min|mins|minutes)\b/i)
+    // the time moves to the timeline, so drop "– 12 min" / ", 8 min left" / "(5 min)" from the end of the text
+    const text = b.replace(/\s*[,–—-]?\s*\(?(?:for\s+)?\d+\s*(?:-\s*\d+\s*)?(?:min|mins|minutes)(?:\s+left)?\)?\.?\s*$/i, '').trim() || b
+    return { text, min: m ? Number(m[1]) : undefined }
+  }
   for (const l of lines) {
-    const m = l.match(/(\d+)\s*(min|minutes)\b/i)
-    if (ING.test(l)) { sec = 'ing'; continue }
-    if (STEP.test(l)) { sec = 'step'; continue }
-    if (NOTE.test(l)) { sec = 'note'; const rest = l.replace(NOTE, '').replace(/^[:\s]+/, ''); if (rest) notes.push(rest); continue }
+    const h = H.find(([re]) => re.test(l))
+    if (h && l.length < 40) {
+      sec = h[1]
+      const rest = l.replace(h[0], '').replace(/^[\s:/–—-]+/, '')
+      if (sec === 'air') { const t = l.match(/(\d{3})\s*°?\s*C/i); if (t) airTemp = Number(t[1]) }
+      if (sec === 'note' && rest) r.notes.push(rest)
+      continue
+    }
     const body = l.replace(bullet, '').trim()
     if (!body) continue
-    if (sec === 'ing') ingredients.push(body)
-    else if (sec === 'step') steps.push(body)
-    else if (sec === 'note') notes.push(body)
-    else if (/^[-•*–—]/.test(l)) ingredients.push(body) // no headings: bullets are ingredients…
-    else if (/^\d+[.)]/.test(l)) steps.push(body) // …numbered lines are steps
-    else if (m && !minutes) minutes = Number(m[1])
-    else notes.push(body)
+    if (sec === 'ing') r.ingredients.push(body)
+    else if (sec === 'stove') r.stove.push(step(body))
+    else if (sec === 'air') { r.air.push(step(body)); const t = body.match(/(\d{3})\s*°\s*C/i); if (t && !airTemp) airTemp = Number(t[1]) }
+    else if (sec === 'sauce') r.sauce.push(body)
+    else if (sec === 'note') r.notes.push(body)
+    else if (/^[-•*–—]/.test(l)) r.ingredients.push(body)
+    else if (/^\d+[.)]/.test(l)) r.stove.push(step(body))
+    else if (!minutes && /(\d+)\s*(min|minutes)\b/i.test(l)) minutes = Number(l.match(/(\d+)\s*(min|minutes)\b/i)![1])
+    else r.notes.push(body)
   }
-  if (!minutes) { const m = text.match(/(\d+)\s*(min|minutes)\b/i); if (m) minutes = Number(m[1]) }
-  return { name, minutes, ingredients, steps, notes: notes.join('\n') || undefined }
+  // aerogrill steps go from the longest time left to the shortest
+  r.air.sort((a, b) => (b.min ?? 0) - (a.min ?? 0))
+  return { name, minutes, ingredients: r.ingredients, stove: r.stove, air: r.air, airTemp, sauce: r.sauce, notes: r.notes.join('\n') || undefined }
 }

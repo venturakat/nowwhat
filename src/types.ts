@@ -216,12 +216,19 @@ export interface SelfCare {
 
 // Recipes (Home → Recipes). Ingredients are plain lines ("200 g chicken breast");
 // they're matched to Groceries by name to show what's at home and what to buy.
+// one step in a cooking block. Stove: min = how long the step takes.
+// Aerogrill: min = minutes LEFT on the aerogrill timer when you do it (the first step sets the timer).
+export interface CookStep { text: string; min?: number }
 export interface Recipe {
   id: ID
   name: string
   minutes?: number
   ingredients: string[]
-  steps: string[]
+  stove?: CookStep[]
+  air?: CookStep[]
+  airTemp?: number // °C
+  sauce?: string[] // glaze / sauce: just what to mix, with amounts
+  steps?: string[] // old format, moved into `stove` on load
   notes?: string
   lastCooked?: string
   cooked?: number // how many times

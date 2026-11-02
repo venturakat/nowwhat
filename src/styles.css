@@ -185,3 +185,17 @@ input.input::-webkit-datetime-edit { padding: 0; }
 /* form fields that are switched off by another choice */
 .fset { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; transition: opacity .15s; }
 .fset:disabled { opacity: .35; }
+
+/* recipe pipelines (Stove / Aerogrill): time on the left, dots on a line, step on the right */
+.pipe { display: flex; flex-direction: column; }
+.pstep { display: grid; grid-template-columns: 58px 14px 1fr; column-gap: 10px; position: relative; padding-bottom: 16px; }
+.pstep:last-child { padding-bottom: 0; }
+.pstep::before { content: ''; position: absolute; left: 74px; top: 16px; bottom: -2px; width: 2px; background: var(--line); }
+.pstep:last-child::before { display: none; }
+.ptime { text-align: right; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 22px; white-space: nowrap; }
+.ptime small { font-size: 12px; font-weight: 500; color: var(--ink2); }
+.pdot { width: 12px; height: 12px; border-radius: 50%; background: var(--ink); margin-top: 5px; justify-self: center; }
+.pdot.first { width: 14px; height: 14px; margin-top: 4px; background: var(--home); box-shadow: 0 0 0 2px var(--ink) inset; }
+.pstep.end .pdot { background: var(--card); box-shadow: 0 0 0 2px var(--line) inset; }
+.pstep.end .ptime { color: var(--ink2); }
+.ptext { display: flex; flex-direction: column; gap: 2px; line-height: 1.35; padding-top: 1px; }
