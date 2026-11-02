@@ -111,7 +111,6 @@ export const Today = () => {
       <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
         <div className="list-h" style={{ paddingBottom: 4 }}>
           <span className="t17">Reminders</span>
-          {top.length > 0 && <span className="t14 w5 muted">{top.length}</span>}
         </div>
         {top.length === 0 && <div className="list-empty">Nothing urgent. Rest counts too.</div>}
         {top.map((x) => (
@@ -191,7 +190,7 @@ const BrainDump = () => {
   const notes = [...(st.notes ?? [])].sort((a, b) => b.at.localeCompare(a.at))
   return (
     <div className="list">
-      <div className="list-h"><span className="t17">Brain dump</span>{notes.length > 0 && <span className="t14 w5 muted">{notes.length}</span>}</div>
+      <div className="list-h"><span className="t17">Brain dump</span></div>
       {notes.map((n) => (
         <button key={n.id} className="note" onClick={() => openSheet(<NoteSheet id={n.id} />)}>
           <span className="note-text">{n.text}</span>
