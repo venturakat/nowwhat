@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
 import type { Currency, Session, State } from '../types'
 import {
@@ -34,7 +34,6 @@ const Budget = () => {
   const st = useSt()
   const [key, setKey] = useState(() => periodOf(today(), st.settings).key)
   const s = summarize(st, key)
-  const [showBought, setShowBought] = useState(false)
   const isNow = today() >= s.info.start && today() <= s.info.end
   const pct = s.income > 0 ? Math.min(1, (s.fixed + s.spent) / s.income) : 0
 
@@ -129,23 +128,33 @@ const Budget = () => {
         <Row title={<span className="muted">+ Add fixed expense</span>} onClick={() => editItem(undefined, 'expense')} />
       </List>
       {bought.length > 0 && (
-        <div className="list">
-          <button className="list-h" style={{ width: '100%', paddingBottom: showBought ? undefined : 8 }} onClick={() => setShowBought(!showBought)}>
-            <span className="t17 row" style={{ gap: 6 }}>Supplies bought <span className="muted" style={{ display: 'inline-flex', transform: showBought ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><Icon.chevR /></span></span>
-            <span className="t14 w5 muted">{fmt(boughtSum)}</span>
-          </button>
-          {showBought && bought.map((i) => (
+        <Fold title="Supplies bought" right={fmt(boughtSum)}>
+          {bought.map((i) => (
             <Row key={i.id} dot={C.supplies} title={i.label.replace(/ \(bought\)$/, '')} meta={i.date ? fmtDay(i.date) : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
           ))}
-        </div>
+        </Fold>
       )}
-      <List title="Day-to-day spending" right={fmt(s.spent)} empty="Nothing logged. Tap “Log spending” on Today.">
-        {spends.map((x) => (
+      <Fold title="Day-to-day spending" right={fmt(s.spent)}>
+        {spends.length ? spends.map((x) => (
           <Row key={x.id} title={x.note || 'Spending'} meta={fmtDay(x.date)} trail={amt(x)} onClick={() => editSpend(x.id)} />
-        ))}
-      </List>
+        )) : <div className="list-empty">Nothing logged yet.</div>}
+      </Fold>
       <button className="btn full soft" onClick={() => editSpend()}>+ Log spending</button>
     </>
+  )
+}
+
+// a list that opens on tap — closed by default
+const Fold = ({ title, right, children }: { title: string; right: ReactNode; children: ReactNode }) => {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="list">
+      <button className="list-h" style={{ width: '100%', paddingBottom: open ? undefined : 8 }} onClick={() => setOpen(!open)}>
+        <span className="t17 row" style={{ gap: 6 }}>{title} <span className="muted" style={{ display: 'inline-flex', transform: open ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><Icon.chevR /></span></span>
+        <span className="t14 w5 muted">{right}</span>
+      </button>
+      {open && children}
+    </div>
   )
 }
 
