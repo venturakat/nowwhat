@@ -1,5 +1,5 @@
 import { exportJson, importJson, update, useSt, useStore } from './store'
-import { openSheet, Sheet, toast } from './ui'
+import { openSettings, openSheet, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
 import { refreshRates } from './rates'
@@ -11,7 +11,8 @@ export const SettingsSheet = () => {
   return (
     <Sheet title="Settings">
       <RatesCard />
-      <FormInline />
+      <TaxesCard />
+      <DaysCard />
       <div className="card" style={{ gap: 10 }}>
         <span className="t17">Backup</span>
         <span className="t14 muted">Everything lives only on this phone. Save a backup file now and then (e.g. to iCloud Drive).</span>
@@ -27,20 +28,17 @@ export const SettingsSheet = () => {
   )
 }
 
-const FormInline = () => {
+const TaxesCard = () => {
   const st = useSt()
   return (
     <button className="card" style={{ gap: 4 }} onClick={() => openSheet(
-      <FormSheet title="Numbers" initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
+      <FormSheet title="Taxes & accounts" onBack={openSettings} initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
         fields={[
           { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
           { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
-          { key: 'splitDay', label: 'Second fortnight starts on day', type: 'number', step: 1 },
           { key: 'taxPayDay', label: 'I pay ZUS + PIT on day (puts it in the budget)', type: 'number', step: 1 },
           { key: 'taxDueDay', label: 'Official deadline, day', type: 'number', step: 1 },
-          { key: 'leadDays', label: 'Shop meds, pets & care this many days before they run out', type: 'number', step: 1 },
-          { key: 'leadDaysShort', label: 'Shop groceries & home this many days before', type: 'number', step: 1 },
           { key: 'zusAccount', label: 'ZUS account (rachunek składkowy)', type: 'text' },
           { key: 'taxAccount', label: 'Tax account (mikrorachunek)', type: 'text' }
         ]}
@@ -52,6 +50,25 @@ const FormInline = () => {
     )}>
       <span className="t17">Taxes & accounts</span>
       <span className="t14 muted">ZUS amounts, PIT %, pay days, account numbers for transfers</span>
+    </button>
+  )
+}
+
+const DaysCard = () => {
+  const st = useSt()
+  return (
+    <button className="card" style={{ gap: 4 }} onClick={() => openSheet(
+      <FormSheet title="Budget & shopping days" onBack={openSettings} initial={{ ...st.settings }}
+        fields={[
+          { key: 'splitDay', label: 'Second fortnight starts on day', type: 'number', step: 1 },
+          { key: 'leadDays', label: 'Shop meds, pets & care this many days before they run out', type: 'number', step: 1 },
+          { key: 'leadDaysShort', label: 'Shop groceries & home this many days before', type: 'number', step: 1 }
+        ]}
+        onSave={(v) => update((d) => { d.settings = { ...d.settings, ...v } })}
+      />
+    )}>
+      <span className="t17">Budget & shopping days</span>
+      <span className="t14 muted">When the second fortnight starts, how early to restock supplies</span>
     </button>
   )
 }
@@ -74,7 +91,7 @@ const RatesCard = () => {
           toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones')
         }}>Update now</button>
         <button className="btn soft sm" onClick={() => openSheet(
-          <FormSheet title="Exchange rates" initial={{ eurPln: s.eurPln, uahPln: s.uahPln }}
+          <FormSheet title="Exchange rates" onBack={openSettings} initial={{ eurPln: s.eurPln, uahPln: s.uahPln }}
             fields={[
               { key: 'eurPln', label: '1 € in zł', type: 'number' },
               { key: 'uahPln', label: '1 ₴ in zł', type: 'number' }

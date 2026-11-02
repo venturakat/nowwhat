@@ -155,11 +155,15 @@ export const List = ({ title, right, children, empty, roomy }: { title?: ReactNo
 
 export const Check = ({ on }: { on: boolean }) => <span className={'check' + (on ? ' on' : '')}>{on && <Icon.check />}</span>
 
-export const Sheet = ({ title, children }: { title: string; children: ReactNode }) => (
+// onBack: a sub-page (e.g. a Settings category) gets a ‹ back arrow next to its title
+export const Sheet = ({ title, children, onBack }: { title: string; children: ReactNode; onBack?: () => void }) => (
   <>
     <div className="grab" />
     <div className="between">
-      <div className="mid">{title}</div>
+      <div className="row" style={{ gap: 2, alignItems: 'center' }}>
+        {onBack && <button onClick={onBack} aria-label="Back" style={{ marginLeft: -6, display: 'flex' }}><Icon.chevL /></button>}
+        <div className="mid">{title}</div>
+      </div>
       <button onClick={closeSheet} aria-label="Close"><Icon.x /></button>
     </div>
     {children}

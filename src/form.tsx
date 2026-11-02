@@ -11,7 +11,7 @@ export type FieldDef =
 type Vals = Record<string, any>
 
 // Generic bottom-sheet form. Number fields come back as numbers (or undefined when empty).
-export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode }) => {
+export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode; onBack?: () => void }) => {
   // number fields are kept as typed text (so "12,50" works) and parsed on save
   const [v, setV] = useState<Vals>(() => {
     const o: Vals = { ...(p.initial ?? {}) }
@@ -22,7 +22,7 @@ export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals
   const firstText = p.fields[0]?.type === 'text' ? p.fields[0] : undefined
   const can = !firstText || String(v[firstText.key] ?? '').trim().length > 0
   return (
-    <Sheet title={p.title}>
+    <Sheet title={p.title} onBack={p.onBack}>
       {p.fields.map((f) => (
         <Field key={f.key} label={f.label}>
           {f.type === 'select' ? (
@@ -68,7 +68,9 @@ export const FormSheet = (p: { title: string; fields: FieldDef[]; initial?: Vals
       <button className="btn full" disabled={!can} onClick={() => {
         const out: Vals = { ...v }
         for (const f of p.fields) if (f.type === 'number') out[f.key] = parseNum(v[f.key])
-        p.onSave(out); closeSheet()
+        p.onSave(out)
+        // from a sub-page, saving takes you back to where you came from
+        if (p.onBack) p.onBack(); else closeSheet()
       }}>
         {p.saveLabel ?? 'Save'}
       </button>
