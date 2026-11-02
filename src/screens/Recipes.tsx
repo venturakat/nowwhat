@@ -75,26 +75,34 @@ const RecipeSheet = ({ id }: { id: string }) => {
   )
 }
 
-// Stove: a pipeline from the start, each step at the minute it begins
+// Stove: a countdown like the aerogrill — set one timer for the whole stove part,
+// each next step shows how many minutes are left on it (you enter how long each step takes)
 const StoveBlock = ({ steps }: { steps: CookStep[] }) => {
   let at = 0
   const total = steps.reduce((a, x) => a + (x.min ?? 0), 0)
   return (
     <div className="card" style={{ gap: 12 }}>
-      <div className="between"><span className="t17">Stove</span>{total > 0 && <span className="t14 muted">{total} min</span>}</div>
+      <div className="between"><span className="t17">Stove</span>{total > 0 && <span className="t14 muted">timer {total} min</span>}</div>
       <div className="pipe">
         {steps.map((x, i) => {
-          const start = at
+          const left = total - at
           const same = i > 0 && (steps[i - 1].min ?? 0) === 0 // previous step took no time: same moment, no second time label
           at += x.min ?? 0
           return (
             <div key={i} className="pstep">
-              <span className="ptime">{same ? '' : start === 0 ? 'start' : <>{start}<small> min</small></>}</span>
+              <span className="ptime">{same || !total ? '' : <>{left}<small>{left === total ? ' min' : ' left'}</small></>}</span>
               <span className={'pdot' + (i === 0 ? ' first' : '')} />
-              <div className="ptext"><span className="t15">{x.text}</span>{x.min ? <span className="t13 muted">takes {x.min} min</span> : null}</div>
+              <div className="ptext"><span className="t15">{x.text}</span>{i === 0 && total ? <span className="t13 muted">set the timer to {total} min</span> : x.min ? <span className="t13 muted">takes {x.min} min</span> : null}</div>
             </div>
           )
         })}
+        {total > 0 && (
+          <div className="pstep end">
+            <span className="ptime">0<small> left</small></span>
+            <span className="pdot" />
+            <div className="ptext"><span className="t15 muted">Done</span></div>
+          </div>
+        )}
       </div>
     </div>
   )
