@@ -74,11 +74,14 @@ export const refreshRates = async (force = false) => {
   const e = eur.status === 'fulfilled' ? eur.value : undefined
   const u = uah.status === 'fulfilled' ? uah.value : undefined
   if (!e && !u) return false
+  // rates added manually stay put until "Update now" switches back to automatic
+  const manual = useStore.getState().st.settings.ratesAuto === false
   update((d) => {
-    if (e) d.settings.eurPln = Math.round(e.v * 10000) / 10000
-    if (u) d.settings.uahPln = Math.round(u.v * 1000000) / 1000000
+    if (e && !manual) d.settings.eurPln = Math.round(e.v * 10000) / 10000
+    if (u && !manual) d.settings.uahPln = Math.round(u.v * 1000000) / 1000000
     if (usd.status === 'fulfilled' && usd.value) d.settings.usdPln = usd.value
     if (blue.status === 'fulfilled' && blue.value) { d.settings.blueArs = blue.value; d.settings.blueAt = new Date().toISOString() }
+    if (manual) return
     d.settings.ratesAt = new Date().toISOString()
     d.settings.ratesNote = [e ? `EUR ${e.src}` : 'EUR kept', u ? `UAH ${u.src}` : 'UAH kept'].join(' · ')
   })

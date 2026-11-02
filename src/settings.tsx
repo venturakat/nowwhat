@@ -33,9 +33,6 @@ const FormInline = () => {
     <button className="card" style={{ gap: 4 }} onClick={() => openSheet(
       <FormSheet title="Numbers" initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
         fields={[
-          { key: 'eurPln', label: '1 € in zł', type: 'number' },
-          { key: 'uahPln', label: '1 ₴ in zł', type: 'number' },
-          { key: 'ratesAuto', label: 'Update exchange rates automatically', type: 'toggle' },
           { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
           { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
@@ -53,8 +50,8 @@ const FormInline = () => {
         })}
       />
     )}>
-      <span className="t17">Rates, taxes & accounts</span>
-      <span className="t14 muted">Exchange rates by hand, ZUS amounts, PIT %, account numbers for transfers</span>
+      <span className="t17">Taxes & accounts</span>
+      <span className="t14 muted">ZUS amounts, PIT %, pay days, account numbers for transfers</span>
     </button>
   )
 }
@@ -68,7 +65,29 @@ const RatesCard = () => {
       <span className="t17">Exchange rates</span>
       <span className="t15">1 € = {s.eurPln.toFixed(4)} zł · 1 ₴ = {(s.uahPln ?? 0).toFixed(4)} zł <span className="muted">(100 ₴ = {((s.uahPln ?? 0) * 100).toFixed(2)} zł)</span></span>
       <span className="t13 muted">{s.ratesAuto === false ? 'Set by hand' : `Updated ${when}${s.ratesNote ? ' · ' + s.ratesNote : ''}`}</span>
-      <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={async () => { toast('Updating…'); const ok = await refreshRates(true).catch(() => false); toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones') }}>Update now</button>
+      <div className="row" style={{ gap: 8, marginTop: 4 }}>
+        <button className="btn soft sm" onClick={async () => {
+          // back to automatic: NBP for €, monobank for ₴
+          update((d) => { d.settings.ratesAuto = true })
+          toast('Updating…')
+          const ok = await refreshRates(true).catch(() => false)
+          toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones')
+        }}>Update now</button>
+        <button className="btn soft sm" onClick={() => openSheet(
+          <FormSheet title="Exchange rates" initial={{ eurPln: s.eurPln, uahPln: s.uahPln }}
+            fields={[
+              { key: 'eurPln', label: '1 € in zł', type: 'number' },
+              { key: 'uahPln', label: '1 ₴ in zł', type: 'number' }
+            ]}
+            extra={<span className="t13 muted">Your rates stay until you tap Update now.</span>}
+            onSave={(v) => update((d) => {
+              if (v.eurPln) d.settings.eurPln = v.eurPln
+              if (v.uahPln) d.settings.uahPln = v.uahPln
+              d.settings.ratesAuto = false
+            })}
+          />
+        )}>Add manually</button>
+      </div>
     </div>
   )
 }
