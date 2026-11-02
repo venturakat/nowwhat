@@ -82,6 +82,11 @@ const things = (st: State): Thing[] => {
   const lb = lessonBatch(st)
   if (lb && lb.blue && t >= addDays(lb.due, -3))
     out.push({ id: 'lessons-' + lb.due, dot: C.money, title: 'Pay for Spanish', meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtArs(lb.ars)} · ${lb.due < t ? 'since' : 'by'} ${fmtDay(lb.due)}`, trail: fmt(lb.pln), go: () => go('money', 'spanish') })
+  // selfcare: from the day before until a week overdue
+  for (const x of (st.selfcare ?? []).filter((x) => !x.paused)) {
+    const n = diffDays(t, x.next)
+    if (n <= 1 && n >= -7) out.push({ id: `care-${x.id}-${x.next}`, dot: C.closet, title: x.name, meta: `Selfcare · ${n < 0 ? `${-n} ${n === -1 ? 'day' : 'days'} overdue` : n === 0 ? 'today' : 'tomorrow'}`, trail: fmtCur(x.price, x.currency ?? 'PLN'), go: () => go('money', 'selfcare') })
+  }
   out.push(...paidChecks)
   out.unshift(...meds)
   const dis = st.dismissed.date === t ? st.dismissed.ids : []

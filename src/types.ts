@@ -201,6 +201,19 @@ export interface Subscription {
   paused?: boolean
 }
 
+// Selfcare: things done regularly for yourself (manicure, massage, gym, a hobby…)
+export interface SelfCare {
+  id: ID
+  name: string
+  price: number // per time, in `currency`
+  currency?: Currency // default PLN
+  everyDays: number // days between two times
+  next: string // YYYY-MM-DD, next planned time
+  lastDone?: string
+  details?: string // place, master, what exactly
+  paused?: boolean
+}
+
 export interface Credit {
   id: ID
   name: string // lender / what it's for
@@ -264,6 +277,7 @@ export interface State {
   taxMonths: Record<string, TaxMonth>
   credits: Credit[]
   subscriptions: Subscription[]
+  selfcare?: SelfCare[]
   lessons?: Lessons
   tasks?: Task[]
   notes?: Note[]

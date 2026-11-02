@@ -1,4 +1,4 @@
-import type { BudgetItem, Credit, Currency, Lessons, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { BudgetItem, Credit, Currency, Lessons, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -99,7 +99,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
   return { items: [], isTemplate: true }
 }
 
-export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' | 'fee' | 'lessons'; income?: boolean; expected?: boolean; counted?: boolean /* expected, but already in the income sum (monthly fees) */ }
+export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' | 'fee' | 'lessons' | 'care'; income?: boolean; expected?: boolean; counted?: boolean /* expected, but already in the income sum (monthly fees) */ }
 
 export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
@@ -187,6 +187,9 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   // subscriptions charged in this half, as one line
   const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
   if (subs.length) out.push({ id: 'subs', label: 'Subscriptions', amount: subs.reduce((a, { x }) => a + toPln(st.settings, x.amount, x.currency), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
+  // selfcare planned in this half (from today on; done ones are logged as spending instead)
+  const care = careInPeriod(st, p.start, p.end)
+  if (care.length) out.push({ id: 'care', label: 'Selfcare', amount: care.reduce((a, c) => a + c.pln, 0), date: care[0].date, meta: [...new Set(care.map((c) => c.x.name))].join(', '), kind: 'care' })
   return out
 }
 
@@ -414,3 +417,22 @@ export const lessonBatch = (st: State, t = today()) => {
   const due = `${mk}-${pad(Math.min(l.payDay ?? st.settings.splitDay, daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7))))}`
   return { month: mk, dates, first, due, usd: l.usd * dates.length, blue, perClass, ars: perClass * dates.length, fee, pln: r2(l.usd * dates.length * (st.settings.usdPln ?? 4) + fee) }
 }
+
+// ---------- selfcare ----------
+// planned date of the next time (never in the past: overdue counts as today)
+export const careNext = (c: SelfCare, t = today()) => (c.next < t ? t : c.next)
+export const careInPeriod = (st: State, start: string, end: string, t = today()) => {
+  const out: { x: SelfCare; date: string; pln: number }[] = []
+  for (const x of st.selfcare ?? []) {
+    if (x.paused) continue
+    let d = careNext(x, t)
+    let guard = 0
+    while (d <= end && guard++ < 60) {
+      if (d >= start) out.push({ x, date: d, pln: toPln(st.settings, x.price, x.currency ?? 'PLN') })
+      d = addDays(d, Math.max(1, x.everyDays))
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date))
+}
+// roughly what it costs a month
+export const carePerMonth = (st: State) => (st.selfcare ?? []).filter((x) => !x.paused).reduce((a, x) => a + (toPln(st.settings, x.price, x.currency ?? 'PLN') * 30.44) / Math.max(1, x.everyDays), 0)
