@@ -192,10 +192,13 @@ const BrainDump = () => {
     <div className="list">
       <div className="list-h"><span className="t17">Brain dump</span></div>
       {notes.map((n) => (
-        <button key={n.id} className="note" onClick={() => openSheet(<NoteSheet id={n.id} />)}>
-          <span className="note-text">{n.text}</span>
-          <span className="t13 muted">{fmtDay(n.at.slice(0, 10))}</span>
-        </button>
+        <div key={n.id} className="row" style={{ alignItems: 'flex-start', paddingRight: 8 }}>
+          <button className="note grow" onClick={() => openSheet(<NoteSheet id={n.id} />)}>
+            <span className="note-text">{n.text}</span>
+            <span className="t13 muted">{fmtDay(n.at.slice(0, 10))}</span>
+          </button>
+          <button aria-label="Delete note" onClick={() => { update((d) => { d.notes = d.notes!.filter((y) => y.id !== n.id) }); toast('Note deleted') }} style={{ padding: 6, marginTop: 6, color: 'var(--ink2)' }}><Icon.trash /></button>
+        </div>
       ))}
       <Row title={<span className="muted">+ Add a note</span>} onClick={() => openSheet(<NoteSheet />)} />
     </div>

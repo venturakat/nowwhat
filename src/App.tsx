@@ -35,9 +35,25 @@ const TimerFab = () => {
   return <button className="fab" onClick={() => openSheet(<StartTimerSheet />)}><Icon.play /> Start work timer</button>
 }
 
+// the part of the screen you can actually see — shrinks when the keyboard opens,
+// so sheets sit right above the keyboard instead of behind it
+const useVisibleArea = () => {
+  const [v, setV] = useState<{ top: number; h: number } | null>(null)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const f = () => setV({ top: vv.offsetTop, h: vv.height })
+    f()
+    vv.addEventListener('resize', f); vv.addEventListener('scroll', f)
+    return () => { vv.removeEventListener('resize', f); vv.removeEventListener('scroll', f) }
+  }, [])
+  return v
+}
+
 export const App = () => {
   const ready = useStore((s) => s.ready)
   const { tab, sheet, toast, go, close } = useUi()
+  const area = useVisibleArea()
   if (!ready) return null
   return (
     <div className="app">
@@ -61,8 +77,8 @@ export const App = () => {
         ))}
       </nav>
       {sheet && (
-        <div className="scrim" onClick={close}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>{sheet}</div>
+        <div className="scrim" onClick={close} style={area ? { top: area.top, bottom: 'auto', height: area.h } : undefined}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} style={area ? { maxHeight: area.h - 24 } : undefined}>{sheet}</div>
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}
