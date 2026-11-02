@@ -244,6 +244,12 @@ export interface Task {
   doneAt?: string // YYYY-MM-DD it was ticked — gone after that midnight
 }
 
+export interface Note {
+  id: ID
+  text: string
+  at: string // last edited (ISO)
+}
+
 export interface State {
   version: number
   settings: Settings
@@ -258,6 +264,7 @@ export interface State {
   subscriptions: Subscription[]
   lessons?: Lessons
   tasks?: Task[]
+  notes?: Note[]
   supplies: Supply[]
   cleanTasks: CleanTask[]
   cleanPlan: CleanPlan

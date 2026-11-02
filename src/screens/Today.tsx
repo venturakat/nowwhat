@@ -110,9 +110,10 @@ export const Today = () => {
       </button>
       <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
         <div className="list-h" style={{ paddingBottom: 4 }}>
-          <span className="t17">{top.length ? `Now, just ${top.length === 1 ? 'this' : `these ${top.length}`}` : 'Nothing urgent'}</span>
+          <span className="t17">Reminders</span>
+          {top.length > 0 && <span className="t14 w5 muted">{top.length}</span>}
         </div>
-        {top.length === 0 && <div className="list-empty">You’re free. Rest counts too.</div>}
+        {top.length === 0 && <div className="list-empty">Nothing urgent. Rest counts too.</div>}
         {top.map((x) => (
           <div key={x.id} className="row" style={{ paddingRight: 8 }}>
             <div className="grow"><Row dot={x.dot} title={x.title} meta={x.meta} trail={x.trail} onClick={x.go} /></div>
@@ -121,6 +122,7 @@ export const Today = () => {
         ))}
       </div>
       <OtherTasks />
+      <BrainDump />
       {tx.total > 0 && !tx.paid && diffDays(t, due) > 5 && (
         <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: ZUS + PIT on {fmtDay(due)} · {fmt(tx.total)} · already in your budget</div>
       )}
@@ -143,7 +145,7 @@ const OtherTasks = () => {
   const toggle = (id: string) => update((d) => { const x = d.tasks?.find((y) => y.id === id); if (x) x.doneAt = x.doneAt ? undefined : today() })
   return (
     <div className="list">
-      <div className="list-h"><span className="t17">Other tasks</span>{open.length > 0 && <span className="t14 w5 muted">{open.length}</span>}</div>
+      <div className="list-h"><span className="t17">Parking lot</span>{open.length > 0 && <span className="t14 w5 muted">{open.length}</span>}</div>
       {[...open, ...done].map((x) => (
         <Row key={x.id} done={!!x.doneAt} title={x.text} dot={dotOf(x.color)}
           trail={<span onClick={(e) => { e.stopPropagation(); toggle(x.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!x.doneAt} /></span>}
@@ -179,6 +181,45 @@ const TaskSheet = ({ id }: { id?: string }) => {
       </div>
       <button className="btn full" disabled={!text.trim()} onClick={save}>Save</button>
       {x && <button className="btn full soft" onClick={() => { update((d) => { d.tasks = d.tasks!.filter((z) => z.id !== id) }); closeSheet() }}>Delete</button>}
+    </Sheet>
+  )
+}
+
+// ---------- brain dump: loose notes, newest first ----------
+const BrainDump = () => {
+  const st = useSt()
+  const notes = [...(st.notes ?? [])].sort((a, b) => b.at.localeCompare(a.at))
+  return (
+    <div className="list">
+      <div className="list-h"><span className="t17">Brain dump</span>{notes.length > 0 && <span className="t14 w5 muted">{notes.length}</span>}</div>
+      {notes.map((n) => (
+        <button key={n.id} className="note" onClick={() => openSheet(<NoteSheet id={n.id} />)}>
+          <span className="note-text">{n.text}</span>
+          <span className="t13 muted">{fmtDay(n.at.slice(0, 10))}</span>
+        </button>
+      ))}
+      <Row title={<span className="muted">+ Add a note</span>} onClick={() => openSheet(<NoteSheet />)} />
+    </div>
+  )
+}
+
+const NoteSheet = ({ id }: { id?: string }) => {
+  const st = useSt()
+  const n = st.notes?.find((x) => x.id === id)
+  const [text, setText] = useState(n?.text ?? '')
+  return (
+    <Sheet title={n ? 'Note' : 'New note'}>
+      <textarea className="input" autoFocus rows={7} value={text} placeholder="Whatever’s on your mind" onChange={(e) => setText(e.target.value)} style={{ resize: 'vertical', minHeight: 150, lineHeight: 1.35 }} />
+      <button className="btn full" disabled={!text.trim()} onClick={() => {
+        update((d) => {
+          d.notes ??= []
+          const x = d.notes.find((y) => y.id === id)
+          if (x) { if (x.text !== text.trim()) Object.assign(x, { text: text.trim(), at: new Date().toISOString() }) }
+          else d.notes.push({ id: uid(), text: text.trim(), at: new Date().toISOString() })
+        })
+        closeSheet()
+      }}>Save</button>
+      {n && <button className="btn full soft" onClick={() => { update((d) => { d.notes = d.notes!.filter((y) => y.id !== id) }); closeSheet() }}>Delete</button>}
     </Sheet>
   )
 }
