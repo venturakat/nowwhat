@@ -13,6 +13,7 @@ export const SettingsSheet = () => {
       <RatesCard />
       <TaxesCard />
       <DaysCard />
+      <AboutCard />
       <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<BackupSheet />)}>
         <span className="t17">Backup</span>
         <span className="t14 muted">Save a backup file, restore one, or start fresh</span>
@@ -60,6 +61,28 @@ const TaxesCard = () => {
     )}>
       <span className="t17">Taxes & accounts</span>
       <span className="t14 muted">ZUS amounts, PIT %, pay days, account numbers for transfers</span>
+    </button>
+  )
+}
+
+const AboutCard = () => {
+  const st = useSt()
+  const s = st.settings
+  return (
+    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(
+      <FormSheet title="About you" onBack={popSheet} initial={{ age: s.age, weightKg: s.weightKg, activity: s.activity ?? 'light', usdaKey: s.usdaKey }}
+        fields={[
+          { key: 'age', label: 'Age', type: 'number', step: 1 },
+          { key: 'weightKg', label: 'Weight (kg)', type: 'number' },
+          { key: 'activity', label: 'Activity', type: 'select', options: [['low', 'Mostly sitting'], ['light', 'Light'], ['active', 'Active'], ['very', 'Very active']] },
+          { key: 'usdaKey', label: 'USDA FoodData key (optional)', type: 'text', placeholder: 'Uses a shared demo key if empty' }
+        ]}
+        extra={<span className="t13 muted">Recipes show how much of your daily protein and fiber one portion covers. Protein: 0.83 g per kg of body weight when mostly sitting, 1.0 light, 1.3 active, 1.6 very active (at least 1.0 from 65). Fiber: 25 g a day (EFSA). A general guide, not medical advice. Stays on this phone.</span>}
+        onSave={(v) => update((d) => { d.settings = { ...d.settings, age: v.age || undefined, weightKg: v.weightKg || undefined, activity: v.activity, usdaKey: v.usdaKey?.trim() || undefined } })}
+      />
+    )}>
+      <span className="t17">About you</span>
+      <span className="t14 muted">{s.weightKg ? [s.age ? `${s.age} y` : '', `${s.weightKg} kg`, { low: 'mostly sitting', light: 'light activity', active: 'active', very: 'very active' }[s.activity ?? 'light']].filter(Boolean).join(' · ') : 'Age, weight, activity — for protein and fiber in recipes'}</span>
     </button>
   )
 }

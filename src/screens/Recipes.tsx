@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { update, useSt } from '../store'
 import type { CookStep, Recipe } from '../types'
-import { fmtDay, ingredientName, parseRecipe, recipeStatus, today, uid } from '../lib'
-import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { dailyNeeds, fmtDay, ingredientName, parseRecipe, recipeNutrition, recipeStatus, today, uid } from '../lib'
+import { fetchNutrition } from '../nutrition'
+import { FormSheet } from '../form'
+import { C, closeSheet, Field, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, useUi } from '../ui'
 
 const lines = (t: string) => t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -51,6 +53,7 @@ export const RecipeSheet = ({ id }: { id: string }) => {
   return (
     <Sheet title={r.name}>
       <span className="t15 muted" style={{ marginTop: -4 }}>{meta}</span>
+      <NutriTiles r={r} />
       <List title="Ingredients" right={missing.length ? `${missing.length} not in Groceries` : undefined}>
         {ing.map(({ line, sp, state }, i) => (
           <Row key={i} dot={state === 'home' ? C.ok : state === 'buy' ? C.warn : C.line} title={line}
@@ -74,6 +77,74 @@ export const RecipeSheet = ({ id }: { id: string }) => {
     </Sheet>
   )
 }
+
+// Protein and fiber for one portion (USDA data) and how much of your day it covers
+const r0 = (x: number) => (x < 10 ? Math.round(x * 10) / 10 : Math.round(x))
+const NutriTiles = ({ r }: { r: Recipe }) => {
+  const st = useSt()
+  const nu = recipeNutrition(st, r)
+  const need = dailyNeeds(st.settings)
+  const [look, setLook] = useState<'idle' | 'busy' | 'off'>('idle')
+  const [open, setOpen] = useState(false)
+  const key = nu.pending.join('|')
+  useEffect(() => {
+    if (!key || look === 'off') return
+    setLook('busy')
+    fetchNutrition(nu.pending).then((ok) => setLook(ok ? 'idle' : 'off'))
+  }, [key])
+  if (!r.ingredients.length) return null
+  const tile = (label: string, g: number, norm: number | undefined, bg: string) => {
+    const pct = norm ? Math.round((g / norm) * 100) : undefined
+    return (
+      <div className="ntile" style={{ background: bg }}>
+        <span className="t14 w5">{label}</span>
+        <span className="ntile-v">{look === 'busy' && !g ? '…' : `${r0(g)} g`}</span>
+        {pct !== undefined ? (
+          <div className="col" style={{ gap: 6 }}>
+            <div className="nbar"><i style={{ width: `${Math.min(100, pct)}%` }} /></div>
+            <span className="t13">{pct}% of your day · {norm} g</span>
+          </div>
+        ) : <span className="t13">per portion</span>}
+      </div>
+    )
+  }
+  const por = Math.max(1, r.portions ?? 1)
+  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
+  return (
+    <>
+      <div className="ntiles">
+        {tile('Protein', nu.protein, need?.protein, 'var(--work)')}
+        {tile('Fiber', nu.fiber, need?.fiber, 'var(--money)')}
+      </div>
+      <div className="between" style={{ gap: 8, marginTop: -4, padding: '0 4px' }}>
+        <span className="t13 muted">{note}{!need ? ' · add your weight in Settings → About you to see %' : ''}</span>
+        <button className="t13 w5" style={{ flex: 'none', textDecoration: 'underline' }} onClick={() => setOpen(!open)}>{open ? 'Hide' : 'How it’s counted'}</button>
+      </div>
+      {open && (
+        <List>
+          {nu.items.map((x) => (
+            <Row key={x.line} dot={x.n ? C.ok : x.n === null ? C.alert : C.line} title={x.line}
+              meta={<>{x.n ? <div className="details">USDA: {x.n.food}</div> : x.n === null ? <div className="details">Not found in USDA data</div> : null}{`${r0(x.g)} g${x.guessed ? ' (guessed)' : ''} · ${r0(x.protein / por)} g protein · ${r0(x.fiber / por)} g fiber per portion`}</>}
+              trail="→" onClick={() => pushSheet(<GramsEdit id={r.id} line={x.line} g={x.g} />)} />
+          ))}
+        </List>
+      )}
+    </>
+  )
+}
+
+// correct how many grams of an ingredient go into the whole recipe
+const GramsEdit = ({ id, line, g }: { id: string; line: string; g: number }) => (
+  <FormSheet title={line} onBack={popSheet} initial={{ g: Math.round(g) }}
+    fields={[{ key: 'g', label: 'Grams in the whole recipe', type: 'number', step: 1 }]}
+    extra={<span className="t13 muted">Used to count protein and fiber. Leave empty to go back to the guess from the line.</span>}
+    onSave={(v) => update((d) => {
+      const x = d.recipes!.find((y) => y.id === id)!
+      const grams = { ...(x.grams ?? {}) }
+      if (v.g) grams[line] = v.g; else delete grams[line]
+      x.grams = Object.keys(grams).length ? grams : undefined
+    })} />
+)
 
 // Stove and Aerogrill: a countdown like the aerogrill's display — set one timer for the whole block,
 // then each next step shows how many minutes are left on it (steps hold how long each one takes)
@@ -137,6 +208,7 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
   const src = orig ?? draft
   const [name, setName] = useState(src?.name ?? '')
   const [minutes, setMinutes] = useState(src?.minutes ? String(src.minutes) : '')
+  const [portions, setPortions] = useState(src?.portions ? String(src.portions) : '')
   const [ing, setIng] = useState((src?.ingredients ?? []).join('\n'))
   const [stove, setStove] = useState<CookStep[]>(src?.stove ?? [])
   const [air, setAir] = useState<CookStep[]>(src?.air ?? [])
@@ -145,7 +217,7 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
   const [notes, setNotes] = useState(src?.notes ?? '')
   const save = () => {
     const tidy = (xs: CookStep[]) => xs.map((x) => ({ text: x.text.trim(), min: x.min })).filter((x) => x.text)
-    const data = { name: name.trim(), minutes: Number(minutes) || undefined, ingredients: lines(ing), stove: tidy(stove), air: tidy(air), airDur: true, airTemp: Number(airTemp) || undefined, sauce: lines(sauce), notes: notes.trim() || undefined }
+    const data = { name: name.trim(), minutes: Number(minutes) || undefined, portions: Number(portions) > 1 ? Number(portions) : undefined, ingredients: lines(ing), stove: tidy(stove), air: tidy(air), airDur: true, airTemp: Number(airTemp) || undefined, sauce: lines(sauce), notes: notes.trim() || undefined }
     update((d) => {
       d.recipes ??= []
       const x = orig && d.recipes.find((y) => y.id === orig.id)
@@ -157,7 +229,10 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
   return (
     <Sheet title={orig ? 'Edit recipe' : draft ? 'Check & save' : 'New recipe'}>
       <Field label="Name"><input className="input" value={name} placeholder="Lemon-soy chicken" onChange={(e) => setName(e.target.value)} /></Field>
-      <Field label="Takes (minutes)"><input className="input" type="text" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ''))} /></Field>
+      <div className="row" style={{ gap: 8 }}>
+        <div className="grow"><Field label="Takes (minutes)"><input className="input" type="text" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ''))} /></Field></div>
+        <div className="grow"><Field label="Portions"><input className="input" type="text" inputMode="numeric" value={portions} placeholder="1" onChange={(e) => setPortions(e.target.value.replace(/\D/g, ''))} /></Field></div>
+      </div>
       <Field label="Ingredients · one per line"><Area value={ing} onChange={setIng} placeholder={'200 g chicken breast\n2 tbsp soy sauce\n½ lemon'} /></Field>
       <Field label="Stove · minutes each step takes"><StepsEdit value={stove} onChange={setStove} minLabel="min" placeholder="Boil the rice" /></Field>
       <Field label="Aerogrill · minutes each step takes"><StepsEdit value={air} onChange={setAir} minLabel="min" placeholder="Chicken in" /></Field>

@@ -1,4 +1,4 @@
-import type { BudgetItem, CookStep, Credit, Currency, Lessons, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { BudgetItem, CookStep, Credit, Nutri, Currency, Lessons, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -534,4 +534,61 @@ export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
   // pasted aerogrill times written as "8 min left" become how long each step takes
   const air = airLeft ? leftToDurations(r.air) : r.air
   return { name, minutes, ingredients: r.ingredients, stove: r.stove, air, airTemp, airDur: true, sauce: r.sauce, notes: r.notes.join('\n') || undefined }
+}
+
+// ---------- nutrition (recipes) ----------
+// rough weight of one piece when a line gives a count, not grams ("1 chicken breast", "2 eggs")
+const PIECE_G: [RegExp, number][] = [
+  [/chicken breast|chicken fillet/, 200], [/chicken thigh/, 120], [/egg/, 50], [/lemon/, 100], [/lime/, 65], [/orange/, 150],
+  [/garlic/, 4], [/onion|shallot/, 100], [/tomato/, 120], [/cherry tomato/, 15], [/(bell )?pepper/, 150], [/potato/, 170],
+  [/sweet potato/, 200], [/carrot/, 60], [/banana/, 120], [/apple/, 180], [/avocado/, 150], [/cucumber/, 300],
+  [/broccoli/, 300], [/cauliflower/, 500], [/zucchini|courgette/, 200], [/aubergine|eggplant/, 300], [/tortilla|wrap/, 60],
+  [/bread|slice/, 35], [/salmon|fillet/, 130], [/burrata|mozzarella/, 125], [/can|tin/, 240]
+]
+const UNIT_G: [RegExp, number][] = [[/^kg$/, 1000], [/^(g|gr|grams?)$/, 1], [/^(l|litres?|liters?)$/, 1000], [/^ml$/, 1], [/^(tbsp|tablespoons?)$/, 15], [/^(tsp|teaspoons?)$/, 5], [/^cups?$/, 240], [/^(pinch(es)?)$/, 0.5], [/^handfuls?$/, 30], [/^cloves?$/, 4], [/^slices?$/, 30], [/^(cans?|tins?)$/, 240], [/^(packs?)$/, 250]]
+const frac = (s: string) => s.replace('½', '0.5').replace('¼', '0.25').replace('¾', '0.75').replace('⅓', '0.33').replace('⅔', '0.67')
+export const ingredientGrams = (line: string): { g: number; guessed: boolean } => {
+  const l = frac(line.toLowerCase().replace(/^[\s•*\-–—]+/, ''))
+  const m = l.match(/^(\d+(?:[.,]\d+)?)(?:\s*\/\s*(\d+))?(?:\s*-\s*\d+(?:[.,]\d+)?)?\s*([a-z]+)?/)
+  const name = ingredientName(line)
+  if (m) {
+    let n = Number(m[1].replace(',', '.'))
+    if (m[2]) n = n / Number(m[2])
+    const unit = UNIT_G.find(([re]) => m[3] && re.test(m[3]))
+    if (unit) return { g: n * unit[1], guessed: unit[1] !== 1 && unit[1] !== 1000 }
+    const piece = PIECE_G.find(([re]) => re.test(name))
+    return { g: n * (piece?.[1] ?? 100), guessed: true }
+  }
+  if (/salt|pepper|spice|herb|to taste/.test(name)) return { g: 1, guessed: true }
+  const piece = PIECE_G.find(([re]) => re.test(name))
+  return { g: piece?.[1] ?? 100, guessed: true }
+}
+// protein & fiber for one portion, from the looked-up values and the grams of each ingredient
+export const recipeNutrition = (st: State, r: Recipe) => {
+  const items = r.ingredients.map((line) => {
+    const name = ingredientName(line)
+    const n = st.nutrition?.[name]
+    const auto = ingredientGrams(line)
+    const own = r.grams?.[line]
+    const g = own ?? auto.g
+    return { line, name, n, g, guessed: own === undefined && auto.guessed, protein: n ? (n.protein * g) / 100 : 0, fiber: n ? (n.fiber * g) / 100 : 0 }
+  })
+  const por = Math.max(1, r.portions ?? 1)
+  return {
+    items,
+    protein: items.reduce((a, x) => a + x.protein, 0) / por,
+    fiber: items.reduce((a, x) => a + x.fiber, 0) / por,
+    pending: items.filter((x) => x.name && x.n === undefined).map((x) => x.name), // not looked up yet
+    notFound: items.filter((x) => x.n === null).length,
+    guessed: items.some((x) => x.n && x.guessed)
+  }
+}
+// daily needs: protein by body weight and activity (EFSA 0.83 g/kg as the floor, more when active; 1.0 from 65),
+// fiber 25 g (EFSA adequate intake for adults)
+export const PROTEIN_PER_KG = { low: 0.83, light: 1.0, active: 1.3, very: 1.6 } as const
+export const dailyNeeds = (s: Settings) => {
+  if (!s.weightKg) return undefined
+  let k: number = PROTEIN_PER_KG[s.activity ?? 'light']
+  if ((s.age ?? 0) >= 65) k = Math.max(k, 1.0)
+  return { protein: Math.round(s.weightKg * k), fiber: 25 }
 }

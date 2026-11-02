@@ -25,6 +25,11 @@ export interface Settings {
   blueAt?: string
   taxAccount?: string // mikrorachunek podatkowy
   zusAccount?: string // rachunek składkowy
+  // about you (for daily protein / fiber needs in Recipes)
+  age?: number
+  weightKg?: number
+  activity?: 'low' | 'light' | 'active' | 'very'
+  usdaKey?: string // own free key for USDA FoodData Central (DEMO_KEY otherwise)
 }
 
 export interface BudgetItem {
@@ -219,6 +224,7 @@ export interface SelfCare {
 // one step in a cooking block (Stove or Aerogrill): min = how long the step takes until the next one.
 // Both are shown as a countdown: one timer for the whole block, each step at the minutes left.
 export interface CookStep { text: string; min?: number }
+export interface Nutri { food: string; protein: number; fiber: number; id?: number } // per 100 g
 export interface Recipe {
   id: ID
   name: string
@@ -233,6 +239,8 @@ export interface Recipe {
   notes?: string
   lastCooked?: string
   cooked?: number // how many times
+  portions?: number // how many portions the recipe makes (default 1)
+  grams?: Record<string, number> // per ingredient line: grams you set by hand (otherwise guessed from the line)
 }
 
 export interface Credit {
@@ -300,6 +308,8 @@ export interface State {
   subscriptions: Subscription[]
   selfcare?: SelfCare[]
   recipes?: Recipe[]
+  // nutrition per 100 g looked up online (USDA FoodData Central), by ingredient name; null = not found
+  nutrition?: Record<string, Nutri | null>
   lessons?: Lessons
   tasks?: Task[]
   notes?: Note[]
