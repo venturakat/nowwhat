@@ -214,6 +214,19 @@ export interface SelfCare {
   paused?: boolean
 }
 
+// Recipes (Home → Recipes). Ingredients are plain lines ("200 g chicken breast");
+// they're matched to Groceries by name to show what's at home and what to buy.
+export interface Recipe {
+  id: ID
+  name: string
+  minutes?: number
+  ingredients: string[]
+  steps: string[]
+  notes?: string
+  lastCooked?: string
+  cooked?: number // how many times
+}
+
 export interface Credit {
   id: ID
   name: string // lender / what it's for
@@ -278,6 +291,7 @@ export interface State {
   credits: Credit[]
   subscriptions: Subscription[]
   selfcare?: SelfCare[]
+  recipes?: Recipe[]
   lessons?: Lessons
   tasks?: Task[]
   notes?: Note[]

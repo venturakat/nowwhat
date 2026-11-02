@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { update, useSt } from '../store'
 import type { Project } from '../types'
 import { Cleaning } from './Cleaning'
+import { Recipes } from './Recipes'
 import { fmt, numText, parseNum, splitList, uid } from '../lib'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
 
@@ -12,9 +13,9 @@ export const Home = () => {
   const open = st.projects.filter((p) => !p.done).length
   return (
     <div className="screen">
-      <Header sub={sub === 'projects' ? `Home · ${open} open` : 'Home'} title={sub === 'projects' ? 'Projects' : 'Cleaning'} />
-      <Chips items={[['cleaning', 'Cleaning'], ['projects', 'Projects']]} value={sub as any} onChange={setSub} swipe />
-      {sub === 'cleaning' ? <Cleaning /> : <Projects />}
+      <Header sub={sub === 'projects' ? `Home · ${open} open` : 'Home'} title={sub === 'projects' ? 'Projects' : sub === 'recipes' ? 'Recipes' : 'Cleaning'} />
+      <Chips items={[['cleaning', 'Cleaning'], ['projects', 'Projects'], ['recipes', 'Recipes']]} value={sub as any} onChange={setSub} swipe />
+      {sub === 'cleaning' ? <Cleaning /> : sub === 'recipes' ? <Recipes /> : <Projects />}
     </div>
   )
 }

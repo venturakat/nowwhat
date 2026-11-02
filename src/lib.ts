@@ -1,4 +1,4 @@
-import type { BudgetItem, Credit, Currency, Lessons, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { BudgetItem, Credit, Currency, Lessons, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -449,4 +449,63 @@ export const careInMonth = (st: State, mk: string) => {
     for (let g = 0; d <= end && g < 60; g++, d = addDays(d, step)) if (d >= start) out.push({ x, date: d, pln: toPln(st.settings, x.price, x.currency ?? 'PLN') })
   }
   return out.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+// ---------- recipes ----------
+const UNITS = 'g|gr|grams?|kg|ml|l|litres?|liters?|tbsp|tablespoons?|tsp|teaspoons?|cups?|pcs|pieces?|cloves?|pinch(?:es)?|handfuls?|slices?|cans?|packs?|bunch(?:es)?|sprigs?|stalks?|x'
+// "200 g chicken breast" -> "chicken breast" (what to look for in Groceries)
+export const ingredientName = (line: string) => line
+  .replace(/\(.*?\)/g, ' ')
+  .replace(/^[\s•*\-–—]+/, '')
+  .replace(new RegExp(`^[\\d.,/½¼¾⅓⅔\\s-]*(?:(?:${UNITS})\\b\\.?)?\\s*(?:of\\s+)?`, 'i'), '')
+  .split(/[,;:]| - | – /)[0]
+  .trim().toLowerCase()
+const stem = (w: string) => w.toLowerCase().replace(/(es|s)$/, '')
+// the Groceries item an ingredient line refers to (by name, either way round, singular/plural)
+export const groceryFor = (st: State, line: string) => {
+  const n = ingredientName(line)
+  if (!n) return undefined
+  const words = n.split(/\s+/).map(stem)
+  return st.supplies.find((s) => {
+    if (s.cat !== 'groceries') return false
+    const g = s.name.toLowerCase().split(/\s+/).map(stem).join(' ')
+    const w = words.join(' ')
+    return g === w || w.includes(g) || g.includes(w)
+  })
+}
+// per ingredient: at home / to buy (on the list) / unknown (not tracked in Groceries)
+export const recipeStatus = (st: State, r: Recipe) => r.ingredients.map((line) => {
+  const sp = groceryFor(st, line)
+  const state: 'home' | 'buy' | 'none' = !sp ? 'none' : sp.once ? 'buy' : supplyStatus(sp, st.settings).state === 'ok' ? 'home' : 'buy'
+  return { line, sp, state }
+})
+// turn pasted text (e.g. a recipe from a chat) into a recipe draft
+export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
+  const clean = (l: string) => l.replace(/\*\*|__|`/g, '').replace(/^#+\s*/, '').trim()
+  const lines = text.split(/\r?\n/).map(clean).filter(Boolean)
+  const name = (lines.shift() ?? 'New recipe').replace(/[:.]$/, '')
+  const ING = /^(ingredients|you('ll)? need|what you need|shopping list)\b/i
+  const STEP = /^(steps|method|instructions|directions|how to( make| cook)?|preparation|cooking)\b/i
+  const NOTE = /^(notes?|tips?|serving|to serve)\b/i
+  const bullet = /^([-•*–—]|\d+[.)]|step\s*\d+[:.)]?)\s*/i
+  let sec: 'none' | 'ing' | 'step' | 'note' = 'none'
+  const ingredients: string[] = [], steps: string[] = [], notes: string[] = []
+  let minutes: number | undefined
+  for (const l of lines) {
+    const m = l.match(/(\d+)\s*(min|minutes)\b/i)
+    if (ING.test(l)) { sec = 'ing'; continue }
+    if (STEP.test(l)) { sec = 'step'; continue }
+    if (NOTE.test(l)) { sec = 'note'; const rest = l.replace(NOTE, '').replace(/^[:\s]+/, ''); if (rest) notes.push(rest); continue }
+    const body = l.replace(bullet, '').trim()
+    if (!body) continue
+    if (sec === 'ing') ingredients.push(body)
+    else if (sec === 'step') steps.push(body)
+    else if (sec === 'note') notes.push(body)
+    else if (/^[-•*–—]/.test(l)) ingredients.push(body) // no headings: bullets are ingredients…
+    else if (/^\d+[.)]/.test(l)) steps.push(body) // …numbered lines are steps
+    else if (m && !minutes) minutes = Number(m[1])
+    else notes.push(body)
+  }
+  if (!minutes) { const m = text.match(/(\d+)\s*(min|minutes)\b/i); if (m) minutes = Number(m[1]) }
+  return { name, minutes, ingredients, steps, notes: notes.join('\n') || undefined }
 }
