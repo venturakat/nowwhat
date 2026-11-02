@@ -1,5 +1,5 @@
 import { exportJson, importJson, update, useSt, useStore } from './store'
-import { openSettings, openSheet, Sheet, toast } from './ui'
+import { popSheet, pushSheet, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
 import { refreshRates } from './rates'
@@ -31,8 +31,8 @@ export const SettingsSheet = () => {
 const TaxesCard = () => {
   const st = useSt()
   return (
-    <button className="card" style={{ gap: 4 }} onClick={() => openSheet(
-      <FormSheet title="Taxes & accounts" onBack={openSettings} initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
+    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(
+      <FormSheet title="Taxes & accounts" onBack={popSheet} initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
         fields={[
           { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
@@ -57,8 +57,8 @@ const TaxesCard = () => {
 const DaysCard = () => {
   const st = useSt()
   return (
-    <button className="card" style={{ gap: 4 }} onClick={() => openSheet(
-      <FormSheet title="Budget & shopping days" onBack={openSettings} initial={{ ...st.settings }}
+    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(
+      <FormSheet title="Budget & shopping days" onBack={popSheet} initial={{ ...st.settings }}
         fields={[
           { key: 'splitDay', label: 'Second fortnight starts on day', type: 'number', step: 1 },
           { key: 'leadDays', label: 'Shop meds, pets & care this many days before they run out', type: 'number', step: 1 },
@@ -90,8 +90,8 @@ const RatesCard = () => {
           const ok = await refreshRates(true).catch(() => false)
           toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones')
         }}>Update now</button>
-        <button className="btn soft sm" onClick={() => openSheet(
-          <FormSheet title="Exchange rates" onBack={openSettings} initial={{ eurPln: s.eurPln, uahPln: s.uahPln }}
+        <button className="btn soft sm" onClick={() => pushSheet(
+          <FormSheet title="Exchange rates" onBack={popSheet} initial={{ eurPln: s.eurPln, uahPln: s.uahPln }}
             fields={[
               { key: 'eurPln', label: '1 € in zł', type: 'number' },
               { key: 'uahPln', label: '1 ₴ in zł', type: 'number' }

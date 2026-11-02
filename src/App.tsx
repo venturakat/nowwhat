@@ -52,7 +52,7 @@ const useVisibleArea = () => {
 
 export const App = () => {
   const ready = useStore((s) => s.ready)
-  const { tab, sheet, toast, go, close } = useUi()
+  const { tab, sheet, under, toast, go, close } = useUi()
   const area = useVisibleArea()
   return (
     <div className="app">
@@ -77,7 +77,11 @@ export const App = () => {
       </nav>
       {sheet && (
         <div className="scrim" onClick={close} style={area ? { top: area.top, bottom: 'auto', height: area.h } : undefined}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} style={area ? { maxHeight: area.h - 24 } : undefined}>{sheet}</div>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} style={area ? { maxHeight: area.h - 24 } : undefined}>
+            {/* pages stay mounted underneath (same key), so going back finds them as you left them */}
+            {under.map((n, i) => <div key={i} className={'page under' + (i === under.length - 1 ? ' below' : '')} aria-hidden>{n}</div>)}
+            <div key={under.length} className={'page top' + (under.length ? ' pushed' : '')}>{sheet}</div>
+          </div>
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}

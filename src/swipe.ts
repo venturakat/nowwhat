@@ -1,5 +1,5 @@
 import { flushSync } from 'react-dom'
-import { canSwipe, closeSheet, currentSheetBack, swipeSub, useUi } from './ui'
+import { canSwipe, closeSheet, popSheet, swipeSub, UNDER_SHIFT, useUi } from './ui'
 
 // Sideways swipe between sub-tabs: the content follows your finger, then slides away
 // and the next tab slides in. At the first/last tab it only stretches a little and springs back.
@@ -61,57 +61,66 @@ export const startSwipe = () => {
   document.addEventListener('touchcancel', end)
 }
 
-// Inside a sheet: pull down (from the top of its content) to close it,
-// and on a sub-page (one with a ‹ back arrow) swipe right to go back.
+// Inside a sheet: pull down (from the top of its content) to close it, and on a page
+// that was opened on top of another one, swipe right to drag it away and uncover the one below.
 export const startSheetSwipe = () => {
-  let g: { x: number; y: number; t: number; lock?: 'h' | 'v' | 'none'; el: HTMLElement; dx: number; dy: number; back: (() => void) | null } | null = null
-  const tr = (el: HTMLElement, t: string, how = 'none', o = '') => { el.style.transition = how; el.style.transform = t; el.style.opacity = o }
+  type G = { x: number; y: number; t: number; lock?: 'h' | 'v' | 'none'; sheet: HTMLElement; top: HTMLElement; below: HTMLElement | null; dx: number; dy: number }
+  let g: G | null = null
+  const tr = (el: HTMLElement | null, t: string, how = 'none') => { if (!el) return; el.style.transition = how; el.style.transform = t }
+  const spring = 'transform .24s cubic-bezier(.2,.8,.2,1)'
   document.addEventListener('touchstart', (e) => {
     g = null
     const t = e.target as HTMLElement
-    const el = t.closest<HTMLElement>('.sheet')
+    const sheet = t.closest<HTMLElement>('.sheet')
+    const top = sheet?.querySelector<HTMLElement>(':scope > .page.top')
     // a field you're typing in keeps its own touches; an untouched field can still be swiped across
     const field = t.closest('input, textarea, select')
-    if (!el || e.touches.length > 1 || t.closest('.noswipe') || (field && field === document.activeElement)) return
-    g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), el, dx: 0, dy: 0, back: currentSheetBack() }
+    if (!sheet || !top || e.touches.length > 1 || t.closest('.noswipe') || (field && field === document.activeElement)) return
+    g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), sheet, top, below: sheet.querySelector<HTMLElement>(':scope > .page.below'), dx: 0, dy: 0 }
   }, { passive: true })
   document.addEventListener('touchmove', (e) => {
     if (!g) return
     const dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y
     if (!g.lock) {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
-      if (g.back && dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2) g.lock = 'h'
-      else if (dy > 0 && Math.abs(dy) > Math.abs(dx) && g.el.scrollTop <= 0) g.lock = 'v'
+      if (g.below && dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.2) g.lock = 'h'
+      else if (dy > 0 && Math.abs(dy) > Math.abs(dx) && g.top.scrollTop <= 0) g.lock = 'v'
       else g.lock = 'none'
     }
     if (g.lock === 'none') return
     e.preventDefault()
     g.dx = dx; g.dy = dy
-    if (g.lock === 'h') tr(g.el, `translateX(${Math.max(0, dx)}px)`)
-    else tr(g.el, `translateY(${Math.max(0, dy)}px)`)
+    if (g.lock === 'h') {
+      const w = g.top.offsetWidth, x = Math.max(0, dx)
+      tr(g.top, `translateX(${x}px)`)
+      tr(g.below, `translateX(${-UNDER_SHIFT * w * (1 - x / w)}px)`) // the page below follows, like on iOS
+    } else tr(g.sheet, `translateY(${Math.max(0, dy)}px)`)
   }, { passive: false })
   const end = () => {
     const s = g; g = null
     if (!s || !s.lock || s.lock === 'none') return
-    const el = s.el
     const ms = Math.max(1, Date.now() - s.t)
     if (s.lock === 'h') {
-      const w = el.offsetWidth
-      if (s.dx > w * 0.25 || (s.dx / ms > 0.35 && s.dx > 30)) {
-        tr(el, `translateX(${w}px)`, 'transform .14s ease-in')
+      const w = s.top.offsetWidth
+      if (s.dx > w * 0.3 || (s.dx / ms > 0.35 && s.dx > 30)) {
+        tr(s.top, `translateX(${w}px)`, spring)
+        tr(s.below, 'translateX(0)', spring)
         setTimeout(() => {
-          flushSync(() => s.back?.())
-          el.scrollTop = 0
-          tr(el, `translateX(${-w * 0.3}px)`, 'none', '0')
-          requestAnimationFrame(() => requestAnimationFrame(() => tr(el, '', 'transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease-out')))
-          setTimeout(() => tr(el, ''), 260)
-        }, 130)
-      } else tr(el, '', 'transform .22s cubic-bezier(.2,.9,.3,1.2)')
+          const below = s.below
+          tr(below, 'translateX(0)')
+          flushSync(() => popSheet(false))
+          requestAnimationFrame(() => { if (below) { below.style.transform = ''; below.style.transition = '' } })
+        }, 240)
+      } else {
+        tr(s.top, '', spring)
+        tr(s.below, '', spring)
+        setTimeout(() => { if (s.below) s.below.style.transition = '' }, 260)
+      }
     } else {
       if (s.dy > 110 || (s.dy / ms > 0.5 && s.dy > 40)) {
-        tr(el, 'translateY(100%)', 'transform .18s ease-in')
-        setTimeout(() => { closeSheet(); tr(el, '') }, 170)
-      } else tr(el, '', 'transform .22s cubic-bezier(.2,.9,.3,1.2)')
+        tr(s.sheet, 'translateY(100%)', 'transform .18s ease-in')
+        setTimeout(() => { closeSheet(); tr(s.sheet, '') }, 170)
+      } else tr(s.sheet, '', 'transform .22s cubic-bezier(.2,.9,.3,1.2)')
     }
   }
   document.addEventListener('touchend', end)

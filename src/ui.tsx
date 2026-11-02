@@ -8,10 +8,13 @@ interface Ui {
   tab: Tab
   sub: Record<Tab, string>
   sheet: ReactNode | null
+  under: ReactNode[] // pages the current sheet was opened on top of (Settings → a category); they stay put underneath
   toast: string | null
   go: (tab: Tab, sub?: string) => void
   setSub: (sub: string) => void
   open: (n: ReactNode) => void
+  push: (n: ReactNode) => void
+  pop: () => void
   close: () => void
   say: (msg: string) => void
 }
@@ -19,14 +22,17 @@ export const useUi = create<Ui>((set, get) => ({
   tab: 'today',
   sub: { today: '', money: 'budget', supplies: 'meds', home: 'cleaning', closet: 'own' },
   sheet: null,
+  under: [],
   toast: null,
   go: (tab, sub) => {
     set({ tab, sub: sub ? { ...get().sub, [tab]: sub } : get().sub })
     window.scrollTo({ top: 0 })
   },
   setSub: (sub) => set({ sub: { ...get().sub, [get().tab]: sub } }),
-  open: (n) => set({ sheet: n }),
-  close: () => set({ sheet: null }),
+  open: (n) => set({ sheet: n, under: [] }),
+  push: (n) => { const { sheet, under } = get(); set(sheet ? { sheet: n, under: [...under, sheet] } : { sheet: n, under: [] }) },
+  pop: () => { const { under } = get(); set(under.length ? { sheet: under[under.length - 1], under: under.slice(0, -1) } : { sheet: null, under: [] }) },
+  close: () => set({ sheet: null, under: [] }),
   say: (msg) => {
     set({ toast: msg })
     setTimeout(() => get().toast === msg && set({ toast: null }), 2200)
@@ -34,6 +40,24 @@ export const useUi = create<Ui>((set, get) => ({
 }))
 export const openSheet = (n: ReactNode) => useUi.getState().open(n)
 export const closeSheet = () => useUi.getState().close()
+// open a page on top of the current one (it slides in from the right; the one below waits there)
+export const pushSheet = (n: ReactNode) => useUi.getState().push(n)
+// back to the page underneath: the top page slides away to the right and uncovers it
+export const UNDER_SHIFT = 0.3 // the page below sits this much (of the width) to the left
+export const popSheet = (animate = true) => {
+  const top = document.querySelector<HTMLElement>('.sheet > .page.top')
+  const below = document.querySelector<HTMLElement>('.sheet > .page.below')
+  if (!animate || !top || !below) { useUi.getState().pop(); return }
+  const w = top.offsetWidth
+  const ease = 'transform .26s cubic-bezier(.2,.8,.2,1)'
+  top.style.transition = ease; top.style.transform = `translateX(${w}px)`
+  below.style.transition = ease; below.style.transform = 'translateX(0)'
+  setTimeout(() => {
+    below.style.transition = 'none'
+    useUi.getState().pop()
+    requestAnimationFrame(() => { below.style.transform = ''; below.style.transition = '' })
+  }, 260)
+}
 export const toast = (m: string) => useUi.getState().say(m)
 
 // Settings live in their own module; App registers how to build the sheet so every screen can open it
@@ -156,14 +180,8 @@ export const List = ({ title, right, children, empty, roomy }: { title?: ReactNo
 export const Check = ({ on }: { on: boolean }) => <span className={'check' + (on ? ' on' : '')}>{on && <Icon.check />}</span>
 
 // onBack: a sub-page (e.g. a Settings category) gets a ‹ back arrow next to its title
-// and a swipe to the right goes back too (see swipe.ts). full: the sheet takes the whole screen.
-let sheetBack: (() => void) | null = null
-export const currentSheetBack = () => sheetBack
+// (swiping right goes back too, see swipe.ts). full: the sheet takes the whole screen.
 export const Sheet = ({ title, children, onBack, full }: { title: string; children: ReactNode; onBack?: () => void; full?: boolean }) => {
-  useEffect(() => {
-    sheetBack = onBack ?? null
-    return () => { if (sheetBack === onBack) sheetBack = null }
-  }, [onBack])
   return (
   <>
     {full && <span className="sheet-full" hidden />}
