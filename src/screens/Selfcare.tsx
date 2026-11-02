@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Currency, SelfCare } from '../types'
-import { addDays, careInPeriod, careNext, carePerMonth, diffDays, fmt, fmtBoth, fmtDay, numText, parseNum, periodOf, today, uid } from '../lib'
+import { addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
 import { C, closeSheet, Field, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
 import { CURRENCIES } from './Subscriptions'
@@ -23,12 +23,14 @@ export const Selfcare = () => {
   const half = careInPeriod(st, p.start, p.end)
   const halfSum = half.reduce((a, c) => a + c.pln, 0)
   const active = all.filter((x) => !x.paused)
+  const mk = monthKey(t)
+  const month = careInMonth(st, mk)
   return (
     <>
       {active.length > 0 && (
         <div className="card closet" style={{ gap: 6 }}>
-          <span className="t15 w5">Selfcare · about a month</span>
-          <span className="big" style={{ fontSize: 52 }}>{fmt(carePerMonth(st))}</span>
+          <span className="t15 w5">Selfcare · {monthName(mk, true)} · {month.length} {month.length === 1 ? 'time' : 'times'}</span>
+          <span className="big" style={{ fontSize: 52 }}>{fmt(month.reduce((a, c) => a + c.pln, 0))}</span>
           <span className="t14">{half.length ? `${fmt(halfSum)} planned this fortnight · already in your budget` : 'Nothing planned this fortnight'}</span>
         </div>
       )}
@@ -37,7 +39,7 @@ export const Selfcare = () => {
           const late = diffDays(t, x.next) < 0
           return (
             <Row key={x.id} dot={x.paused ? C.line : late ? C.warn : C.closet} done={x.paused} title={x.name}
-              meta={<>{x.details && <div className="details">{x.details}</div>}{x.paused ? 'Paused' : `${everyText(x.everyDays)} · ${whenText(x.next, t)}`}</>}
+              meta={<>{x.details && <div className="details">{x.details}</div>}{x.paused ? 'Paused' : `${everyText(x.everyDays)} · ${whenText(x.next, t)}${month.filter((c) => c.x.id === x.id).length > 1 ? ` · ${month.filter((c) => c.x.id === x.id).length}× in ${monthName(mk, true)}` : ''}`}</>}
               trail={fmtBoth(st.settings, x.price, x.currency ?? 'PLN')} onClick={() => openSheet(<CareSheet id={x.id} />)} />
           )
         })}

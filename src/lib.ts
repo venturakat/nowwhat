@@ -434,5 +434,19 @@ export const careInPeriod = (st: State, start: string, end: string, t = today())
   }
   return out.sort((a, b) => a.date.localeCompare(b.date))
 }
-// roughly what it costs a month
-export const carePerMonth = (st: State) => (st.selfcare ?? []).filter((x) => !x.paused).reduce((a, x) => a + (toPln(st.settings, x.price, x.currency ?? 'PLN') * 30.44) / Math.max(1, x.everyDays), 0)
+// the times that actually fall in a calendar month on the schedule (counted through the next planned date,
+// back and forth by the repeat), so it's "2 manicures in November", not an average
+export const careInMonth = (st: State, mk: string) => {
+  const start = `${mk}-01`, end = addDays(`${nextMonth(mk)}-01`, -1)
+  const out: { x: SelfCare; date: string; pln: number }[] = []
+  for (const x of st.selfcare ?? []) {
+    if (x.paused) continue
+    const step = Math.max(1, x.everyDays)
+    let d = x.next
+    const back = Math.ceil(diffDays(start, d) / step) // jump to the first time on/after the 1st
+    if (back > 0) d = addDays(d, -back * step)
+    else if (d < start) d = addDays(d, Math.ceil(diffDays(d, start) / step) * step)
+    for (let g = 0; d <= end && g < 60; g++, d = addDays(d, step)) if (d >= start) out.push({ x, date: d, pln: toPln(st.settings, x.price, x.currency ?? 'PLN') })
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date))
+}
