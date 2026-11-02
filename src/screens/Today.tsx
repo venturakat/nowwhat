@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
 import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
+import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Header, Icon, openSettings, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
@@ -92,7 +93,7 @@ export const Today = () => {
   const due = `${monthKey(t)}-${String(st.settings.taxPayDay ?? st.settings.taxDueDay).padStart(2, '0')}`
   return (
     <div className="screen withfab">
-      <Header sub={fmtWeekday(t)} title="Now what?" />
+      <Header sub={fmtWeekday(t)} title={<Logo />} />
       {Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0 && (
         <button className="card money" style={{ gap: 6 }} onClick={() => openSettings()}>
           <span className="t17">Fresh start</span>

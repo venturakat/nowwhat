@@ -178,3 +178,6 @@ input.input::-webkit-datetime-edit { padding: 0; }
 /* full-screen sheets (Settings) with the Save button pinned to the bottom */
 .sheet:has(.sheet-full) { height: 100%; }
 .sheet-foot { margin-top: auto; position: sticky; bottom: calc(-1 * (var(--safe-b) + 24px)); margin-bottom: calc(-1 * (var(--safe-b) + 24px)); padding: 12px 0 calc(var(--safe-b) + 24px); background: var(--bg); display: flex; flex-direction: column; gap: 10px; }
+
+/* the logo in the Today header sits where the big title would be */
+.h1 .logo { display: block; margin: 6px 0 2px; }

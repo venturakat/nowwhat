@@ -105,7 +105,7 @@ export const Garment = ({ cat, size = 40 }: { cat: ClosetCat; size?: number }) =
 )
 
 // ---------- primitives ----------
-export const Header = ({ sub, title, right }: { sub: string; title: string; right?: ReactNode }) => (
+export const Header = ({ sub, title, right }: { sub: string; title: ReactNode; right?: ReactNode }) => (
   <div className="between" style={{ alignItems: 'flex-end' }}>
     <div className="col" style={{ gap: 2 }}>
       <div className="sub">{sub}</div>
