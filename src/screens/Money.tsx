@@ -19,7 +19,7 @@ export const Money = () => {
   return (
     <div className="screen">
       <Header sub={sub === 'budget' ? 'Budget' : 'Money'} title={title} />
-      <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['credits', 'Credits'], ['subs', 'Subscriptions'], ['selfcare', 'Selfcare'], ['spanish', 'Spanish']]} value={sub as any} onChange={setSub} swipe />
+      <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['credits', 'Credits'], ['subs', 'Subscriptions'], ['spanish', 'Spanish']]} value={sub as any} onChange={setSub} swipe />
       {sub === 'budget' && <Budget />}
       {sub === 'work' && <Work />}
       {sub === 'taxes' && <Taxes />}
