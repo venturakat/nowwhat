@@ -4,7 +4,10 @@ import type { Project } from '../types'
 import { Cleaning } from './Cleaning'
 import { Recipes } from './Recipes'
 import { fmt, numText, parseNum, splitList, uid } from '../lib'
-import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
+
+const SUBTABS: [string, string][] = [['cleaning', 'Cleaning'], ['projects', 'Projects'], ['recipes', 'Recipes']]
+registerSubs('home', SUBTABS.map((x) => x[0]))
 
 export const Home = () => {
   const sub = useUi((u) => u.sub.home)
@@ -14,7 +17,7 @@ export const Home = () => {
   return (
     <div className="screen">
       <Header sub={sub === 'projects' ? `Home · ${open} open` : 'Home'} title={sub === 'projects' ? 'Projects' : sub === 'recipes' ? 'Recipes' : 'Cleaning'} />
-      <Chips items={[['cleaning', 'Cleaning'], ['projects', 'Projects'], ['recipes', 'Recipes']]} value={sub as any} onChange={setSub} swipe />
+      <Chips items={SUBTABS} value={sub as any} onChange={setSub} swipe />
       {sub === 'cleaning' ? <Cleaning /> : sub === 'recipes' ? <Recipes /> : <Projects />}
     </div>
   )

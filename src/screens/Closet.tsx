@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
 import { diffDays, fmt, fmtBoth, fmtCur, fmtDay, toPln, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
-import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet } from '../form'
 import { CURRENCIES } from './Subscriptions'
 
@@ -22,6 +22,9 @@ const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bot
 const WAIT = 7
 
 // shrink a photo (~480px JPEG by default) so storage stays small
+const SUBTABS: [string, string][] = [['own', 'I own'], ['buy', 'To buy'], ['outfits', 'Outfits']]
+registerSubs('closet', SUBTABS.map((x) => x[0]))
+
 export const compress = (file: File, max = 480): Promise<string> =>
   new Promise((res, rej) => {
     const img = new Image()
@@ -53,7 +56,7 @@ export const Closet = () => {
   return (
     <div className="screen">
       <Header sub={sub === 'own' ? `Closet · ${st.closet.length} things` : 'Closet'} title={sub === 'own' ? 'Wardrobe' : sub === 'buy' ? 'To buy' : 'Outfits'} />
-      <Chips items={[['own', 'I own'], ['buy', 'To buy'], ['outfits', 'Outfits']]} value={sub as any} onChange={setSub} swipe />
+      <Chips items={SUBTABS} value={sub as any} onChange={setSub} swipe />
       {sub === 'own' && <Own />}
       {sub === 'buy' && <ToBuy />}
       {sub === 'outfits' && <Outfits />}

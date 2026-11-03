@@ -4,13 +4,16 @@ import type { Currency, Session, State } from '../types'
 import {
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, sessionPln, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
 } from '../lib'
-import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
 import { Credits } from './Credits'
 import { nbpRateForInvoice } from '../rates'
 import { CURRENCIES, ord, Subscriptions } from './Subscriptions'
 import { Spanish } from './Spanish'
 import { Selfcare } from './Selfcare'
+
+const SUBTABS: [string, string][] = [['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['spanish', 'Spanish'], ['subs', 'Subscriptions'], ['credits', 'Credits']]
+registerSubs('money', SUBTABS.map((x) => x[0]))
 
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
@@ -19,7 +22,7 @@ export const Money = () => {
   return (
     <div className="screen">
       <Header sub="Money" title={title} />
-      <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['spanish', 'Spanish'], ['subs', 'Subscriptions'], ['credits', 'Credits']]} value={sub as any} onChange={setSub} swipe />
+      <Chips items={SUBTABS} value={sub as any} onChange={setSub} swipe />
       {sub === 'budget' && <Budget />}
       {sub === 'work' && <Work />}
       {sub === 'taxes' && <Taxes />}

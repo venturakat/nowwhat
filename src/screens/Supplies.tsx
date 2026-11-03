@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Supply, SupplyCat } from '../types'
 import { addDays, CAT_LABEL, editProjectBuy, fmt, fmtDay, nextBuy, periodOf, relDays, supplyStatus, today, uid } from '../lib'
-import { C, Chips, Field, Header, List, openSheet, Row, Sheet, closeSheet, toast, useUi } from '../ui'
+import { C, Chips, Field, Header, List, openSheet, Row, Sheet, closeSheet, toast, registerSubs, useUi } from '../ui'
 import { addShipment, CourierPick } from './Shipments'
 import { FormSheet } from '../form'
 
 const CATS: [SupplyCat, string][] = [['meds', 'Meds'], ['groceries', 'Groceries'], ['pets', 'Pets'], ['home', 'Home'], ['care', 'Care']]
+registerSubs('supplies', CATS.map((x) => x[0]))
 const EMPTY: Record<SupplyCat, string> = {
   meds: 'Add your meds with price and how long a pack lasts.',
   groceries: 'Add staples that run out: coffee, oats, oil…',

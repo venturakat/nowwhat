@@ -1,15 +1,17 @@
 import { flushSync } from 'react-dom'
-import { canSwipe, closeSheet, popSheet, swipeSub, UNDER_SHIFT, useUi } from './ui'
+import { canSwipe, closeSheet, crossesTab, popSheet, swipeSub, UNDER_SHIFT, useUi } from './ui'
 
-// Sideways swipe between sub-tabs: the content follows your finger, then slides away
-// and the next tab slides in. At the first/last tab it only stretches a little and springs back.
-const content = () => {
+// Sideways swipe between sub-tabs, and past the first/last one on to the neighbouring tab:
+// the content follows your finger, then slides away and the next one slides in. Moving to another
+// tab slides the whole screen (title included). At the very first/last spot it only stretches and springs back.
+const content = (whole = false) => {
   const screen = document.querySelector<HTMLElement>('.app .screen')
   if (!screen) return []
   const kids = [...screen.children] as HTMLElement[]
   const i = kids.findIndex((k) => k.classList.contains('chips'))
-  return i < 0 ? [] : kids.slice(i + 1) // header and tab chips stay put
+  return whole || i < 0 ? kids : kids.slice(i + 1) // within a tab, its header and chips stay put
 }
+const EDGE = 22 // swipes from the very edge belong to the phone (back gesture)
 const set = (els: HTMLElement[], x: number, o: number, tr = 'none') => {
   for (const el of els) { el.style.transition = tr; el.style.transform = x ? `translateX(${x}px)` : ''; el.style.opacity = o === 1 ? '' : String(o) }
 }
@@ -23,11 +25,13 @@ const inSideScroll = (el: HTMLElement | null) => {
 }
 
 export const startSwipe = () => {
-  let s: { x: number; y: number; t: number; lock?: 'h' | 'v'; els: HTMLElement[]; dx: number } | null = null
+  let s: { x: number; y: number; t: number; lock?: 'h' | 'v'; els: HTMLElement[]; dx: number; cross?: boolean } | null = null
   document.addEventListener('touchstart', (e) => {
     const el = e.target as HTMLElement
     s = null
     if (useUi.getState().sheet || e.touches.length > 1 || el.closest('.chips, input, textarea, select, .noswipe, .tabbar, .fabs') || !el.closest('.app') || inSideScroll(el)) return
+    const x0 = e.touches[0].clientX
+    if (x0 < EDGE || x0 > window.innerWidth - EDGE) return
     s = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), els: [], dx: 0 }
   }, { passive: true })
   document.addEventListener('touchmove', (e) => {
@@ -36,7 +40,7 @@ export const startSwipe = () => {
     if (!s.lock) {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
       s.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v'
-      if (s.lock === 'h') s.els = content()
+      if (s.lock === 'h') { s.cross = crossesTab(dx < 0 ? 1 : -1); s.els = content(s.cross) }
     }
     if (s.lock !== 'h') return
     e.preventDefault() // no page scrolling while swiping sideways
@@ -54,12 +58,15 @@ export const startSwipe = () => {
       set(g.els, 0, 1, 'transform .22s cubic-bezier(.2,.9,.3,1.2), opacity .16s') // spring back
       return
     }
-    set(g.els, -dir * w, 0, 'transform .11s ease-in, opacity .11s ease-in')
+    const cross = crossesTab(dir)
+    const out = cross && !g.cross ? content(true) : g.els // swiped back the other way into another tab
+    if (out !== g.els) set(g.els, 0, 1)
+    set(out, -dir * w, 0, 'transform .11s ease-in, opacity .11s ease-in')
     setTimeout(() => {
-      set(g.els, 0, 1)
+      set(out, 0, 1)
       flushSync(() => swipeSub(dir))
       window.scrollTo({ top: 0 })
-      const next = content()
+      const next = content(cross)
       set(next, dir * w * 0.35, 0)
       requestAnimationFrame(() => requestAnimationFrame(() => set(next, 0, 1, 'transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease-out')))
       setTimeout(() => set(next, 0, 1, ''), 270)

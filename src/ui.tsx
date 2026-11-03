@@ -116,25 +116,32 @@ export const Header = ({ sub, title, right }: { sub: string; title: ReactNode; r
   </div>
 )
 
-// the sub-tabs of the current screen, so a sideways swipe can switch them
-let swipeTabs: { keys: string[]; value: string; onChange: (v: string) => void; owner: object } | null = null
-export const canSwipe = (dir: 1 | -1) => {
-  if (!swipeTabs) return false
-  const i = swipeTabs.keys.indexOf(swipeTabs.value) + dir
-  return i >= 0 && i < swipeTabs.keys.length
+// Sideways swipes walk through every sub-tab in order; past the first/last one they go on to the
+// neighbouring tab (landing on its nearest sub-tab). Screens register their sub-tab keys here.
+export const TAB_ORDER: Tab[] = ['today', 'money', 'supplies', 'home', 'closet']
+const SUBS: Partial<Record<Tab, string[]>> = {}
+export const registerSubs = (tab: Tab, keys: string[]) => { SUBS[tab] = keys }
+const nextSpot = (dir: 1 | -1): { tab: Tab; sub?: string; cross: boolean } | null => {
+  const { tab, sub } = useUi.getState()
+  const keys = SUBS[tab] ?? []
+  const i = keys.indexOf(sub[tab]) + dir
+  if (keys.length && i >= 0 && i < keys.length) return { tab, sub: keys[i], cross: false }
+  const t = TAB_ORDER[TAB_ORDER.indexOf(tab) + dir]
+  if (!t) return null
+  const k = SUBS[t] ?? []
+  return { tab: t, sub: k.length ? (dir > 0 ? k[0] : k[k.length - 1]) : undefined, cross: true }
 }
+export const canSwipe = (dir: 1 | -1) => !!nextSpot(dir)
+export const crossesTab = (dir: 1 | -1) => !!nextSpot(dir)?.cross
 export const swipeSub = (dir: 1 | -1) => {
-  if (!swipeTabs) return
-  const i = swipeTabs.keys.indexOf(swipeTabs.value) + dir
-  if (i >= 0 && i < swipeTabs.keys.length) swipeTabs.onChange(swipeTabs.keys[i])
+  const s = nextSpot(dir)
+  if (!s) return
+  if (s.cross) useUi.getState().go(s.tab, s.sub)
+  else useUi.getState().setSub(s.sub!)
 }
 
-export const Chips = <T extends string>({ items, value, onChange, swipe }: { items: [T, string][]; value: T; onChange: (v: T) => void; swipe?: boolean }) => {
+export const Chips = <T extends string>({ items, value, onChange }: { items: [T, string][]; value: T; onChange: (v: T) => void; swipe?: boolean }) => {
   const ref = useRef<HTMLDivElement>(null)
-  const me = useRef({})
-  if (swipe) swipeTabs = { keys: items.map((x) => x[0]), value, onChange: onChange as (v: string) => void, owner: me.current }
-  // a screen that's leaving only clears its own tabs (the next screen may have registered already)
-  useEffect(() => () => { if (swipeTabs?.owner === me.current) swipeTabs = null }, [])
   // keep the chosen chip in view when the row scrolls sideways
   useEffect(() => {
     const row = ref.current, on = row?.querySelector<HTMLElement>('.chip.on')
