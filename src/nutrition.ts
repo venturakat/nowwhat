@@ -1,4 +1,4 @@
-import { update, useStore } from './store'
+import { update } from './store'
 import type { Nutri } from './types'
 
 // Protein and fiber per 100 g from USDA FoodData Central.
@@ -34,7 +34,7 @@ const lookup = async (name: string, key: string): Promise<Nutri | null> => {
 
 // look up the names that aren't known yet: 'ok', 'limit' (demo key used up for now) or 'off' (couldn't reach it)
 export const fetchNutrition = async (names: string[]): Promise<'ok' | 'limit' | 'off'> => {
-  const key = useStore.getState().st.settings.usdaKey?.trim() || 'DEMO_KEY'
+  const key = 'DEMO_KEY' // USDA's public demo key (personal keys can't be used in public apps)
   const todo = [...new Set(names)].filter((n) => n && !busy.has(n))
   todo.forEach((n) => busy.add(n)) // claim them all now, so a second call doesn't look them up again
   let res: 'ok' | 'limit' | 'off' = 'ok'

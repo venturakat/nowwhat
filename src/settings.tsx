@@ -70,16 +70,15 @@ const AboutCard = () => {
   const s = st.settings
   return (
     <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(
-      <FormSheet title="About you" onBack={popSheet} initial={{ age: s.age, weightKg: s.weightKg, activity: s.activity, proteinGoal: s.proteinGoal, usdaKey: s.usdaKey }}
+      <FormSheet title="About you" onBack={popSheet} initial={{ age: s.age, weightKg: s.weightKg, activity: s.activity, proteinGoal: s.proteinGoal }}
         fields={[
           { key: 'age', label: 'Age', type: 'number', step: 1 },
           { key: 'weightKg', label: 'Weight (kg)', type: 'number' },
           { key: 'activity', label: 'Activity', type: 'select', options: [['low', 'Mostly sitting'], ['light', 'Light'], ['active', 'Active'], ['very', 'Very active']] },
-          { key: 'proteinGoal', label: 'Protein goal (g a day)', type: 'number', step: 1, placeholder: (v) => { const a = autoProtein(parseNum(v.weightKg), v.activity, parseNum(v.age)); return a ? `${a} — from your weight and activity` : 'Add your weight to work it out' } },
-          { key: 'usdaKey', label: 'USDA FoodData key (optional)', type: 'text', placeholder: 'Uses a shared demo key if empty' }
+          { key: 'proteinGoal', label: 'Protein goal (g a day)', type: 'number', step: 1, placeholder: (v) => { const a = autoProtein(parseNum(v.weightKg), v.activity, parseNum(v.age)); return a ? `${a} — from your weight and activity` : 'Add your weight to work it out' } }
         ]}
         extra={<span className="t13 muted">Recipes show how much of your daily protein and fiber one portion covers. Protein goal left empty = worked out from your weight: 0.83 g per kg when mostly sitting or no activity chosen (the official minimum), 1.0 light, 1.3 active, 1.6 very active (at least 1.0 from 65). Fiber: 25 g a day (EFSA). A general guide, not medical advice. Stays on this phone.</span>}
-        onSave={(v) => update((d) => { d.settings = { ...d.settings, age: v.age || undefined, weightKg: v.weightKg || undefined, activity: v.activity, proteinGoal: v.proteinGoal || undefined, usdaKey: v.usdaKey?.trim() || undefined } })}
+        onSave={(v) => update((d) => { d.settings = { ...d.settings, age: v.age || undefined, weightKg: v.weightKg || undefined, activity: v.activity, proteinGoal: v.proteinGoal || undefined } })}
       />
     )}>
       <span className="t17">About you</span>

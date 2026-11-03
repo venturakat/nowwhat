@@ -30,7 +30,6 @@ export interface Settings {
   weightKg?: number
   activity?: 'low' | 'light' | 'active' | 'very'
   proteinGoal?: number // g a day, set by hand; empty = from weight and activity
-  usdaKey?: string // own free key for USDA FoodData Central (DEMO_KEY otherwise)
 }
 
 export interface BudgetItem {

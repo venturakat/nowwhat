@@ -128,7 +128,7 @@ const NutriTiles = ({ r }: { r: Recipe }) => {
     )
   }
   const por = Math.max(1, r.portions ?? 1)
-  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'limit' ? (st.settings.usdaKey ? 'USDA lookups limit reached for now — try again in an hour' : 'The shared USDA key is used up for now — try in an hour, or add your own free key in Settings → About you') : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
+  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'limit' ? 'USDA’s hourly lookup limit is reached — the rest fills in when you open this again in an hour' : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
   return (
     <>
       <div className="ntiles">
