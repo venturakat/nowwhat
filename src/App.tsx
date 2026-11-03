@@ -36,6 +36,23 @@ const TimerFab = () => {
   return <button className="fab" onClick={() => openSheet(<StartTimerSheet />)}><Icon.play /> Start work timer</button>
 }
 
+// the field you're typing in, inside a sheet: scroll the sheet so it sits above the keyboard.
+// A field with a fall-down list (.combo) goes near the top, so the list has room under it.
+const keepInView = () => {
+  const el = document.activeElement as HTMLElement | null
+  const page = el?.closest<HTMLElement>('.sheet > .page.top')
+  if (!el || !page || !el.matches('input, textarea')) return
+  const box = (el.closest<HTMLElement>('.combo') ?? el).getBoundingClientRect()
+  const view = page.getBoundingClientRect()
+  const combo = !!el.closest('.combo')
+  const bottom = Math.min(view.bottom, window.visualViewport?.height ?? innerHeight) - 16
+  let by = 0
+  if (combo) by = box.top - (view.top + 12)
+  else if (box.bottom > bottom) by = box.bottom - bottom
+  else if (box.top < view.top + 8) by = box.top - view.top - 8
+  if (Math.abs(by) > 2) page.scrollBy({ top: by, behavior: 'smooth' })
+}
+
 // the part of the screen you can actually see — shrinks when the keyboard opens,
 // so sheets sit right above the keyboard instead of behind it
 const useVisibleArea = () => {
@@ -43,10 +60,13 @@ const useVisibleArea = () => {
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const f = () => setV({ top: vv.offsetTop, h: vv.height })
+    const f = () => { setV({ top: vv.offsetTop, h: vv.height }); requestAnimationFrame(keepInView) }
     f()
+    // the keyboard takes a moment to come up: check again once it has
+    const onFocus = (e: FocusEvent) => { if ((e.target as HTMLElement).closest?.('.sheet')) { setTimeout(keepInView, 60); setTimeout(keepInView, 400) } }
     vv.addEventListener('resize', f); vv.addEventListener('scroll', f)
-    return () => { vv.removeEventListener('resize', f); vv.removeEventListener('scroll', f) }
+    document.addEventListener('focusin', onFocus)
+    return () => { vv.removeEventListener('resize', f); vv.removeEventListener('scroll', f); document.removeEventListener('focusin', onFocus) }
   }, [])
   return v
 }
