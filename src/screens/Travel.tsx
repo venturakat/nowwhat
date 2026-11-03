@@ -8,6 +8,9 @@ import { byFormula, CATS, Tile } from './Closet'
 // Travel (Closet › Travel): packing lists. A list mixes things from the wardrobe, from Supplies › Care
 // and anything typed in by hand. Tick things off as they go into the suitcase.
 
+// the usual things to take, offered under the Other field (each disappears once it's on the list)
+const USUAL = ['Passport', 'Residence permit', 'Charger', 'MacBook', 'Powerbank', 'AirPods', 'Meds', 'Book', 'Umbrella', 'Hairbrush', 'Hairclip', 'Hairdryer']
+
 const dates = (x: Trip) => {
   if (!x.start) return 'no dates yet'
   if (!x.end || x.end === x.start) return fmtDay(x.start)
@@ -98,6 +101,7 @@ const TripSheet = ({ id }: { id: string }) => {
   const st = useSt()
   const x = st.trips?.find((y) => y.id === id)
   const [text, setText] = useState('')
+  const [drop, setDrop] = useState(false) // the list of usual things under the field
   if (!x) return null
   const edit = (f: (y: Trip) => void) => update((d) => { const y = d.trips?.find((z) => z.id === id); if (y) f(y) })
   const toggle = (iid: ID) => edit((y) => { const i = y.items.find((z) => z.id === iid); if (i) i.packed = !i.packed || undefined })
@@ -120,6 +124,10 @@ const TripSheet = ({ id }: { id: string }) => {
   const pieces = (xs: PackItem[]) => xs.reduce((a, i) => a + (i.qty ?? 1), 0) || undefined
   const care = x.items.filter((i) => i.src === 'care')
   const own = x.items.filter((i) => i.src === 'own')
+  // usual things not on the list yet, narrowed down by what's typed
+  const onList = new Set(own.map((i) => i.name.toLowerCase()))
+  const q = text.trim().toLowerCase()
+  const options = USUAL.filter((o) => !onList.has(o.toLowerCase()) && o.toLowerCase() !== q && (!q || o.toLowerCase().includes(q)))
   const btn = (label: string, onClick: () => void, child: ReactNode) => (
     <span role="button" aria-label={label} className="qbtn" onClick={(e) => { e.stopPropagation(); onClick() }}>{child}</span>
   )
@@ -153,10 +161,25 @@ const TripSheet = ({ id }: { id: string }) => {
       </List>
       <List title="Other" right={pieces(own)}>
         {own.length > 0 && <div className="pgroup">{own.map((i) => item(i))}</div>}
-        <div className="row" style={{ gap: 8, padding: '6px 12px 10px' }}>
-          <input className="input" style={{ flex: 1, minWidth: 0 }} value={text} placeholder="Charger, passport, book…" enterKeyHint="done"
-            onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addOwn() }} />
-          <button className="btn" disabled={!text.trim()} onClick={addOwn}>Add</button>
+        <div className="col" style={{ gap: 6, padding: '6px 12px 10px' }}>
+          <div className="row" style={{ gap: 8 }}>
+            <div className="combo">
+              <input className="input" value={text} placeholder="Choose or type your own" enterKeyHint="done"
+                onFocus={() => setDrop(true)} onBlur={() => setDrop(false)}
+                onChange={(e) => { setText(e.target.value); setDrop(true) }} onKeyDown={(e) => { if (e.key === 'Enter') { addOwn(); setDrop(false) } }} />
+              <button type="button" className="combo-arrow" aria-label="Usual things" onPointerDown={(e) => e.preventDefault()} onClick={() => setDrop(!drop)}>
+                <span style={{ display: 'flex', transform: drop ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s' }}><Icon.chevR /></span>
+              </button>
+            </div>
+            <button className="btn" disabled={!text.trim()} onClick={() => { addOwn(); setDrop(false) }}>Add</button>
+          </div>
+          {drop && options.length > 0 && (
+            <div className="dropdown noswipe">
+              {options.map((o) => (
+                <button key={o} type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => { setText(o); setDrop(false) }}>{o}</button>
+              ))}
+            </div>
+          )}
         </div>
       </List>
       {packed > 0 && <button className="btn full soft" onClick={() => { edit((y) => { for (const i of y.items) i.packed = undefined }); toast('Everything unticked') }}>Untick everything</button>}

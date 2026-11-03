@@ -235,3 +235,11 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .qty .qbtn { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; font-size: 20px; line-height: 1; }
 .qty .qbtn:active { background: var(--swatch); }
 .qty .n { min-width: 16px; text-align: center; color: var(--ink); }
+
+/* a text field with a fall-down list of usual options (Travel › Other) */
+.combo { position: relative; flex: 1; min-width: 0; }
+.combo .input { padding-right: 44px; }
+.combo-arrow { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; display: grid; place-items: center; color: var(--ink2); }
+.dropdown { border: 1px solid var(--line); border-radius: 14px; background: var(--card); max-height: 264px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0; }
+.dropdown button { display: block; width: 100%; text-align: left; padding: 10px 14px; font-size: 17px; }
+.dropdown button:active { background: var(--swatch); }
