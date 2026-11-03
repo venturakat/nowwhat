@@ -54,6 +54,7 @@ export const RecipeSheet = ({ id }: { id: string }) => {
   return (
     <Sheet title={r.name}>
       <span className="t15 muted" style={{ marginTop: -4 }}>{meta}</span>
+      <MealPhoto r={r} />
       <NutriTiles r={r} />
       <List title="Ingredients" right={missing.length ? `${missing.length} not in Groceries` : undefined}>
         {ing.map(({ line, sp, state }, i) => (
@@ -79,6 +80,23 @@ export const RecipeSheet = ({ id }: { id: string }) => {
   )
 }
 
+// the meal's photo: a page-wide picture under the title; any photo works, it's cropped to fit automatically
+const setRecipePhoto = (id: string, photo?: string) => update((d) => { const x = d.recipes!.find((y) => y.id === id); if (x) x.photo = photo })
+const PhotoPick = ({ onPhoto, children, className }: { onPhoto: (p: string) => void; children: React.ReactNode; className?: string }) => (
+  <label className={className} style={{ cursor: 'pointer' }}>
+    {children}
+    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) onPhoto(await compress(f, 1080)) }} />
+  </label>
+)
+const MealPhoto = ({ r }: { r: Recipe }) => r.photo ? (
+  <div className="hero">
+    <img src={r.photo} alt="" />
+    <PhotoPick className="hero-btn" onPhoto={(p) => setRecipePhoto(r.id, p)}><Icon.camera /> Change</PhotoPick>
+  </div>
+) : (
+  <PhotoPick className="hero empty" onPhoto={(p) => setRecipePhoto(r.id, p)}><Icon.camera /><span className="t15 w5">Add a photo of the meal</span></PhotoPick>
+)
+
 // Protein and fiber for one portion (USDA data) and how much of your day it covers
 const r0 = (x: number) => (x < 10 ? Math.round(x * 10) / 10 : Math.round(x))
 const NutriTiles = ({ r }: { r: Recipe }) => {
@@ -93,34 +111,27 @@ const NutriTiles = ({ r }: { r: Recipe }) => {
     setLook('busy')
     fetchNutrition(nu.pending).then((ok) => setLook(ok ? 'idle' : 'off'))
   }, [key])
-  // the meal's photo comes first; tap it (or the empty one) to change it in Edit
-  const photo = (
-    <button className={'ntile nphoto' + (r.photo ? '' : ' empty')} onClick={() => openSheet(<RecipeEdit id={r.id} />)} aria-label={r.photo ? 'Change photo' : 'Add a photo'}>
-      {r.photo ? <img src={r.photo} alt="" /> : <><Icon.camera /><span className="t13 w5">Add photo</span></>}
-    </button>
-  )
-  if (!r.ingredients.length) return <div className="ntiles">{photo}</div>
+  if (!r.ingredients.length) return null
   const tile = (label: string, g: number, norm: number | undefined, bg: string) => {
     const pct = norm ? Math.round((g / norm) * 100) : undefined
     return (
       <div className="ntile" style={{ background: bg }}>
-        <span className="t13 w5">{label}</span>
+        <span className="t14 w5">{label}</span>
         <span className="ntile-v">{look === 'busy' && !g ? '…' : `${r0(g)} g`}</span>
         {pct !== undefined ? (
           <div className="col" style={{ gap: 6 }}>
             <div className="nbar"><i style={{ width: `${Math.min(100, pct)}%` }} /></div>
-            <span className="t13">{pct}% of {norm} g</span>
+            <span className="t13">{pct}% of your day · {norm} g</span>
           </div>
         ) : <span className="t13">per portion</span>}
       </div>
     )
   }
   const por = Math.max(1, r.portions ?? 1)
-  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · % of your daily goal · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
+  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
   return (
     <>
       <div className="ntiles">
-        {photo}
         {tile('Protein', nu.protein, need?.protein, 'var(--work)')}
         {tile('Fiber', nu.fiber, need?.fiber, 'var(--money)')}
       </div>
@@ -242,7 +253,7 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
           <div className="sw" style={{ width: 72, flex: 'none' }}>{photo ? <img src={photo} alt="" /> : <Icon.camera />}</div>
           <label className="btn soft sm" style={{ cursor: 'pointer' }}>
             {photo ? 'Change' : 'Take / choose'}
-            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await compress(f)) }} />
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await compress(f, 1080)) }} />
           </label>
           {photo && <button className="link" onClick={() => setPhoto(undefined)}>Remove</button>}
         </div>

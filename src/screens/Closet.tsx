@@ -19,12 +19,12 @@ const NO_START: ClosetCat[] = ['jewelry'] // an outfit never starts from jewelle
 const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Jewelry', other: 'Other' }
 const WAIT = 7
 
-// shrink a photo to ~480px JPEG so storage stays small
-export const compress = (file: File): Promise<string> =>
+// shrink a photo (~480px JPEG by default) so storage stays small
+export const compress = (file: File, max = 480): Promise<string> =>
   new Promise((res, rej) => {
     const img = new Image()
     img.onload = () => {
-      const k = Math.min(1, 480 / Math.max(img.width, img.height))
+      const k = Math.min(1, max / Math.max(img.width, img.height))
       const c = document.createElement('canvas')
       c.width = Math.round(img.width * k)
       c.height = Math.round(img.height * k)
