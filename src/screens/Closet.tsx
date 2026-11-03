@@ -7,7 +7,7 @@ import { FormSheet } from '../form'
 import { CURRENCIES } from './Subscriptions'
 
 // the outfit formula: pieces are always shown in this order
-const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['shoes', 'Shoes'], ['outer', 'Outer'], ['bag', 'Bags'], ['jewelry', 'Jewelry'], ['underwear', 'Underwear'], ['other', 'Other']]
+const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['shoes', 'Shoes'], ['outer', 'Outer'], ['bag', 'Bags'], ['jewelry', 'Accessories'], ['underwear', 'Underwear'], ['other', 'Other']]
 const ORDER = CATS.map(([k]) => k)
 const byFormula = <T extends { cat: ClosetCat }>(xs: T[]) => xs.slice().sort((a, b) => ORDER.indexOf(a.cat) - ORDER.indexOf(b.cat))
 // which kinds of pieces to suggest next, depending on what the outfit starts from
@@ -16,8 +16,9 @@ const TURN: Partial<Record<ClosetCat, ClosetCat[]>> = {
   bag: ['outer', 'bottom', 'dress', 'shoes', 'mid', 'base', 'jewelry', 'underwear', 'other']
 }
 const turnFor = (cat: ClosetCat) => TURN[cat] ?? ORDER.filter((k) => k !== cat) // everything else: the formula order
-const NO_START: ClosetCat[] = ['jewelry'] // an outfit never starts from jewellery
-const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Jewelry', other: 'Other' }
+const NO_START: ClosetCat[] = ['jewelry'] // an outfit never starts from an accessory
+const MANY: ClosetCat[] = ['jewelry'] // kinds an outfit can have several of (accessories; stored as 'jewelry')
+const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Accessory', other: 'Other' }
 const WAIT = 7
 
 // shrink a photo (~480px JPEG by default) so storage stays small
@@ -301,6 +302,7 @@ const Outfits = () => {
   const togglePick = (id: ID) => {
     if (pick.includes(id)) { setPick(pick.filter((x) => x !== id)); return }
     const cat = now.find((x) => x.id === id)?.cat
+    if (cat && MANY.includes(cat)) { setPick([...pick, id]); return } // accessories: add as many as you like
     setPick([...pick.filter((p) => now.find((x) => x.id === p)?.cat !== cat), id])
   }
   const choose = (id: ID) => { setStartId(id); setPick([]) }
@@ -330,7 +332,7 @@ const Outfits = () => {
           <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { choose(id); closeSheet() }} />)}>Change</button>
         </div>
         <div className="between">
-          <div className="col" style={{ gap: 0 }}><span className="t15 w6">Goes well with</span><span className="t13 muted">{pairs.length ? 'Tap to add · another of the same kind swaps it' : 'Your pairs'}</span></div>
+          <div className="col" style={{ gap: 0 }}><span className="t15 w6">Goes well with</span><span className="t13 muted">{pairs.length ? 'Tap to add · another of the same kind swaps it (accessories add up)' : 'Your pairs'}</span></div>
           {start && <button className="link" onClick={() => openSheet(<PairsSheet id={start.id} back={closeSheet} />)}>Edit pairs</button>}
         </div>
         {pairs.length ? (
