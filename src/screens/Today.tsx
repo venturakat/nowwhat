@@ -6,6 +6,7 @@ import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Header, Icon, openSettings, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
 import { RecipeSheet } from './Recipes'
+import { ShipmentLog } from './Shipments'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
 
 interface Thing { id: string; dot: string; title: string; meta: string; trail?: ReactNode; go: () => void }
@@ -137,6 +138,7 @@ export const Today = () => {
       </div>
       <OtherTasks />
       <CookToday />
+      <ShipmentLog />
       <BrainDump />
       {tx.total > 0 && !tx.paid && diffDays(t, due) > 5 && (
         <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: ZUS + PIT on {fmtDay(due)} · {fmt(tx.total)} · already in your budget</div>

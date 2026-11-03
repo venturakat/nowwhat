@@ -245,6 +245,16 @@ export interface Recipe {
   grams?: Record<string, number> // per ingredient line: grams you set by hand (otherwise guessed from the line)
 }
 
+// Shipment log (Today): parcels on their way, so they don't have to be kept in your head
+export interface Shipment {
+  id: ID
+  name: string
+  courier: string // InPost, DHL, DPD, Orlen or anything else
+  eta?: string // YYYY-MM-DD expected delivery
+  deliveredAt?: string // ticked off on this day (stays visible until the day ends)
+  supplyId?: ID // came from marking a supply bought
+}
+
 export interface Credit {
   id: ID
   name: string // lender / what it's for
@@ -315,6 +325,7 @@ export interface State {
   nutritionV?: number // how lookups were done (2 = basic foods, then survey, then branded)
   lessons?: Lessons
   tasks?: Task[]
+  shipments?: Shipment[]
   notes?: Note[]
   supplies: Supply[]
   cleanTasks: CleanTask[]

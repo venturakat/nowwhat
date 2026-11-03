@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Supply, SupplyCat } from '../types'
 import { addDays, CAT_LABEL, editProjectBuy, fmt, fmtDay, nextBuy, periodOf, relDays, supplyStatus, today, uid } from '../lib'
-import { C, Chips, Header, List, openSheet, Row, Sheet, closeSheet, toast, useUi } from '../ui'
+import { C, Chips, Field, Header, List, openSheet, Row, Sheet, closeSheet, toast, useUi } from '../ui'
+import { addShipment, CourierPick } from './Shipments'
 import { FormSheet } from '../form'
 
 const CATS: [SupplyCat, string][] = [['meds', 'Meds'], ['groceries', 'Groceries'], ['pets', 'Pets'], ['home', 'Home'], ['care', 'Care']]
@@ -72,6 +73,9 @@ const SupplySheet = ({ id }: { id: string }) => {
   const st = useSt()
   const s = st.supplies.find((x) => x.id === id)
   const [qty, setQty] = useState(s?.buyQty ?? 1)
+  const [online, setOnline] = useState(false)
+  const [courier, setCourier] = useState('InPost')
+  const [eta, setEta] = useState(addDays(today(), 2))
   if (!s) return null
   const { daysLeft } = supplyStatus(s, st.settings)
   return (
@@ -88,7 +92,27 @@ const SupplySheet = ({ id }: { id: string }) => {
           </div>
           <span className="t17">{fmt(s.pricePerUnit * qty, true)}</span>
         </div>
-        <button className="btn" onClick={() => { buySupply(s.id, qty); closeSheet(); toast(s.once ? 'Got it · off the list, added to spending' : 'Got it · added to this fortnight’s spending') }}>Bought {qty}</button>
+        {s.cat !== 'groceries' && (
+          // ordered online? then it also goes on the Shipment log (Today) with the courier and delivery date
+          <>
+            <button className="row" style={{ gap: 12, padding: '4px 0' }} onClick={() => setOnline(!online)}>
+              <span className="t15 grow" style={{ textAlign: 'left' }}>Ordered online · track the delivery</span>
+              <span className={'switch' + (online ? ' on' : '')} role="switch" aria-checked={online}><i /></span>
+            </button>
+            {online && (
+              <>
+                <CourierPick value={courier} onChange={setCourier} />
+                <Field label="Delivery date"><input className="input" type="date" value={eta} onChange={(e) => setEta(e.target.value)} /></Field>
+              </>
+            )}
+          </>
+        )}
+        <button className="btn" onClick={() => {
+          buySupply(s.id, qty)
+          if (online && s.cat !== 'groceries') addShipment(qty > 1 ? `${s.name} × ${qty}` : s.name, courier.trim(), eta, s.id)
+          closeSheet()
+          toast(online && s.cat !== 'groceries' ? 'Got it · on the Shipment log' : s.once ? 'Got it · off the list, added to spending' : 'Got it · added to this fortnight’s spending')
+        }}>Bought {qty}</button>
       </div>
       <button className="btn full soft" onClick={() => openSheet(<SupplyEdit id={s.id} cat={s.cat} />)}>{s.once && !s.pricePerUnit ? 'Add price & details' : 'Edit'}</button>
       {s.projectId && <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'projects') }}>Open projects</button>}
