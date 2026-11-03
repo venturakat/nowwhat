@@ -196,6 +196,22 @@ export interface Outfit {
   itemIds: ID[]
 }
 
+// Travel (Closet): packing lists made of wardrobe things, Supplies › Care things and anything typed in
+export interface PackItem {
+  id: ID
+  src: 'closet' | 'care' | 'own'
+  refId?: ID // the wardrobe thing / supply it points to
+  name: string // its name when added (kept if the thing is later deleted)
+  packed?: boolean
+}
+export interface Trip {
+  id: ID
+  name: string
+  start?: string // YYYY-MM-DD
+  end?: string
+  items: PackItem[]
+}
+
 export interface CreditExtra {
   id: ID
   date: string
@@ -342,5 +358,6 @@ export interface State {
   saved: Saved[]
   outfits: Outfit[]
   planned: { date: string; itemIds: ID[] } | null
+  trips?: Trip[]
   dismissed: { date: string; ids: string[] }
 }

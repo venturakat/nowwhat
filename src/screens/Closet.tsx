@@ -5,11 +5,12 @@ import { diffDays, fmt, fmtBoth, fmtCur, fmtDay, toPln, fmtWeekday, addDays, per
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet } from '../form'
 import { CURRENCIES } from './Subscriptions'
+import { Travel } from './Travel'
 
 // the outfit formula: pieces are always shown in this order
-const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['shoes', 'Shoes'], ['outer', 'Outer'], ['bag', 'Bags'], ['jewelry', 'Accessories'], ['underwear', 'Underwear'], ['other', 'Other']]
+export const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['shoes', 'Shoes'], ['outer', 'Outer'], ['bag', 'Bags'], ['jewelry', 'Accessories'], ['underwear', 'Underwear'], ['other', 'Other']]
 const ORDER = CATS.map(([k]) => k)
-const byFormula = <T extends { cat: ClosetCat }>(xs: T[]) => xs.slice().sort((a, b) => ORDER.indexOf(a.cat) - ORDER.indexOf(b.cat))
+export const byFormula = <T extends { cat: ClosetCat }>(xs: T[]) => xs.slice().sort((a, b) => ORDER.indexOf(a.cat) - ORDER.indexOf(b.cat))
 // which kinds of pieces to suggest next, depending on what the outfit starts from
 const TURN: Partial<Record<ClosetCat, ClosetCat[]>> = {
   outer: ['bottom', 'dress', 'shoes', 'mid', 'base', 'bag', 'jewelry', 'underwear', 'other'],
@@ -18,11 +19,11 @@ const TURN: Partial<Record<ClosetCat, ClosetCat[]>> = {
 const turnFor = (cat: ClosetCat) => TURN[cat] ?? ORDER.filter((k) => k !== cat) // everything else: the formula order
 const NO_START: ClosetCat[] = ['jewelry'] // an outfit never starts from an accessory
 const MANY: ClosetCat[] = ['jewelry'] // kinds an outfit can have several of (accessories; stored as 'jewelry')
-const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Accessory', other: 'Other' }
+export const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Accessory', other: 'Other' }
 const WAIT = 7
 
 // shrink a photo (~480px JPEG by default) so storage stays small
-const SUBTABS: [string, string][] = [['own', 'I own'], ['buy', 'To buy'], ['outfits', 'Outfits']]
+const SUBTABS: [string, string][] = [['own', 'I own'], ['buy', 'To buy'], ['outfits', 'Outfits'], ['travel', 'Travel']]
 registerSubs('closet', SUBTABS.map((x) => x[0]))
 
 export const compress = (file: File, max = 480): Promise<string> =>
@@ -41,7 +42,7 @@ export const compress = (file: File, max = 480): Promise<string> =>
     img.src = URL.createObjectURL(file)
   })
 
-const Tile = ({ it, meta, size, onClick, sel }: { it: { name: string; cat: ClosetCat; photo?: string; offSeason?: boolean }; meta?: string; size?: number; onClick?: () => void; sel?: boolean }) => (
+export const Tile = ({ it, meta, size, onClick, sel }: { it: { name: string; cat: ClosetCat; photo?: string; offSeason?: boolean }; meta?: string; size?: number; onClick?: () => void; sel?: boolean }) => (
   <button className={'tile' + (it.offSeason ? ' away' : '')} style={size ? { width: size, flex: 'none' } : undefined} onClick={onClick}>
     <div className={'sw' + (sel ? ' sel' : '')}>{it.photo ? <img src={it.photo} alt="" /> : <Garment cat={it.cat} size={size && size < 80 ? 30 : 40} />}</div>
     {it.name && <div className="nm" style={size && size < 80 ? { fontSize: 14 } : undefined}>{it.name}</div>}
@@ -55,11 +56,12 @@ export const Closet = () => {
   const st = useSt()
   return (
     <div className="screen">
-      <Header sub={sub === 'own' ? `Closet · ${st.closet.length} things` : 'Closet'} title={sub === 'own' ? 'Wardrobe' : sub === 'buy' ? 'To buy' : 'Outfits'} />
+      <Header sub={sub === 'own' ? `Closet · ${st.closet.length} things` : 'Closet'} title={sub === 'own' ? 'Wardrobe' : sub === 'buy' ? 'To buy' : sub === 'travel' ? 'Travel' : 'Outfits'} />
       <Chips items={SUBTABS} value={sub as any} onChange={setSub} swipe />
       {sub === 'own' && <Own />}
       {sub === 'buy' && <ToBuy />}
       {sub === 'outfits' && <Outfits />}
+      {sub === 'travel' && <Travel />}
     </div>
   )
 }
