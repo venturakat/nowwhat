@@ -217,7 +217,7 @@ const ToBuy = () => {
             <div className="col grow" style={{ gap: 3 }} onClick={() => openSheet(<SavedEdit id={s.id} />)}>
               <span className="t17">{s.name}{s.size && <span className="t14 muted"> · size {s.size}</span>}</span>
               <span className="t15 w5">{fmtBoth(st.settings, s.price, s.currency ?? 'PLN')}{fitsNote(st, toPln(st.settings, s.price, s.currency ?? 'PLN'))}</span>
-              <span className="t13 muted">{age === 0 ? 'Saved today' : age === 1 ? 'Saved yesterday' : `Saved ${age} days ago`}{s.link ? <> · <a className="muted" href={s.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>open link</a></> : null}</span>
+              <span className="t13 muted">{age === 0 ? 'Saved today' : age === 1 ? 'Saved yesterday' : `Saved ${age} days ago`}</span>
               <div className="row" style={{ paddingTop: 6, gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   <button className="btn sm" onClick={() => {
                     update((d) => {
@@ -228,6 +228,7 @@ const ToBuy = () => {
                     toast('Enjoy it · in your wardrobe, with its photo, and in the budget')
                   }}>Bought it</button>
                   <button className="btn ghost sm" onClick={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency ?? 'PLN')} saved`) }}>Let it go</button>
+                  {s.link && <a className="btn ghost sm" style={{ textDecoration: 'none', color: 'inherit' }} href={s.link} target="_blank" rel="noreferrer">Link</a>}
                 </div>
             </div>
           </div>
