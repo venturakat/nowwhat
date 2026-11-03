@@ -290,15 +290,18 @@ const Outfits = () => {
   const [startId, setStartId] = useState<ID | undefined>(starters[0]?.id)
   const [pick, setPick] = useState<ID[]>([]) // pieces chosen from "Goes well with"
   const start = starters.find((x) => x.id === startId) ?? starters[0]
-  const chosen = pick.map((id) => now.find((x) => x.id === id)).filter(Boolean) as ClosetItem[]
-  // suggestions: the start's pairs, kind by kind in the right turn; one piece per kind, so a kind already in the outfit isn't offered again
-  const usedCats = new Set([start?.cat, ...chosen.map((x) => x.cat)])
+  // suggestions: all the start's pairs, kind by kind in the right turn — except the start's own kind
+  // (starting from a bottom never suggests other bottoms)
   const order = start ? turnFor(start.cat) : ORDER
   const pairs = start
-    ? now.filter((x) => start.pairs.includes(x.id) && x.cat !== start.cat && (pick.includes(x.id) || !usedCats.has(x.cat)))
-      .sort((a, b) => order.indexOf(a.cat) - order.indexOf(b.cat))
+    ? now.filter((x) => start.pairs.includes(x.id) && x.cat !== start.cat).sort((a, b) => order.indexOf(a.cat) - order.indexOf(b.cat))
     : []
-  const togglePick = (id: ID) => setPick(pick.includes(id) ? pick.filter((x) => x !== id) : [...pick, id])
+  // one piece per kind in the outfit: picking another of the same kind swaps it
+  const togglePick = (id: ID) => {
+    if (pick.includes(id)) { setPick(pick.filter((x) => x !== id)); return }
+    const cat = now.find((x) => x.id === id)?.cat
+    setPick([...pick.filter((p) => now.find((x) => x.id === p)?.cat !== cat), id])
+  }
   const choose = (id: ID) => { setStartId(id); setPick([]) }
   // "Try on next": the outfit you're trying, kept until you save or delete it
   const planIds = st.planned?.itemIds ?? []
@@ -326,7 +329,7 @@ const Outfits = () => {
           <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { choose(id); closeSheet() }} />)}>Change</button>
         </div>
         <div className="between">
-          <div className="col" style={{ gap: 0 }}><span className="t15 w6">Goes well with</span><span className="t13 muted">{pairs.length ? 'Tap to add · one of each kind' : 'Your pairs'}</span></div>
+          <div className="col" style={{ gap: 0 }}><span className="t15 w6">Goes well with</span><span className="t13 muted">{pairs.length ? 'Tap to add · another of the same kind swaps it' : 'Your pairs'}</span></div>
           {start && <button className="link" onClick={() => openSheet(<PairsSheet id={start.id} back={closeSheet} />)}>Edit pairs</button>}
         </div>
         {pairs.length ? (
