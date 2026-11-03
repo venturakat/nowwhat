@@ -5,7 +5,17 @@ import { diffDays, fmt, fmtDay, fmtWeekday, addDays, periodOf, shiftPeriod, summ
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 
-const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['outer', 'Outer'], ['shoes', 'Shoes'], ['bag', 'Bags'], ['underwear', 'Underwear'], ['jewelry', 'Jewelry'], ['other', 'Other']]
+// the outfit formula: pieces are always shown in this order
+const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['shoes', 'Shoes'], ['outer', 'Outer'], ['bag', 'Bags'], ['jewelry', 'Jewelry'], ['underwear', 'Underwear'], ['other', 'Other']]
+const ORDER = CATS.map(([k]) => k)
+const byFormula = <T extends { cat: ClosetCat }>(xs: T[]) => xs.slice().sort((a, b) => ORDER.indexOf(a.cat) - ORDER.indexOf(b.cat))
+// which kinds of pieces to suggest next, depending on what the outfit starts from
+const TURN: Partial<Record<ClosetCat, ClosetCat[]>> = {
+  outer: ['bottom', 'dress', 'shoes', 'mid', 'base', 'bag', 'jewelry', 'underwear', 'other'],
+  bag: ['outer', 'bottom', 'dress', 'shoes', 'mid', 'base', 'jewelry', 'underwear', 'other']
+}
+const turnFor = (cat: ClosetCat) => TURN[cat] ?? ORDER.filter((k) => k !== cat) // everything else: the formula order
+const NO_START: ClosetCat[] = ['jewelry'] // an outfit never starts from jewellery
 const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Jewelry', other: 'Other' }
 const WAIT = 7
 
@@ -156,7 +166,7 @@ const PairsSheet = ({ id, back }: { id: ID; back?: () => void }) => {
   const st = useSt()
   const it = st.closet.find((x) => x.id === id)!
   const [sel, setSel] = useState<ID[]>(it.pairs)
-  const others = st.closet.filter((x) => x.id !== id)
+  const others = byFormula(st.closet.filter((x) => x.id !== id))
   return (
     <Sheet title="Goes well with">
       <span className="t15 muted">Tap what goes with <b>{it.name}</b>. Pairs work both ways.</span>
@@ -276,57 +286,68 @@ const SavedEdit = ({ id }: { id?: string }) => {
 const Outfits = () => {
   const st = useSt()
   const now = st.closet.filter((x) => !x.offSeason) // out-of-season things stay out of the constructor
-  const [startId, setStartId] = useState<ID | undefined>(st.planned?.itemIds.find((i) => now.some((x) => x.id === i)) ?? now[0]?.id)
-  const start = now.find((x) => x.id === startId) ?? now[0]
-  const pairs = start ? now.filter((x) => start.pairs.includes(x.id)) : []
-  const tomorrow = addDays(today(), 1)
-  const planIds = st.planned && st.planned.date >= today() ? st.planned.itemIds : []
-  const plan = planIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[]
-  const setPlan = (ids: ID[]) => update((d) => { d.planned = { date: d.planned && d.planned.date >= today() ? d.planned.date : tomorrow, itemIds: ids } })
-  const togglePlan = (id: ID) => setPlan(planIds.includes(id) ? planIds.filter((x) => x !== id) : [...planIds, id])
+  const starters = now.filter((x) => !NO_START.includes(x.cat))
+  const [startId, setStartId] = useState<ID | undefined>(starters[0]?.id)
+  const [pick, setPick] = useState<ID[]>([]) // pieces chosen from "Goes well with"
+  const start = starters.find((x) => x.id === startId) ?? starters[0]
+  const chosen = pick.map((id) => now.find((x) => x.id === id)).filter(Boolean) as ClosetItem[]
+  // suggestions: the start's pairs, kind by kind in the right turn; one piece per kind, so a kind already in the outfit isn't offered again
+  const usedCats = new Set([start?.cat, ...chosen.map((x) => x.cat)])
+  const order = start ? turnFor(start.cat) : ORDER
+  const pairs = start
+    ? now.filter((x) => start.pairs.includes(x.id) && x.cat !== start.cat && (pick.includes(x.id) || !usedCats.has(x.cat)))
+      .sort((a, b) => order.indexOf(a.cat) - order.indexOf(b.cat))
+    : []
+  const togglePick = (id: ID) => setPick(pick.includes(id) ? pick.filter((x) => x !== id) : [...pick, id])
+  const choose = (id: ID) => { setStartId(id); setPick([]) }
+  // "Try on next": the outfit you're trying, kept until you save or delete it
+  const planIds = st.planned?.itemIds ?? []
+  const plan = byFormula(planIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[])
+  const setPlan = (ids: ID[]) => update((d) => { d.planned = ids.length ? { date: today(), itemIds: ids } : null })
   const shuffle = () => {
-    const withPairs = now.filter((x) => x.pairs.some((p) => now.some((y) => y.id === p)))
+    const withPairs = starters.filter((x) => x.pairs.some((p) => now.some((y) => y.id === p && y.cat !== x.cat)))
     if (!withPairs.length) { toast('Add some pairs first'); return }
     const s = withPairs[Math.floor(Math.random() * withPairs.length)]
-    const ids = [s.id]
-    const used = new Set([s.cat])
-    for (const p of [...s.pairs].sort(() => Math.random() - 0.5)) {
-      const it = now.find((x) => x.id === p)
-      if (it && !used.has(it.cat)) { ids.push(it.id); used.add(it.cat) }
+    const ids: ID[] = []
+    for (const cat of turnFor(s.cat)) {
+      const options = now.filter((x) => x.cat === cat && s.pairs.includes(x.id))
+      if (options.length) ids.push(options[Math.floor(Math.random() * options.length)].id)
     }
-    setStartId(s.id)
-    setPlan(ids)
+    setStartId(s.id); setPick(ids)
   }
-  if (!now.length)
+  if (!starters.length)
     return <div className="card" style={{ textAlign: 'center', alignItems: 'center', padding: 28 }}><span className="t17">Add a few things to your wardrobe first</span><button className="btn" onClick={() => useUi.getState().setSub('own')}>Go to wardrobe</button></div>
   return (
     <>
       <div className="card" style={{ gap: 12, paddingTop: 16, paddingBottom: 16 }}>
         <div className="row" style={{ gap: 14 }}>
           {start && <div style={{ width: 64 }}><Tile it={{ ...start, name: '' }} /></div>}
-          <div className="col grow"><span className="t13 w5 muted">Start from</span><span className="mid" style={{ fontSize: 22 }}>{start?.name}</span></div>
-          <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { setStartId(id); closeSheet() }} />)}>Change</button>
+          <div className="col grow"><span className="t13 w5 muted">Start from · {start ? CAT1[start.cat] : ''}</span><span className="mid" style={{ fontSize: 22 }}>{start?.name}</span></div>
+          <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { choose(id); closeSheet() }} />)}>Change</button>
         </div>
         <div className="between">
-          <div className="col" style={{ gap: 0 }}><span className="t15 w6">Goes well with</span><span className="t13 muted">Your pairs · {pairs.length}</span></div>
+          <div className="col" style={{ gap: 0 }}><span className="t15 w6">Goes well with</span><span className="t13 muted">{pairs.length ? 'Tap to add · one of each kind' : 'Your pairs'}</span></div>
           {start && <button className="link" onClick={() => openSheet(<PairsSheet id={start.id} back={closeSheet} />)}>Edit pairs</button>}
         </div>
         {pairs.length ? (
-          <div className="hscroll">{pairs.map((p) => <Tile key={p.id} it={p} size={72} sel={planIds.includes(p.id)} onClick={() => togglePlan(p.id)} />)}</div>
-        ) : <span className="t14 muted">No pairs yet. Tap “Edit pairs”.</span>}
-        {start && !planIds.includes(start.id) && <button className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => setPlan([start.id, ...planIds])}>Use {start.name} in the outfit</button>}
+          <div className="hscroll">{pairs.map((p) => <Tile key={p.id} it={p} meta={CAT1[p.cat]} size={72} sel={pick.includes(p.id)} onClick={() => togglePick(p.id)} />)}</div>
+        ) : <span className="t14 muted">{start?.pairs.length ? 'Nothing else to add.' : 'No pairs yet. Tap “Edit pairs”.'}</span>}
+        <div className="btn2">
+          <button className="btn" disabled={!start} onClick={() => { setPlan([start!.id, ...pick]); toast('In Try on next') }}>Try on next</button>
+          <button className="btn ghost" onClick={shuffle}>Shuffle my pairs</button>
+        </div>
       </div>
       <div className="card closet" style={{ gap: 12, paddingTop: 16, paddingBottom: 16 }}>
-        <div className="between"><span className="t17">Tomorrow’s outfit</span><span className="t14 w5 muted">{fmtWeekday(st.planned?.date && st.planned.date >= today() ? st.planned.date : tomorrow)}</span></div>
-        {plan.length ? <div className="hscroll">{plan.map((p) => <Tile key={p.id} it={p} size={72} onClick={() => togglePlan(p.id)} />)}</div> : <span className="t14">Tap pieces above to build it, or shuffle your pairs.</span>}
-        <div className="row">
-          <button className="btn grow" disabled={!plan.length} onClick={() => openSheet(<FormSheet title="Save outfit" fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Office day' }]} onSave={(v) => update((d) => { d.outfits.push({ id: uid(), name: v.name, itemIds: planIds }) })} />)}>Save outfit</button>
-          <button className="btn ghost grow" onClick={shuffle}>Shuffle my pairs</button>
+        <span className="t17">Try on next</span>
+        {plan.length ? <div className="hscroll">{plan.map((p) => <Tile key={p.id} it={p} meta={CAT1[p.cat]} size={72} onClick={() => setPlan(planIds.filter((x) => x !== p.id))} />)}</div> : <span className="t14">Build an outfit above and tap “Try on next”.</span>}
+        <div className="btn2">
+          <button className="btn" disabled={!plan.length} onClick={() => openSheet(<FormSheet title="Save outfit" fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Office day' }]} onSave={(v) => update((d) => { d.outfits.push({ id: uid(), name: v.name, itemIds: plan.map((x) => x.id) }) })} />)}>Save outfit</button>
+          <button className="btn ghost" disabled={!plan.length} onClick={() => setPlan([])}>Delete outfit</button>
         </div>
       </div>
       <List title="Saved outfits" right={String(st.outfits.length)} empty="Nothing saved yet.">
         {st.outfits.map((o) => {
-          const its = o.itemIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[]
+          const its = byFormula(o.itemIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[])
           return <Row key={o.id} dot={C.closet} title={o.name} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(`Wearing ${o.name}`) }}>Wear</span>}
             onClick={() => openSheet(<OutfitSheet id={o.id} onPlan={setPlan} />)} />
         })}
@@ -340,11 +361,11 @@ const OutfitSheet = ({ id, onPlan }: { id: ID; onPlan: (ids: ID[]) => void }) =>
   const st = useSt()
   const o = st.outfits.find((x) => x.id === id)
   if (!o) return null
-  const its = o.itemIds.map((i) => st.closet.find((x) => x.id === i)).filter(Boolean) as ClosetItem[]
+  const its = byFormula(o.itemIds.map((i) => st.closet.find((x) => x.id === i)).filter(Boolean) as ClosetItem[])
   return (
     <Sheet title={o.name}>
       <div className="hscroll">{its.map((i) => <Tile key={i.id} it={i} size={72} />)}</div>
-      <button className="btn full" onClick={() => { onPlan(o.itemIds); closeSheet() }}>Plan it for tomorrow</button>
+      <button className="btn full" onClick={() => { onPlan(o.itemIds); closeSheet() }}>Try it on next</button>
       <button className="btn full soft" onClick={() => pushSheet(<OutfitEdit id={o.id} />)}>Edit</button>
       <button className="btn full soft" onClick={() => { if (confirm(`Delete ${o.name}?`)) { update((d) => { d.outfits = d.outfits.filter((x) => x.id !== o.id) }); closeSheet() } }}>Delete</button>
     </Sheet>
@@ -386,7 +407,7 @@ const PickSheet = ({ title, onPick }: { title: string; onPick: (id: ID) => void 
   const st = useSt()
   return (
     <Sheet title={title}>
-      <div className="grid3">{st.closet.filter((i) => !i.offSeason).map((i) => <Tile key={i.id} it={i} onClick={() => onPick(i.id)} />)}</div>
+      <div className="grid3">{byFormula(st.closet.filter((i) => !i.offSeason && !NO_START.includes(i.cat))).map((i) => <Tile key={i.id} it={i} meta={CAT1[i.cat]} onClick={() => onPick(i.id)} />)}</div>
     </Sheet>
   )
 }
