@@ -6,6 +6,17 @@ export type SupplyCat = 'meds' | 'groceries' | 'pets' | 'home' | 'care'
 export type Currency = 'PLN' | 'EUR' | 'UAH' | 'USD' // USD: for classes (rates: NBP table A)
 export type PayCur = Currency | 'ARS' // what a class can be paid in
 
+// Calendar: things from the tabs it can show (chosen in Settings) and your own appointments
+export type CalKey = 'taxes' | 'subs' | 'credits' | 'classes' | 'selfcare' | 'shopping' | 'deliveries' | 'cleaning'
+export interface CalEvent {
+  id: ID
+  title: string
+  date: string // YYYY-MM-DD (first time, for repeating ones)
+  time?: string // HH:MM
+  note?: string
+  repeat?: 'week' | 'month' | 'year'
+}
+
 export interface Settings {
   eurPln: number // PLN for 1 EUR (live: mid-market via Frankfurter/ECB)
   uahPln?: number // PLN for 1 UAH (live: monobank)
@@ -32,6 +43,7 @@ export interface Settings {
   weightKg?: number
   activity?: 'low' | 'light' | 'active' | 'very'
   proteinGoal?: number // g a day, set by hand; empty = from weight and activity
+  calendar?: Partial<Record<CalKey, boolean>> // what the calendar shows from the tabs (all off until chosen)
   travelUsual?: string[] // travel necessities offered under a packing list's Other field (not set = the starter list)
 }
 
@@ -382,5 +394,6 @@ export interface State {
   outfits: Outfit[]
   planned: { date: string; itemIds: ID[] } | null
   trips?: Trip[]
+  events?: CalEvent[] // own appointments in the calendar
   dismissed: { date: string; ids: string[] }
 }

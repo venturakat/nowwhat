@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSt, useStore } from './store'
-import { Icon, openSheet, registerSettings, useUi, type Tab } from './ui'
+import { Icon, openSheet, registerCalendar, registerSettings, useUi, type Tab } from './ui'
+import { CalendarSheet } from './calendar'
 import { SettingsSheet } from './settings'
 import { Today } from './screens/Today'
 import { Money, SpendSheet, StartTimerSheet, stopTimer } from './screens/Money'
@@ -11,6 +12,7 @@ import { fmtClock } from './lib'
 import { Splash } from './Splash'
 
 registerSettings(() => <SettingsSheet />)
+registerCalendar(() => <CalendarSheet />)
 
 const TABS: [Tab, string, () => JSX.Element][] = [
   ['today', 'Today', Icon.today], ['money', 'Money', Icon.money], ['supplies', 'Supplies', Icon.supplies], ['home', 'Home', Icon.home], ['closet', 'Closet', Icon.closet]
@@ -102,8 +104,10 @@ export const App = () => {
         <div className="scrim" onClick={close} style={area ? { top: area.top, bottom: 'auto', height: area.h } : undefined}>
           <div className="sheet" onClick={(e) => e.stopPropagation()} style={area ? { maxHeight: area.h - 24 } : undefined}>
             {/* pages stay mounted underneath (same key), so going back finds them as you left them */}
-            {under.map((n, i) => <div key={i} className={'page under' + (i === under.length - 1 ? ' below' : '')} aria-hidden>{n}</div>)}
-            <div key={under.length} className={'page top' + (under.length ? ' pushed' : '')}>{sheet}</div>
+            {/* one list, so a page keeps its state when something is opened on top of it and closed again */}
+            {[...under, sheet].map((n, i) => i < under.length
+              ? <div key={i} className={'page under' + (i === under.length - 1 ? ' below' : '')} aria-hidden>{n}</div>
+              : <div key={i} className={'page top' + (under.length ? ' pushed' : '')}>{n}</div>)}
           </div>
         </div>
       )}

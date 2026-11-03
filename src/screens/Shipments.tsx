@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { update, useSt } from '../store'
 import { addDays, diffDays, fmtDay, fmtWeekday, today, uid } from '../lib'
-import { C, Check, closeSheet, Field, List, openSheet, Row, Sheet } from '../ui'
+import { C, Check, closeSheet, Field, List, openSheet, popSheet, Row, Sheet } from '../ui'
 
 export const COURIERS = ['InPost', 'DHL', 'DPD'] // anything else goes under Other
 
@@ -52,12 +52,13 @@ export const ShipmentLog = () => {
   )
 }
 
-export const ShipmentSheet = ({ id }: { id?: string }) => {
+// back: opened on top of another page (the calendar) — saving goes back to it instead of closing
+export const ShipmentSheet = ({ id, eta: etaFor, back }: { id?: string; eta?: string; back?: boolean }) => {
   const st = useSt()
   const x = st.shipments?.find((y) => y.id === id)
   const [name, setName] = useState(x?.name ?? '')
   const [courier, setCourier] = useState(x?.courier ?? 'InPost')
-  const [eta, setEta] = useState(x?.eta ?? addDays(today(), 2))
+  const [eta, setEta] = useState(x?.eta ?? etaFor ?? addDays(today(), 2))
   const save = () => {
     if (!name.trim()) return
     update((d) => {
@@ -67,10 +68,10 @@ export const ShipmentSheet = ({ id }: { id?: string }) => {
       if (y) Object.assign(y, data)
       else d.shipments.push({ id: uid(), ...data })
     })
-    closeSheet()
+    if (back) { popSheet(false); popSheet(false) } else closeSheet()
   }
   return (
-    <Sheet title={x ? 'Shipment' : 'New shipment'}>
+    <Sheet title={x ? 'Shipment' : 'New shipment'} onBack={back ? popSheet : undefined}>
       <Field label="What’s coming"><input className="input" autoFocus={!x} value={name} placeholder="Cat litter" onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Courier"><CourierPick value={courier} onChange={setCourier} /></Field>
       <Field label="Delivery date"><input className="input" type="date" value={eta} onChange={(e) => setEta(e.target.value)} /></Field>

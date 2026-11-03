@@ -4,7 +4,7 @@ import type { BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
 
 // ---------- dates (local, YYYY-MM-DD) ----------
-const pad = (n: number) => String(n).padStart(2, '0')
+export const pad = (n: number) => String(n).padStart(2, '0')
 export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 export const parse = (s: string) => {
   const [y, m, d] = s.split('-').map(Number)

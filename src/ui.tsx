@@ -64,6 +64,9 @@ export const toast = (m: string) => useUi.getState().say(m)
 let settingsFactory: (() => ReactNode) | null = null
 export const registerSettings = (f: () => ReactNode) => { settingsFactory = f }
 export const openSettings = () => { if (settingsFactory) openSheet(settingsFactory()) }
+let calendarFactory: (() => ReactNode) | null = null
+export const registerCalendar = (f: () => ReactNode) => { calendarFactory = f }
+export const openCalendar = () => { if (calendarFactory) openSheet(calendarFactory()) }
 
 // ---------- icons ----------
 const S = (p: { children: ReactNode; size?: number; color?: string; fill?: boolean }) => (
@@ -84,6 +87,7 @@ export const Icon = {
   x: () => <S size={20}><path d="M6 6l12 12M18 6L6 18" /></S>,
   trash: () => <S size={20}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></S>,
   gear: () => <S size={20}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></S>,
+  calendar: () => <S size={20}><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18M8 3v4M16 3v4" /></S>,
   chevL: () => <S size={20}><path d="M15 18l-6-6 6-6" /></S>,
   chevR: () => <S size={20}><path d="M9 18l6-6-6-6" /></S>,
   camera: () => <S size={22}><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></S>
@@ -112,7 +116,12 @@ export const Header = ({ sub, title, right }: { sub: string; title: ReactNode; r
       <div className="sub">{sub}</div>
       <h1 className="h1">{title}</h1>
     </div>
-    {right ?? <button className="hdr-gear" aria-label="Settings" onClick={openSettings}><Icon.gear /></button>}
+    {right ?? (
+      <div className="row" style={{ gap: 14, alignSelf: 'flex-start' }}>
+        <button className="hdr-gear" aria-label="Calendar" onClick={openCalendar}><Icon.calendar /></button>
+        <button className="hdr-gear" aria-label="Settings" onClick={openSettings}><Icon.gear /></button>
+      </div>
+    )}
   </div>
 )
 
