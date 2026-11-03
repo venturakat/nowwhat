@@ -242,6 +242,7 @@ export interface Recipe {
   lastCooked?: string
   cooked?: number // how many times
   portions?: number // how many portions the recipe makes (default 1)
+  photo?: string // a photo of the meal (small JPEG data URL)
   grams?: Record<string, number> // per ingredient line: grams you set by hand (otherwise guessed from the line)
 }
 

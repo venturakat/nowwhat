@@ -4,6 +4,7 @@ import type { CookStep, Recipe } from '../types'
 import { dailyNeeds, fmtDay, ingredientName, parseRecipe, recipeNutrition, recipeStatus, today, uid } from '../lib'
 import { fetchNutrition } from '../nutrition'
 import { FormSheet } from '../form'
+import { compress } from './Closet'
 import { C, closeSheet, Field, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, useUi } from '../ui'
 
 const lines = (t: string) => t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
@@ -92,27 +93,34 @@ const NutriTiles = ({ r }: { r: Recipe }) => {
     setLook('busy')
     fetchNutrition(nu.pending).then((ok) => setLook(ok ? 'idle' : 'off'))
   }, [key])
-  if (!r.ingredients.length) return null
+  // the meal's photo comes first; tap it (or the empty one) to change it in Edit
+  const photo = (
+    <button className={'ntile nphoto' + (r.photo ? '' : ' empty')} onClick={() => openSheet(<RecipeEdit id={r.id} />)} aria-label={r.photo ? 'Change photo' : 'Add a photo'}>
+      {r.photo ? <img src={r.photo} alt="" /> : <><Icon.camera /><span className="t13 w5">Add photo</span></>}
+    </button>
+  )
+  if (!r.ingredients.length) return <div className="ntiles">{photo}</div>
   const tile = (label: string, g: number, norm: number | undefined, bg: string) => {
     const pct = norm ? Math.round((g / norm) * 100) : undefined
     return (
       <div className="ntile" style={{ background: bg }}>
-        <span className="t14 w5">{label}</span>
+        <span className="t13 w5">{label}</span>
         <span className="ntile-v">{look === 'busy' && !g ? '…' : `${r0(g)} g`}</span>
         {pct !== undefined ? (
           <div className="col" style={{ gap: 6 }}>
             <div className="nbar"><i style={{ width: `${Math.min(100, pct)}%` }} /></div>
-            <span className="t13">{pct}% of your day · {norm} g</span>
+            <span className="t13">{pct}% of {norm} g</span>
           </div>
         ) : <span className="t13">per portion</span>}
       </div>
     )
   }
   const por = Math.max(1, r.portions ?? 1)
-  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
+  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · % of your daily goal · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
   return (
     <>
       <div className="ntiles">
+        {photo}
         {tile('Protein', nu.protein, need?.protein, 'var(--work)')}
         {tile('Fiber', nu.fiber, need?.fiber, 'var(--money)')}
       </div>
@@ -215,9 +223,10 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
   const [airTemp, setAirTemp] = useState(src?.airTemp ? String(src.airTemp) : '')
   const [sauce, setSauce] = useState((src?.sauce ?? []).join('\n'))
   const [notes, setNotes] = useState(src?.notes ?? '')
+  const [photo, setPhoto] = useState(src?.photo)
   const save = () => {
     const tidy = (xs: CookStep[]) => xs.map((x) => ({ text: x.text.trim(), min: x.min })).filter((x) => x.text)
-    const data = { name: name.trim(), minutes: Number(minutes) || undefined, portions: Number(portions) > 1 ? Number(portions) : undefined, ingredients: lines(ing), stove: tidy(stove), air: tidy(air), airDur: true, airTemp: Number(airTemp) || undefined, sauce: lines(sauce), notes: notes.trim() || undefined }
+    const data = { name: name.trim(), minutes: Number(minutes) || undefined, portions: Number(portions) > 1 ? Number(portions) : undefined, ingredients: lines(ing), stove: tidy(stove), air: tidy(air), airDur: true, airTemp: Number(airTemp) || undefined, sauce: lines(sauce), notes: notes.trim() || undefined, photo }
     update((d) => {
       d.recipes ??= []
       const x = orig && d.recipes.find((y) => y.id === orig.id)
@@ -228,6 +237,16 @@ export const RecipeEdit = ({ id, draft }: { id?: string; draft?: Omit<Recipe, 'i
   }
   return (
     <Sheet title={orig ? 'Edit recipe' : draft ? 'Check & save' : 'New recipe'}>
+      <Field label="Photo of the meal">
+        <div className="row" style={{ gap: 12 }}>
+          <div className="sw" style={{ width: 72, flex: 'none' }}>{photo ? <img src={photo} alt="" /> : <Icon.camera />}</div>
+          <label className="btn soft sm" style={{ cursor: 'pointer' }}>
+            {photo ? 'Change' : 'Take / choose'}
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setPhoto(await compress(f)) }} />
+          </label>
+          {photo && <button className="link" onClick={() => setPhoto(undefined)}>Remove</button>}
+        </div>
+      </Field>
       <Field label="Name"><input className="input" value={name} placeholder="Lemon-soy chicken" onChange={(e) => setName(e.target.value)} /></Field>
       <div className="row" style={{ gap: 8 }}>
         <div className="grow"><Field label="Takes (minutes)"><input className="input" type="text" inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value.replace(/\D/g, ''))} /></Field></div>
