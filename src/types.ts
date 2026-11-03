@@ -183,6 +183,7 @@ export interface Saved {
   name: string
   size?: string
   price: number
+  currency?: Currency // default PLN; shown with today's rate in zł too
   link?: string
   savedAt: string
   photo?: string

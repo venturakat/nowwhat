@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
-import type { ClosetCat, ClosetItem, ID } from '../types'
-import { diffDays, fmt, fmtDay, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
+import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
+import { diffDays, fmt, fmtBoth, fmtCur, fmtDay, toPln, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
+import { CURRENCIES } from './Subscriptions'
 
 // the outfit formula: pieces are always shown in this order
 const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['shoes', 'Shoes'], ['outer', 'Outer'], ['bag', 'Bags'], ['jewelry', 'Jewelry'], ['underwear', 'Underwear'], ['other', 'Other']]
@@ -211,7 +212,7 @@ const ToBuy = () => {
             <div style={{ width: 72, flex: 'none' }} onClick={() => openSheet(<SavedEdit id={s.id} />)}><Tile it={{ ...s, name: '' }} /></div>
             <div className="col grow" style={{ gap: 3 }} onClick={() => openSheet(<SavedEdit id={s.id} />)}>
               <span className="t17">{s.name}{s.size && <span className="t14 muted"> · size {s.size}</span>}</span>
-              <span className="t15 w5">{fmt(s.price)}{ready ? fitsNote(st, s.price) : ''}</span>
+              <span className="t15 w5">{fmtBoth(st.settings, s.price, s.currency ?? 'PLN')}{ready ? fitsNote(st, toPln(st.settings, s.price, s.currency ?? 'PLN')) : ''}</span>
               <span className="t13 muted">{age === 0 ? 'Saved today' : `Saved ${age} days ago`}{ready ? ' — ready to decide' : ` · decide in ${WAIT - age} days`}</span>
               {ready && (
                 <div className="row" style={{ paddingTop: 6 }} onClick={(e) => e.stopPropagation()}>
@@ -219,11 +220,11 @@ const ToBuy = () => {
                     update((d) => {
                       d.saved = d.saved.filter((x) => x.id !== s.id)
                       d.closet.push({ id: uid(), name: s.name, cat: s.cat, photo: s.photo, size: s.size, worn: 0, pairs: [], added: today() })
-                      ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name} (closet)`, amount: s.price, date: today(), oneOff: true })
+                      ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name} (closet)`, amount: s.price, currency: s.currency ?? 'PLN', date: today(), oneOff: true })
                     })
                     toast('Enjoy it · added to wardrobe and budget')
                   }}>Buy</button>
-                  <button className="btn ghost sm" onClick={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmt(s.price)} saved`) }}>Let it go</button>
+                  <button className="btn ghost sm" onClick={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency ?? 'PLN')} saved`) }}>Let it go</button>
                 </div>
               )}
               {!ready && s.link && <a className="t13 muted" href={s.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Open link</a>}
@@ -269,11 +270,11 @@ const SavedEdit = ({ id }: { id?: string }) => {
   const s = st.saved.find((x) => x.id === id)
   const [photo, setPhoto] = useState(s?.photo)
   return (
-    <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ?? { cat: 'base' }}
-      fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'price', label: 'Price (zł)', type: 'number' }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
+    <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ? { currency: 'PLN', ...s } : { cat: 'base', currency: 'PLN' }}
+      fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'price', label: 'Price', type: 'number' }, { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
       extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">Saved {fmtDay(s.savedAt)} · ready on {fmtDay(addDays(s.savedAt, WAIT))}</span>}</>}
       onSave={(v) => update((d) => {
-        const data = { name: v.name, size: v.size?.trim() || undefined, price: v.price ?? 0, link: v.link, cat: v.cat ?? 'base', photo }
+        const data = { name: v.name, size: v.size?.trim() || undefined, price: v.price ?? 0, currency: (v.currency ?? 'PLN') as Currency, link: v.link, cat: v.cat ?? 'base', photo }
         if (s) Object.assign(d.saved.find((x) => x.id === s.id)!, data)
         else d.saved.push({ id: uid(), savedAt: today(), ...data })
       })}

@@ -15,10 +15,10 @@ import { Selfcare } from './Selfcare'
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
   const setSub = useUi((u) => u.setSub)
-  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'subs' ? 'Subscriptions' : sub === 'selfcare' ? 'Selfcare' : sub === 'spanish' ? 'Spanish' : 'Money'
+  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'subs' ? 'Subscriptions' : sub === 'selfcare' ? 'Selfcare' : sub === 'spanish' ? 'Spanish' : 'Budget'
   return (
     <div className="screen">
-      <Header sub={sub === 'budget' ? 'Budget' : 'Money'} title={title} />
+      <Header sub="Money" title={title} />
       <Chips items={[['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['spanish', 'Spanish'], ['subs', 'Subscriptions'], ['credits', 'Credits']]} value={sub as any} onChange={setSub} swipe />
       {sub === 'budget' && <Budget />}
       {sub === 'work' && <Work />}
