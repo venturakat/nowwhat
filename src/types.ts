@@ -166,6 +166,7 @@ export interface ClosetItem {
   lastWorn?: string
   added?: string
   pairs: ID[]
+  offSeason?: boolean // put away for now: not offered in the outfit constructor
 }
 
 export interface Need {

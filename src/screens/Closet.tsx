@@ -26,8 +26,8 @@ export const compress = (file: File): Promise<string> =>
     img.src = URL.createObjectURL(file)
   })
 
-const Tile = ({ it, meta, size, onClick, sel }: { it: { name: string; cat: ClosetCat; photo?: string }; meta?: string; size?: number; onClick?: () => void; sel?: boolean }) => (
-  <button className="tile" style={size ? { width: size, flex: 'none' } : undefined} onClick={onClick}>
+const Tile = ({ it, meta, size, onClick, sel }: { it: { name: string; cat: ClosetCat; photo?: string; offSeason?: boolean }; meta?: string; size?: number; onClick?: () => void; sel?: boolean }) => (
+  <button className={'tile' + (it.offSeason ? ' away' : '')} style={size ? { width: size, flex: 'none' } : undefined} onClick={onClick}>
     <div className={'sw' + (sel ? ' sel' : '')}>{it.photo ? <img src={it.photo} alt="" /> : <Garment cat={it.cat} size={size && size < 80 ? 30 : 40} />}</div>
     {it.name && <div className="nm" style={size && size < 80 ? { fontSize: 14 } : undefined}>{it.name}</div>}
     {meta && <div className="mt">{meta}</div>}
@@ -52,15 +52,16 @@ export const Closet = () => {
 // ================= OWN =================
 const Own = () => {
   const st = useSt()
-  const [cat, setCat] = useState<ClosetCat | 'all'>('all')
+  const [cat, setCat] = useState<ClosetCat | 'all' | 'away'>('all')
   const counts = CATS.map(([k, l]) => [k, l, st.closet.filter((i) => i.cat === k).length] as const).filter((x) => x[2] > 0)
-  const items = st.closet.filter((i) => cat === 'all' || i.cat === cat)
+  const away = st.closet.filter((i) => i.offSeason).length
+  const items = st.closet.filter((i) => cat === 'all' || (cat === 'away' ? i.offSeason : i.cat === cat))
   const stale = st.closet.filter((i) => diffDays(i.lastWorn ?? i.added ?? today(), today()) > 90)
   return (
     <>
       {st.closet.length > 0 && (
         <div className="row" style={{ gap: 16, padding: '0 4px', overflowX: 'auto' }}>
-          {[['all', 'All', st.closet.length] as const, ...counts].map(([k, l, n]) => (
+          {[['all', 'All', st.closet.length] as const, ...counts, ...(away ? [['away', 'Out of season', away] as const] : [])].map(([k, l, n]) => (
             <button key={k} className="t15" style={{ fontWeight: cat === k ? 600 : 400, color: cat === k ? 'var(--ink)' : 'var(--ink2)', whiteSpace: 'nowrap' }} onClick={() => setCat(k as any)}>{l} {n}</button>
           ))}
         </div>
@@ -73,7 +74,7 @@ const Own = () => {
         </div>
       ) : (
         <div className="grid3">
-          {items.map((i) => <Tile key={i.id} it={i} meta={`${CAT1[i.cat]} · worn ${i.worn}×`} onClick={() => openSheet(<ItemSheet id={i.id} />)} />)}
+          {items.map((i) => <Tile key={i.id} it={i} meta={i.offSeason ? `${CAT1[i.cat]} · out of season` : `${CAT1[i.cat]} · worn ${i.worn}×`} onClick={() => openSheet(<ItemSheet id={i.id} />)} />)}
         </div>
       )}
       <button className="btn full soft" onClick={() => openSheet(<ItemEdit />)}><Icon.camera /> Add something</button>
@@ -137,6 +138,13 @@ const ItemSheet = ({ id }: { id: ID }) => {
           <button className="btn closet" onClick={() => { wear([it.id]); toast('Counted') }}>Wore it today</button>
         </div>
       </div>
+      <button className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: '14px 16px' }} onClick={() => update((d) => { const x = d.closet.find((y) => y.id === it.id)!; x.offSeason = x.offSeason ? undefined : true })}>
+        <div className="col grow" style={{ gap: 2, textAlign: 'left' }}>
+          <span className="t17">In season</span>
+          <span className="t13 muted">{it.offSeason ? 'Put away for now — not offered when you build outfits' : 'Offered when you build outfits'}</span>
+        </div>
+        <span className={'switch' + (it.offSeason ? '' : ' on')} role="switch" aria-checked={!it.offSeason}><i /></span>
+      </button>
       <div className="between"><span className="t17">Goes well with</span><button className="link" onClick={() => openSheet(<PairsSheet id={it.id} />)}>Edit pairs</button></div>
       {pairs.length ? <div className="hscroll">{pairs.map((p) => <Tile key={p.id} it={p} size={72} onClick={() => openSheet(<ItemSheet id={p.id} />)} />)}</div> : <span className="t14 muted">No pairs yet — you decide what goes together.</span>}
       <button className="btn full soft" onClick={() => openSheet(<ItemEdit id={it.id} />)}>Edit</button>
@@ -267,28 +275,29 @@ const SavedEdit = ({ id }: { id?: string }) => {
 // ================= OUTFITS =================
 const Outfits = () => {
   const st = useSt()
-  const [startId, setStartId] = useState<ID | undefined>(st.planned?.itemIds[0] ?? st.closet[0]?.id)
-  const start = st.closet.find((x) => x.id === startId)
-  const pairs = start ? st.closet.filter((x) => start.pairs.includes(x.id)) : []
+  const now = st.closet.filter((x) => !x.offSeason) // out-of-season things stay out of the constructor
+  const [startId, setStartId] = useState<ID | undefined>(st.planned?.itemIds.find((i) => now.some((x) => x.id === i)) ?? now[0]?.id)
+  const start = now.find((x) => x.id === startId) ?? now[0]
+  const pairs = start ? now.filter((x) => start.pairs.includes(x.id)) : []
   const tomorrow = addDays(today(), 1)
   const planIds = st.planned && st.planned.date >= today() ? st.planned.itemIds : []
   const plan = planIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[]
   const setPlan = (ids: ID[]) => update((d) => { d.planned = { date: d.planned && d.planned.date >= today() ? d.planned.date : tomorrow, itemIds: ids } })
   const togglePlan = (id: ID) => setPlan(planIds.includes(id) ? planIds.filter((x) => x !== id) : [...planIds, id])
   const shuffle = () => {
-    const withPairs = st.closet.filter((x) => x.pairs.length)
+    const withPairs = now.filter((x) => x.pairs.some((p) => now.some((y) => y.id === p)))
     if (!withPairs.length) { toast('Add some pairs first'); return }
     const s = withPairs[Math.floor(Math.random() * withPairs.length)]
     const ids = [s.id]
     const used = new Set([s.cat])
     for (const p of [...s.pairs].sort(() => Math.random() - 0.5)) {
-      const it = st.closet.find((x) => x.id === p)
+      const it = now.find((x) => x.id === p)
       if (it && !used.has(it.cat)) { ids.push(it.id); used.add(it.cat) }
     }
     setStartId(s.id)
     setPlan(ids)
   }
-  if (!st.closet.length)
+  if (!now.length)
     return <div className="card" style={{ textAlign: 'center', alignItems: 'center', padding: 28 }}><span className="t17">Add a few things to your wardrobe first</span><button className="btn" onClick={() => useUi.getState().setSub('own')}>Go to wardrobe</button></div>
   return (
     <>
@@ -354,7 +363,7 @@ const OutfitEdit = ({ id }: { id: ID }) => {
       <Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
       <span className="t14 w5 muted">Pieces · {ids.length} · tap to add or take out</span>
       {CATS.map(([cat, label]) => {
-        const items = st.closet.filter((x) => x.cat === cat)
+        const items = st.closet.filter((x) => x.cat === cat && (!x.offSeason || ids.includes(x.id))) // out-of-season only if already in it
         if (!items.length) return null
         return (
           <div key={cat} className="col" style={{ gap: 8 }}>
@@ -377,7 +386,7 @@ const PickSheet = ({ title, onPick }: { title: string; onPick: (id: ID) => void 
   const st = useSt()
   return (
     <Sheet title={title}>
-      <div className="grid3">{st.closet.map((i) => <Tile key={i.id} it={i} onClick={() => onPick(i.id)} />)}</div>
+      <div className="grid3">{st.closet.filter((i) => !i.offSeason).map((i) => <Tile key={i.id} it={i} onClick={() => onPick(i.id)} />)}</div>
     </Sheet>
   )
 }
