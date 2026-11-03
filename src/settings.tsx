@@ -7,8 +7,6 @@ import { refreshRates } from './rates'
 import { autoProtein, dailyNeeds, fmtDay, parseNum, travelUsual } from './lib'
 
 export const SettingsSheet = () => {
-  const st = useSt()
-  const s = st.settings
   return (
     <Sheet title="Settings" full>
       <RatesCard />
@@ -20,7 +18,6 @@ export const SettingsSheet = () => {
         <span className="t17">Backup</span>
         <span className="t14 muted">Save a backup file, restore one, or start fresh</span>
       </button>
-      <span className="t13 muted">PIT {Math.round(s.pitRate * 100)}% · DRA {s.dra} · RCA {s.rca}</span>
     </Sheet>
   )
 }
