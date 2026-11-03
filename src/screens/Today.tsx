@@ -17,7 +17,7 @@ const things = (st: State): Thing[] => {
   const out: Thing[] = []
   // supplies running out (soonest first)
   // (one-time buys are grouped with the projects' shopping below)
-  const sup = st.supplies.filter((s) => !s.once).map((s) => ({ s, ...supplyStatus(s, st.settings) })).filter((x) => x.state !== 'ok').sort((a, b) => a.daysLeft - b.daysLeft)
+  const sup = st.supplies.filter((s) => !s.once && !s.paused).map((s) => ({ s, ...supplyStatus(s, st.settings) })).filter((x) => x.state !== 'ok').sort((a, b) => a.daysLeft - b.daysLeft)
   // meds come before everything else, as soon as it's time to buy them
   const meds: Thing[] = sup.filter((x) => x.s.cat === 'meds').map(({ s, daysLeft }) => ({ id: 'sup-' + s.id, dot: daysLeft <= 2 ? C.alert : C.warn, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : `Runs out in ${daysLeft} days`} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', 'meds') }))
   for (const { s, daysLeft } of sup.filter((x) => x.daysLeft <= 2 && x.s.cat !== 'meds'))
@@ -71,7 +71,7 @@ const things = (st: State): Thing[] => {
   const soon = sup.filter((x) => x.daysLeft > 2 && x.s.cat !== 'meds')
   if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s, st.settings), dot: C.supplies, title: `Shopping run · ${soon.length} ${soon.length === 1 ? 'thing' : 'things'}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · by ${fmtDay(soon[0].s.enoughUntil)}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
   // one-off things to buy: one-time supplies (projects' "need to buy" items are among them)
-  const onceBuys = st.supplies.filter((s) => s.once)
+  const onceBuys = st.supplies.filter((s) => s.once && !s.paused)
   const names = onceBuys.map((s) => s.name)
   if (names.length) {
     const sum = onceBuys.reduce((a, s) => a + s.pricePerUnit * s.buyQty, 0)

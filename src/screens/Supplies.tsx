@@ -35,7 +35,8 @@ export const Supplies = () => {
   const st = useSt()
   const cat = useUi((u) => u.sub.supplies) as SupplyCat
   const setSub = useUi((u) => u.setSub)
-  const items = st.supplies.filter((s) => s.cat === cat)
+  const items = st.supplies.filter((s) => s.cat === cat && !s.paused)
+  const paused = st.supplies.filter((s) => s.cat === cat && s.paused).sort((a, b) => a.name.localeCompare(b.name))
   const withStatus = items.map((s) => ({ s, ...supplyStatus(s, st.settings) })).sort((a, b) => a.daysLeft - b.daysLeft)
   const buy = withStatus.filter((x) => x.state !== 'ok')
   const ok = withStatus.filter((x) => x.state === 'ok')
@@ -53,6 +54,7 @@ export const Supplies = () => {
           <button className="btn" style={{ marginTop: 6 }} onClick={() => { buy.forEach((x) => buySupply(x.s.id)); toast(`Bought ${buy.length} · budget updated`) }}>Bought them all</button>
         </div>
       )}
+      {(items.length > 0 || !paused.length) && <>
       <List title="Buy now" empty={items.length ? 'Nothing to buy — you’re covered.' : undefined}>
         {buy.map(({ s, daysLeft, state }) => (
           <Row key={s.id} dot={s.once ? C.home : state === 'out' ? C.alert : C.warn} title={s.name}
@@ -60,11 +62,17 @@ export const Supplies = () => {
             trail={s.pricePerUnit ? fmt(s.pricePerUnit * s.buyQty) : s.once ? 'add price' : fmt(0)} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
         ))}
       </List>
-      <List title="You’re fine" empty={items.length ? undefined : EMPTY[cat]}>
+      <List title="You’re fine" empty={items.length || paused.length ? undefined : EMPTY[cat]}>
         {ok.map(({ s, daysLeft }) => (
           <Row key={s.id} dot={C.ok} title={s.name} meta={<>{s.details && <div className="details">{s.details}</div>}{`Enough till ${fmtDay(s.enoughUntil)} · then ${s.buyQty} × ${fmt(s.pricePerUnit, true)}`}</>} trail={`${daysLeft} d`} onClick={() => openSheet(<SupplySheet id={s.id} />)} />
         ))}
       </List>
+      </>}
+      {paused.length > 0 && (
+        <List title="Paused" right="not bought for now">
+          {paused.map((s) => <Row key={s.id} dot={C.line} title={<span className="muted">{s.name}</span>} meta={s.details} onClick={() => openSheet(<SupplySheet id={s.id} />)} />)}
+        </List>
+      )}
       <button className="btn full soft" onClick={() => openSheet(<SupplyEdit cat={cat} />)}>+ Add to {CAT_LABEL[cat]}</button>
     </div>
   )
@@ -79,6 +87,18 @@ const SupplySheet = ({ id }: { id: string }) => {
   const [eta, setEta] = useState(addDays(today(), 2))
   if (!s) return null
   const { daysLeft } = supplyStatus(s, st.settings)
+  const pause = (on: boolean) => {
+    update((d) => { const x = d.supplies.find((y) => y.id === id); if (x) x.paused = on || undefined })
+    closeSheet(); toast(on ? 'Paused · off the lists and the budget' : 'Back on the list')
+  }
+  if (s.paused) return (
+    <Sheet title={s.name}>
+      {s.details && <div className="t17" style={{ marginTop: -4 }}>{s.details}</div>}
+      <div className="t15 muted">Paused — not on the shopping list, Today or in the budget. Everything about it is kept.</div>
+      <button className="btn full" onClick={() => pause(false)}>Resume</button>
+      <button className="btn full soft" onClick={() => openSheet(<SupplyEdit id={s.id} cat={s.cat} />)}>Edit</button>
+    </Sheet>
+  )
   return (
     <Sheet title={s.name}>
       {s.details && <div className="t17" style={{ marginTop: -4 }}>{s.details}</div>}
@@ -116,6 +136,7 @@ const SupplySheet = ({ id }: { id: string }) => {
         }}>Bought {qty}</button>
       </div>
       <button className="btn full soft" onClick={() => openSheet(<SupplyEdit id={s.id} cat={s.cat} />)}>{s.once && !s.pricePerUnit ? 'Add price & details' : 'Edit'}</button>
+      <button className="btn full soft" onClick={() => pause(true)}>Pause for now</button>
       {s.projectId && <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'projects') }}>Open projects</button>}
     </Sheet>
   )

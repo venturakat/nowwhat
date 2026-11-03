@@ -118,6 +118,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   // supplies: every planned purchase that falls inside this period (repeats for short-lasting items)
   const byCat: Record<string, { amount: number; n: number }> = {}
   for (const sp of st.supplies) {
+    if (sp.paused) continue
     let d = nextBuy(sp, st.settings, t)
     let guard = 0
     while (d <= p.end && guard++ < 40) {
@@ -491,7 +492,7 @@ export const groceryFor = (st: State, line: string) => {
   if (!n) return undefined
   const words = n.split(/\s+/).map(stem)
   return st.supplies.find((s) => {
-    if (s.cat !== 'groceries') return false
+    if (s.cat !== 'groceries' || s.paused) return false
     const g = s.name.toLowerCase().split(/\s+/).map(stem).join(' ')
     const w = words.join(' ')
     return g === w || w.includes(g) || g.includes(w)

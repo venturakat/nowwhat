@@ -116,6 +116,7 @@ export interface Supply {
   details?: string // dosage, pack size, amount, flavour…
   once?: boolean // one-time purchase: on the list until bought, then it's gone
   projectId?: ID // came from a project's "need to buy" (kept in sync with it)
+  paused?: boolean // kept, but off the shopping lists, Today and the budget until resumed
 }
 
 export interface CleanTask {
