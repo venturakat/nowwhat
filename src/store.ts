@@ -69,6 +69,16 @@ export const migrate = (s: State): State => {
     }
     out.version = 8
   }
+  // Spanish classes (USD price paid in pesos) became one of the Classes
+  if (out.lessons && !out.classes) {
+    const l = out.lessons
+    out.classes = [{
+      id: uid(), name: 'Spanish', price: l.usd, currency: 'USD', payIn: 'ARS', rate: 'blue', fee: l.fee ?? 70, feeCurrency: 'PLN',
+      days: l.days, time: l.time, payDay: l.payDay, since: l.since, extra: l.extra, skips: l.skips,
+      pays: l.pays.map((p) => ({ id: p.id, date: p.date, dates: p.dates, price: p.usd, currency: 'USD', rate: p.blue, paid: p.ars, payIn: 'ARS', pln: p.pln, itemId: p.itemId }))
+    }]
+  }
+  delete out.lessons
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
   // nutrition: earlier lookups only searched basic foods — forget the "not found" ones so they're tried again everywhere
   if ((out.nutritionV ?? 1) < 2) { for (const k of Object.keys(out.nutrition ?? {})) if (out.nutrition![k] === null) delete out.nutrition![k]; out.nutritionV = 2 }

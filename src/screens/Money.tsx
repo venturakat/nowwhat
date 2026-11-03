@@ -9,16 +9,16 @@ import { FormSheet, type FieldDef } from '../form'
 import { Credits } from './Credits'
 import { nbpRateForInvoice } from '../rates'
 import { CURRENCIES, ord, Subscriptions } from './Subscriptions'
-import { Spanish } from './Spanish'
+import { Classes } from './Classes'
 import { Selfcare } from './Selfcare'
 
-const SUBTABS: [string, string][] = [['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['spanish', 'Spanish'], ['subs', 'Subscriptions'], ['credits', 'Credits']]
+const SUBTABS: [string, string][] = [['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['classes', 'Classes'], ['subs', 'Subscriptions'], ['credits', 'Credits']]
 registerSubs('money', SUBTABS.map((x) => x[0]))
 
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
   const setSub = useUi((u) => u.setSub)
-  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'subs' ? 'Subscriptions' : sub === 'selfcare' ? 'Selfcare' : sub === 'spanish' ? 'Spanish' : 'Budget'
+  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'subs' ? 'Subscriptions' : sub === 'selfcare' ? 'Selfcare' : sub === 'classes' ? 'Classes' : 'Budget'
   return (
     <div className="screen">
       <Header sub="Money" title={title} />
@@ -29,7 +29,7 @@ export const Money = () => {
       {sub === 'credits' && <Credits />}
       {sub === 'subs' && <Subscriptions />}
       {sub === 'selfcare' && <Selfcare />}
-      {sub === 'spanish' && <Spanish />}
+      {sub === 'classes' && <Classes />}
     </div>
   )
 }
@@ -125,7 +125,7 @@ const Budget = () => {
       )}
       <List title="Fixed this fortnight" right={fmt(s.fixed - boughtSum)}>
         {s.auto.filter((a) => !a.income).map((a) => (
-          <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'spanish' : 'credits')} />
+          <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'classes' : 'credits')} />
         ))}
         {expenses.map((i) => (
           <Row key={i.id} dot={C.line} title={i.label} trail={amt(i)} onClick={() => editItem(i.id)} />

@@ -3,7 +3,8 @@ export type Energy = 'low' | 'okay' | 'lots'
 export type CleanMode = 1 | 2 | 3 // 1 light, 2 regular, 3 extra
 export type SupplyCat = 'meds' | 'groceries' | 'pets' | 'home' | 'care'
 
-export type Currency = 'PLN' | 'EUR' | 'UAH'
+export type Currency = 'PLN' | 'EUR' | 'UAH' | 'USD' // USD: for classes (rates: NBP table A)
+export type PayCur = Currency | 'ARS' // what a class can be paid in
 
 export interface Settings {
   eurPln: number // PLN for 1 EUR (live: mid-market via Frankfurter/ECB)
@@ -23,6 +24,7 @@ export interface Settings {
   usdPln?: number // PLN for 1 USD (NBP table A)
   blueArs?: number // dólar blue (sell): pesos for 1 USD
   blueAt?: string
+  oficialArs?: number // dólar oficial (sell): pesos for 1 USD
   taxAccount?: string // mikrorachunek podatkowy
   zusAccount?: string // rachunek składkowy
   // about you (for daily protein / fiber needs in Recipes)
@@ -292,27 +294,44 @@ export interface Credit {
   note?: string // contract number, account, anything to remember
 }
 
-// language classes paid in pesos: a USD price per class at the dólar blue rate of the payment day
-export interface Lessons {
-  usd: number // price per class in USD
+// Classes (Money › Classes): a price per class in one currency, possibly paid in another
+// (USD price sent as pesos at the dólar blue rate), plus a transfer fee in any currency.
+// How the price turns into what's paid: 'app' = the app's own rates (zł/€/$/₴), 'blue' / 'oficial' =
+// the dólar rates for pesos, 'manual' = typed in when paying.
+export type ClassRate = 'app' | 'blue' | 'oficial' | 'manual'
+export interface Course {
+  id: ID
+  name: string
+  price: number // per class
+  currency: Currency
+  payIn?: PayCur // default: the price currency
+  rate?: ClassRate // only when payIn differs (default: app, or blue for pesos)
+  fee?: number // transfer fee added to every payment
+  feeCurrency?: Currency // default PLN
   days: number[] // weekdays of the classes (0 Sun … 6 Sat)
-  time?: string // your local time, e.g. 17:00
+  time?: string // e.g. 17:00
   payDay?: number // day of the month you pay (default: when the second fortnight starts)
-  fee?: number // transfer fee in zł added to every payment (default 70, WU)
   since: string // first class that isn't paid yet when this was set up
   extra: string[] // one-off extra classes
   skips: string[] // cancelled classes
-  pays: LessonPay[]
+  pays: CoursePay[]
 }
-export interface LessonPay {
+export interface CoursePay {
   id: ID
   date: string
   dates: string[] // classes it covers
-  usd: number // per class
-  blue: number
-  ars: number
-  pln: number // what it cost you in zł
-  itemId?: ID // its line in the budget
+  price: number // per class, in the price currency then
+  currency: Currency
+  rate?: number // 1 price currency = this much of payIn (when they differ)
+  paid: number // what was sent, in payIn
+  payIn: PayCur
+  pln: number // what it cost in zł, fee included (goes to the budget)
+  itemId: ID // the budget entry
+}
+// v1 Spanish classes (moved into Course on load)
+export interface Lessons {
+  usd: number; days: number[]; time?: string; payDay?: number; fee?: number; since: string; extra: string[]; skips: string[]
+  pays: { id: ID; date: string; dates: string[]; usd: number; blue: number; ars: number; pln: number; itemId: ID }[]
 }
 
 export interface Task {
@@ -345,7 +364,8 @@ export interface State {
   // nutrition per 100 g looked up online (USDA FoodData Central), by ingredient name; null = not found
   nutrition?: Record<string, Nutri | null>
   nutritionV?: number // how lookups were done (2 = basic foods, then survey, then branded)
-  lessons?: Lessons
+  lessons?: Lessons // old, moved into classes
+  classes?: Course[]
   tasks?: Task[]
   shipments?: Shipment[]
   notes?: Note[]

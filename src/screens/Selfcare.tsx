@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Currency, SelfCare } from '../types'
-import { addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
+import { CUR_SIGN, addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
 import { C, closeSheet, Field, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
 import { CURRENCIES } from './Subscriptions'
@@ -87,7 +87,7 @@ const CareSheet = ({ id }: { id: string }) => {
         <div className="card closet" style={{ gap: 10 }}>
           <span className="t15 w5">Done?</span>
           <div className="row" style={{ gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Field label={`Paid (${cur === 'PLN' ? 'zł' : cur === 'EUR' ? '€' : '₴'})`}>
+            <div style={{ flex: 1, minWidth: 0 }}><Field label={`Paid (${CUR_SIGN[cur]})`}>
               <input className="input" type="text" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value.replace(/[^0-9.,\s]/g, ''))} />
             </Field></div>
             <div style={{ flex: 1, minWidth: 0 }}><Field label="When">

@@ -1,4 +1,4 @@
-import type { BudgetItem, CookStep, Credit, Nutri, Currency, Lessons, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, PayCur, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -176,8 +176,10 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedCur === 'PLN' ? c.fixedEur : c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · ${c.fixedCur === 'PLN' ? fmt(c.fixedEur, true) : fmtEur(c.fixedEur)} · ${fmtDay(d)} · expected`, kind: 'fee', income: true, expected: true, counted: true })
   }
   // the next batch of classes to pay for, on the day of its first class (until it's paid)
-  const lb = lessonBatch(st)
-  if (lb && inHalf(lb.due)) out.push({ id: 'lessons', label: 'Spanish classes', amount: lb.pln, date: lb.due, meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtDay(lb.due)}`, kind: 'lessons' })
+  for (const c of st.classes ?? []) {
+    const lb = classBatch(st, c)
+    if (lb && inHalf(lb.due)) out.push({ id: 'lessons-' + c.id, label: c.name, amount: lb.pln, date: lb.due, meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtDay(lb.due)}`, kind: 'lessons' })
+  }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
@@ -357,12 +359,12 @@ export const editProjectBuy = (d: State, pid: string, name: string, to?: string)
 export const splitList = (s?: string) => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean)
 
 // ---------- currencies ----------
-export const CUR_SIGN: Record<Currency, string> = { PLN: 'zł', EUR: '€', UAH: '₴' }
-export const toPln = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'EUR' ? amount * s.eurPln : cur === 'UAH' ? amount * (s.uahPln ?? 0.0854) : amount)
+export const CUR_SIGN: Record<Currency, string> = { PLN: 'zł', EUR: '€', UAH: '₴', USD: '$' }
+export const toPln = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'EUR' ? amount * s.eurPln : cur === 'UAH' ? amount * (s.uahPln ?? 0.0854) : cur === 'USD' ? amount * (s.usdPln ?? 4) : amount)
 export const fmtCur = (amount: number, cur: Currency = 'PLN', dec = true) => {
   if (cur === 'PLN') return fmt(amount, dec)
   const v = (Math.round(amount * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0 })
-  return cur === 'EUR' ? '€' + v : v + ' ₴'
+  return cur === 'EUR' ? '€' + v : cur === 'USD' ? '$' + v : v + ' ₴'
 }
 // "25 € · 110 zł" for foreign amounts, plain zł otherwise
 export const fmtBoth = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'PLN' ? fmt(amount, true) : `${fmtCur(amount, cur)} · ${fmt(toPln(s, amount, cur))}`)
@@ -389,12 +391,34 @@ export const parseNum = (x: unknown): number | undefined => {
 // show stored numbers with a comma, the way the bank does
 export const numText = (n?: number) => (n === undefined || n === null ? '' : String(n).replace('.', ','))
 
-// ---------- classes paid in pesos ----------
+// ---------- classes ----------
 export const fmtArs = (n: number) => Math.round(n).toLocaleString('en-US') + ' ARS'
+export const fmtPay = (n: number, cur: PayCur, dec = false) => (cur === 'ARS' ? fmtArs(n) : fmtCur(n, cur, dec))
 const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export const weekdayName = (i: number) => WD_SHORT[i]
+export const classPayIn = (c: Course): PayCur => c.payIn ?? c.currency
+// how the price becomes what's sent (none when it's paid in the price currency)
+export const classRateKind = (c: Course): ClassRate | undefined => {
+  const p = classPayIn(c)
+  if (p === c.currency) return undefined
+  const r = c.rate ?? (p === 'ARS' ? 'blue' : 'app')
+  return p === 'ARS' && r === 'app' ? 'blue' : p !== 'ARS' && (r === 'blue' || r === 'oficial') ? 'app' : r
+}
+// 1 unit of the price currency in the pay-in currency, from today's rates (undefined: typed in when paying, or not loaded)
+export const classRate = (s: Settings, c: Course): number | undefined => {
+  const k = classRateKind(c), p = classPayIn(c)
+  if (!k) return 1
+  if (k === 'manual') return undefined
+  if (p === 'ARS') {
+    const ars = k === 'oficial' ? s.oficialArs : s.blueArs
+    return ars ? (toPln(s, 1, c.currency) / (s.usdPln ?? 4)) * ars : undefined
+  }
+  return toPln(s, 1, c.currency) / toPln(s, 1, p)
+}
+// what one class comes to in the pay-in currency (pesos: whole pesos per class)
+export const perClassPaid = (c: Course, rate: number) => (classPayIn(c) === 'ARS' ? Math.round(c.price * rate) : r2(c.price * rate))
 // scheduled classes (weekdays + extras, minus cancelled) between two dates
-export const lessonDates = (l: Lessons, from: string, to: string) => {
+export const classDates = (l: Course, from: string, to: string) => {
   const out = new Set<string>()
   if (from < l.since) from = l.since
   for (let d = from, g = 0; d <= to && g < 800; d = addDays(d, 1), g++) if (l.days.includes(parse(d).getDay())) out.add(d)
@@ -402,20 +426,20 @@ export const lessonDates = (l: Lessons, from: string, to: string) => {
   return [...out].filter((d) => !l.skips.includes(d)).sort()
 }
 // the next batch to pay for: the unpaid classes in the month of the first unpaid one
-export const lessonBatch = (st: State, t = today()) => {
-  const l = st.lessons
-  if (!l || !l.usd) return undefined
-  const paid = new Set(l.pays.flatMap((p) => p.dates))
-  const first = lessonDates(l, l.since, addDays(t, 400)).find((d) => !paid.has(d))
+export const classBatch = (st: State, c: Course, t = today()) => {
+  if (!c.price) return undefined
+  const paid = new Set(c.pays.flatMap((p) => p.dates))
+  const first = classDates(c, c.since, addDays(t, 400)).find((d) => !paid.has(d))
   if (!first) return undefined
   const mk = monthKey(first)
-  const dates = lessonDates(l, `${mk}-01`, `${mk}-${pad(daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7)))}`).filter((d) => !paid.has(d))
-  const blue = st.settings.blueArs ?? 0
-  const perClass = Math.round(l.usd * blue)
-  const fee = l.fee ?? 70
-  // paid mid-month: the day the second fortnight starts
-  const due = `${mk}-${pad(Math.min(l.payDay ?? st.settings.splitDay, daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7))))}`
-  return { month: mk, dates, first, due, usd: l.usd * dates.length, blue, perClass, ars: perClass * dates.length, fee, pln: r2(l.usd * dates.length * (st.settings.usdPln ?? 4) + fee) }
+  const dim = daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7))
+  const dates = classDates(c, `${mk}-01`, `${mk}-${pad(dim)}`).filter((d) => !paid.has(d))
+  const rate = classRate(st.settings, c)
+  const fee = c.fee ?? 0
+  const feeCur = c.feeCurrency ?? 'PLN'
+  const due = `${mk}-${pad(Math.min(c.payDay ?? st.settings.splitDay, dim))}`
+  const total = c.price * dates.length // in the price currency
+  return { month: mk, dates, first, due, total, rate, paid: rate === undefined ? undefined : perClassPaid(c, rate) * dates.length, fee, feeCur, pln: r2(toPln(st.settings, total, c.currency) + toPln(st.settings, fee, feeCur)) }
 }
 
 // ---------- selfcare ----------

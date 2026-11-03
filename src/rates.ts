@@ -65,12 +65,19 @@ export const fetchBlue = async (): Promise<number | undefined> => {
   if (j?.blue?.value_sell) return j.blue.value_sell
 }
 
+export const fetchOficial = async (): Promise<number | undefined> => {
+  const j = await getJson('https://dolarapi.com/v1/dolares/oficial')
+  if (j?.venta) return j.venta
+}
+
 export const refreshRates = async (force = false) => {
   const s = useStore.getState().st.settings
   if (s.ratesAuto === false && !force) return false
-  if (!force && s.ratesAt && Date.now() - new Date(s.ratesAt).getTime() < MAX_AGE_H * 3600000) return false
-  const lessons = !!useStore.getState().st.lessons
-  const [eur, uah, usd, blue] = await Promise.allSettled([fetchEur(), fetchUah(), lessons ? fetchUsd() : Promise.resolve(undefined), lessons ? fetchBlue() : Promise.resolve(undefined)])
+  // pesos only when a class is paid in them (USD from NBP always: classes and amounts can be in dollars)
+  const ars = (useStore.getState().st.classes ?? []).some((c) => (c.payIn ?? c.currency) === 'ARS')
+  const missing = (ars && !s.blueArs) || !s.usdPln // a class just started needing them
+  if (!force && !missing && s.ratesAt && Date.now() - new Date(s.ratesAt).getTime() < MAX_AGE_H * 3600000) return false
+  const [eur, uah, usd, blue, ofi] = await Promise.allSettled([fetchEur(), fetchUah(), fetchUsd(), ars ? fetchBlue() : Promise.resolve(undefined), ars ? fetchOficial() : Promise.resolve(undefined)])
   const e = eur.status === 'fulfilled' ? eur.value : undefined
   const u = uah.status === 'fulfilled' ? uah.value : undefined
   if (!e && !u) return false
@@ -81,6 +88,7 @@ export const refreshRates = async (force = false) => {
     if (u && !manual) d.settings.uahPln = Math.round(u.v * 1000000) / 1000000
     if (usd.status === 'fulfilled' && usd.value) d.settings.usdPln = usd.value
     if (blue.status === 'fulfilled' && blue.value) { d.settings.blueArs = blue.value; d.settings.blueAt = new Date().toISOString() }
+    if (ofi.status === 'fulfilled' && ofi.value) d.settings.oficialArs = ofi.value
     if (manual) return
     d.settings.ratesAt = new Date().toISOString()
     d.settings.ratesNote = [e ? `EUR ${e.src}` : 'EUR kept', u ? `UAH ${u.src}` : 'UAH kept'].join(' · ')

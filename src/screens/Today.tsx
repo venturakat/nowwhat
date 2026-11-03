@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, creditStatus, fmtArs, lessonBatch, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
+import { addDays, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Header, Icon, openSettings, openSheet, Row, Sheet, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
@@ -80,10 +80,12 @@ const things = (st: State): Thing[] => {
   // closet: saved thing ready to decide
   const ready = st.saved.find((s) => diffDays(s.savedAt, t) >= 7)
   if (ready) out.push({ id: 'saved-' + ready.id, dot: C.closet, title: `Still want ${ready.name}?`, meta: 'Waited a week · buy or let go', trail: fmt(ready.price), go: () => go('closet', 'buy') })
-  // Spanish classes: from 3 days before the first unpaid class
-  const lb = lessonBatch(st)
-  if (lb && lb.blue && t >= addDays(lb.due, -3))
-    out.push({ id: 'lessons-' + lb.due, dot: C.money, title: 'Pay for Spanish', meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtArs(lb.ars)} · ${lb.due < t ? 'since' : 'by'} ${fmtDay(lb.due)}`, trail: fmt(lb.pln), go: () => go('money', 'spanish') })
+  // classes: from 3 days before the payment day
+  for (const c of st.classes ?? []) {
+    const lb = classBatch(st, c)
+    if (lb && t >= addDays(lb.due, -3))
+      out.push({ id: `lessons-${c.id}-${lb.due}`, dot: C.money, title: `Pay for ${c.name}`, meta: [`${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'}`, lb.paid !== undefined && classPayIn(c) !== 'PLN' ? fmtPay(lb.paid, classPayIn(c)) : '', `${lb.due < t ? 'since' : 'by'} ${fmtDay(lb.due)}`].filter(Boolean).join(' · '), trail: fmt(lb.pln), go: () => go('money', 'classes') })
+  }
   // selfcare: from the day before until a week overdue
   for (const x of (st.selfcare ?? []).filter((x) => !x.paused)) {
     const n = diffDays(t, x.next)
