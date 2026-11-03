@@ -313,6 +313,7 @@ export interface State {
   recipes?: Recipe[]
   // nutrition per 100 g looked up online (USDA FoodData Central), by ingredient name; null = not found
   nutrition?: Record<string, Nutri | null>
+  nutritionV?: number // how lookups were done (2 = basic foods, then survey, then branded)
   lessons?: Lessons
   tasks?: Task[]
   notes?: Note[]

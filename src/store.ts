@@ -70,6 +70,8 @@ export const migrate = (s: State): State => {
     out.version = 8
   }
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
+  // nutrition: earlier lookups only searched basic foods — forget the "not found" ones so they're tried again everywhere
+  if ((out.nutritionV ?? 1) < 2) { for (const k of Object.keys(out.nutrition ?? {})) if (out.nutrition![k] === null) delete out.nutrition![k]; out.nutritionV = 2 }
   // closet: "Tops" became Base (and Mid, for the layer over it) — old tops go to Base
   for (const list of [out.closet, out.saved, out.needs] as { cat: string }[][]) for (const x of list ?? []) if (x.cat === 'top') x.cat = 'base'
   // recipes: the old plain "steps" list becomes the Stove block
