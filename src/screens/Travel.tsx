@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { update, useSt } from '../store'
 import type { ID, PackItem, State, Trip } from '../types'
 import { addDays, diffDays, fmtDay, today, uid } from '../lib'
 import { C, Check, closeSheet, Field, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast } from '../ui'
-import { byFormula, CAT1, CATS, Tile } from './Closet'
+import { byFormula, CATS, Tile } from './Closet'
 
 // Travel (Closet › Travel): packing lists. A list mixes things from the wardrobe, from Supplies › Care
 // and anything typed in by hand. Tick things off as they go into the suitcase.
@@ -101,7 +101,14 @@ const TripSheet = ({ id }: { id: string }) => {
   if (!x) return null
   const edit = (f: (y: Trip) => void) => update((d) => { const y = d.trips?.find((z) => z.id === id); if (y) f(y) })
   const toggle = (iid: ID) => edit((y) => { const i = y.items.find((z) => z.id === iid); if (i) i.packed = !i.packed || undefined })
-  const remove = (iid: ID) => edit((y) => { y.items = y.items.filter((z) => z.id !== iid) })
+  // − at one piece takes it off the list
+  const step = (iid: ID, by: 1 | -1) => edit((y) => {
+    const i = y.items.find((z) => z.id === iid)
+    if (!i) return
+    const n = (i.qty ?? 1) + by
+    if (n < 1) y.items = y.items.filter((z) => z.id !== iid)
+    else i.qty = n > 1 ? n : undefined
+  })
   const addOwn = () => {
     const names = text.split(',').map((s) => s.trim()).filter(Boolean)
     if (!names.length) return
@@ -109,12 +116,21 @@ const TripSheet = ({ id }: { id: string }) => {
     setText('')
   }
   const clothes = byFormula(x.items.filter((i) => i.src === 'closet').map((i) => ({ i, cat: st.closet.find((c) => c.id === i.refId)?.cat ?? 'other' as const })))
+  const groups = CATS.map(([cat, label]) => ({ cat, label, items: clothes.filter((c) => c.cat === cat).map((c) => c.i) })).filter((g) => g.items.length)
+  const pieces = (xs: PackItem[]) => xs.reduce((a, i) => a + (i.qty ?? 1), 0) || undefined
   const care = x.items.filter((i) => i.src === 'care')
   const own = x.items.filter((i) => i.src === 'own')
+  const btn = (label: string, onClick: () => void, child: ReactNode) => (
+    <span role="button" aria-label={label} className="qbtn" onClick={(e) => { e.stopPropagation(); onClick() }}>{child}</span>
+  )
   const item = (i: PackItem, meta?: string) => (
     <Row key={i.id} done={!!i.packed} title={nameOf(st, i)} meta={meta} onClick={() => toggle(i.id)}
-      trail={<span className="row" style={{ gap: 10, alignItems: 'center' }}>
-        <span role="button" aria-label="Remove" className="muted" onClick={(e) => { e.stopPropagation(); remove(i.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Icon.x /></span>
+      trail={<span className="row" style={{ gap: 12, alignItems: 'center' }}>
+        <span className="qty">
+          {btn((i.qty ?? 1) > 1 ? 'One less' : 'Remove', () => step(i.id, -1), (i.qty ?? 1) > 1 ? '−' : <Icon.x />)}
+          <span className="n">{i.qty ?? 1}</span>
+          {btn('One more', () => step(i.id, 1), '+')}
+        </span>
         <Check on={!!i.packed} />
       </span>} />
   )
@@ -122,18 +138,20 @@ const TripSheet = ({ id }: { id: string }) => {
   return (
     <Sheet title={x.name}>
       <div className="t15 muted" style={{ marginTop: -4 }}>{dates(x)}{when(x, today())}{x.items.length ? ` · ${count(x)}` : ''}</div>
-      <List title="Clothes" right={clothes.length || undefined}>
-        {clothes.map(({ i, cat }) => {
-          const c = st.closet.find((z) => z.id === i.refId)
-          return item(i, [CAT1[cat], c?.size].filter(Boolean).join(' · '))
-        })}
+      <List title="Clothes" right={pieces(clothes.map((c) => c.i))}>
+        {groups.map((g) => (
+          <div key={g.cat}>
+            <div className="list-sub">{g.label}</div>
+            {g.items.map((i) => item(i))}
+          </div>
+        ))}
         <Row title={<span className="muted">+ Add from wardrobe</span>} onClick={() => pushSheet(<ClosetPick id={id} />)} />
       </List>
-      <List title="Care" right={care.length || undefined}>
+      <List title="Care" right={pieces(care)}>
         {care.map((i) => item(i, st.supplies.find((s) => s.id === i.refId)?.details))}
         <Row title={<span className="muted">+ Add from Supplies › Care</span>} onClick={() => pushSheet(<CarePick id={id} />)} />
       </List>
-      <List title="Other" right={own.length || undefined}>
+      <List title="Other" right={pieces(own)}>
         {own.map((i) => item(i))}
         <div className="row" style={{ gap: 8, padding: '6px 12px 10px' }}>
           <input className="input" style={{ flex: 1, minWidth: 0 }} value={text} placeholder="Charger, passport, book…" enterKeyHint="done"
@@ -186,7 +204,7 @@ const ClosetPick = ({ id }: { id: ID }) => {
         return (
           <div key={cat} className="col" style={{ gap: 8 }}>
             <span className="t14 w5">{label}</span>
-            <div className="hscroll">{items.map((i) => <Tile key={i.id} it={i} meta={i.size} size={72} sel={ids.includes(i.id)} onClick={() => toggle(i.id)} />)}</div>
+            <div className="hscroll">{items.map((i) => <Tile key={i.id} it={i} size={72} sel={ids.includes(i.id)} onClick={() => toggle(i.id)} />)}</div>
           </div>
         )
       })}

@@ -202,6 +202,7 @@ export interface PackItem {
   src: 'closet' | 'care' | 'own'
   refId?: ID // the wardrobe thing / supply it points to
   name: string // its name when added (kept if the thing is later deleted)
+  qty?: number // how many to take (1 if not set)
   packed?: boolean
 }
 export interface Trip {
