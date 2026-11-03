@@ -20,7 +20,6 @@ const turnFor = (cat: ClosetCat) => TURN[cat] ?? ORDER.filter((k) => k !== cat) 
 const NO_START: ClosetCat[] = ['jewelry'] // an outfit never starts from an accessory
 const MANY: ClosetCat[] = ['jewelry'] // kinds an outfit can have several of (accessories; stored as 'jewelry')
 export const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Accessory', other: 'Other' }
-const WAIT = 7
 
 // shrink a photo (~480px JPEG by default) so storage stays small
 const SUBTABS: [string, string][] = [['own', 'I own'], ['buy', 'To buy'], ['outfits', 'Outfits'], ['travel', 'Travel']]
@@ -208,32 +207,28 @@ const ToBuy = () => {
       </List>
       <div className="col" style={{ padding: '0 4px', gap: 4 }}>
         <span className="t17">Saved, maybe</span>
-        <span className="t14 muted">Every saved thing waits {WAIT} days before you can buy it. Still want it after a week? Then it’s real.</span>
+        <span className="t14 muted">Every saved thing waits here until you decide</span>
       </div>
       {saved.map((s) => {
         const age = diffDays(s.savedAt, t)
-        const ready = age >= WAIT
         return (
-          <div key={s.id} className={'card' + (ready ? ' closet' : '')} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: '18px 16px 18px 14px' }}>
+          <div key={s.id} className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: '18px 16px 18px 14px' }}>
             <div style={{ width: 72, flex: 'none' }} onClick={() => openSheet(<SavedEdit id={s.id} />)}><Tile it={{ ...s, name: '' }} /></div>
             <div className="col grow" style={{ gap: 3 }} onClick={() => openSheet(<SavedEdit id={s.id} />)}>
               <span className="t17">{s.name}{s.size && <span className="t14 muted"> · size {s.size}</span>}</span>
-              <span className="t15 w5">{fmtBoth(st.settings, s.price, s.currency ?? 'PLN')}{ready ? fitsNote(st, toPln(st.settings, s.price, s.currency ?? 'PLN')) : ''}</span>
-              <span className="t13 muted">{age === 0 ? 'Saved today' : `Saved ${age} days ago`}{ready ? ' — ready to decide' : ` · decide in ${WAIT - age} days`}</span>
-              {ready && (
-                <div className="row" style={{ paddingTop: 6 }} onClick={(e) => e.stopPropagation()}>
+              <span className="t15 w5">{fmtBoth(st.settings, s.price, s.currency ?? 'PLN')}{fitsNote(st, toPln(st.settings, s.price, s.currency ?? 'PLN'))}</span>
+              <span className="t13 muted">{age === 0 ? 'Saved today' : age === 1 ? 'Saved yesterday' : `Saved ${age} days ago`}{s.link ? <> · <a className="muted" href={s.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>open link</a></> : null}</span>
+              <div className="row" style={{ paddingTop: 6, gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   <button className="btn sm" onClick={() => {
                     update((d) => {
                       d.saved = d.saved.filter((x) => x.id !== s.id)
                       d.closet.push({ id: uid(), name: s.name, cat: s.cat, photo: s.photo, size: s.size, worn: 0, pairs: [], added: today() })
                       ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name} (closet)`, amount: s.price, currency: s.currency ?? 'PLN', date: today(), oneOff: true })
                     })
-                    toast('Enjoy it · added to wardrobe and budget')
-                  }}>Buy</button>
+                    toast('Enjoy it · in your wardrobe, with its photo, and in the budget')
+                  }}>Bought it</button>
                   <button className="btn ghost sm" onClick={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency ?? 'PLN')} saved`) }}>Let it go</button>
                 </div>
-              )}
-              {!ready && s.link && <a className="t13 muted" href={s.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Open link</a>}
             </div>
           </div>
         )
@@ -278,7 +273,7 @@ const SavedEdit = ({ id }: { id?: string }) => {
   return (
     <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ? { currency: 'PLN', ...s } : { cat: 'base', currency: 'PLN' }}
       fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'price', label: 'Price', type: 'number' }, { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
-      extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">Saved {fmtDay(s.savedAt)} · ready on {fmtDay(addDays(s.savedAt, WAIT))}</span>}</>}
+      extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">Saved {fmtDay(s.savedAt)}</span>}</>}
       onSave={(v) => update((d) => {
         const data = { name: v.name, size: v.size?.trim() || undefined, price: v.price ?? 0, currency: (v.currency ?? 'PLN') as Currency, link: v.link, cat: v.cat ?? 'base', photo }
         if (s) Object.assign(d.saved.find((x) => x.id === s.id)!, data)

@@ -77,9 +77,6 @@ const things = (st: State): Thing[] => {
     const sum = onceBuys.reduce((a, s) => a + s.pricePerUnit * s.buyQty, 0)
     out.push({ id: 'tobuy-' + names.length, dot: C.home, title: `To buy · ${names.length} ${names.length === 1 ? 'thing' : 'things'}`, meta: `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''}`, trail: sum > 0 ? fmt(sum) : '→', go: () => go('supplies', onceBuys[0]?.cat ?? 'home') })
   }
-  // closet: saved thing ready to decide
-  const ready = st.saved.find((s) => diffDays(s.savedAt, t) >= 7)
-  if (ready) out.push({ id: 'saved-' + ready.id, dot: C.closet, title: `Still want ${ready.name}?`, meta: 'Waited a week · buy or let go', trail: fmt(ready.price), go: () => go('closet', 'buy') })
   // classes: from 3 days before the payment day
   for (const c of st.classes ?? []) {
     const lb = classBatch(st, c)
