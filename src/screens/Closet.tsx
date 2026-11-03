@@ -243,7 +243,7 @@ const ToBuy = () => {
 const LetGo = ({ onGo }: { onGo: () => void }) => {
   const [armed, setArmed] = useState(false)
   useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(t) }, [armed])
-  return <button className="btn ghost sm" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => (armed ? onGo() : setArmed(true))}>{armed ? 'Tap again' : 'Let it go'}</button>
+  return <button className="btn ghost sm" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => (armed ? onGo() : setArmed(true))}>{armed ? 'Delete' : 'Let it go'}</button>
 }
 
 const fitsNote = (st: ReturnType<typeof useSt>, price: number) => {
