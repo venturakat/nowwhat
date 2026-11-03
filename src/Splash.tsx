@@ -29,7 +29,7 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const angLerp = (a: number, b: number, t: number) => { const d = (((b - a) % 360) + 540) % 360 - 180; return a + d * t }
 const clamp = (x: number) => Math.min(1, Math.max(0, x))
 
-const SWIRL_IN = 500, FIRST = 1500, GAP = 190, FLY = 560, MOVE_AT = 3000, MOVE = 700, WORD_AT = 3300, WORD = 650
+const SWIRL_IN = 450, FIRST = 900, GAP = 190, FLY = 560, MOVE_AT = 2400, MOVE = 700, WORD_AT = 2700, WORD = 650 // swirl shortened by ~0.6 s
 export const SPLASH_MS = WORD_AT + WORD
 
 const swirlPose = (b: Piece, t: number): Pose => {
@@ -54,7 +54,7 @@ export const Splash = ({ onDone }: { onDone: () => void }) => {
     const mk = (w: number) => { const r = document.createElementNS(NS, 'rect'); r.setAttribute('width', String(w)); r.setAttribute('height', String(H)); r.setAttribute('rx', String(RX)); r.setAttribute('fill', 'currentColor'); g.appendChild(r); return r }
     const blocks: Piece[] = SPEC.map(([w], i) => ({ el: mk(w), w, phase: (i * 2 * Math.PI) / 5 + (i % 2 ? 0.6 : 0), spin: (i % 2 ? -1 : 1) * (180 + i * 40), R: 16 + ((i * 7) % 16) }))
     const EXTRA = 30
-    const extras: Piece[] = Array.from({ length: EXTRA }, (_, j) => { const w = 36 + ((j * 37) % 66); return { el: mk(w), w, phase: j * 2.399, spin: (j % 2 ? 1 : -1) * (150 + ((j * 53) % 160)), R: 4 + ((j * 13) % 30), gone: 1000 + j * (1350 / EXTRA) } })
+    const extras: Piece[] = Array.from({ length: EXTRA }, (_, j) => { const w = 36 + ((j * 37) % 66); return { el: mk(w), w, phase: j * 2.399, spin: (j % 2 ? 1 : -1) * (150 + ((j * 53) % 160)), R: 4 + ((j * 13) % 30), gone: 450 + j * (1300 / EXTRA) } })
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
     let t0 = 0, raf = 0, hold = 0
     const frame = (now: number) => {
