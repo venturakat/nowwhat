@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
 import { diffDays, fmt, fmtBoth, fmtCur, fmtDay, toPln, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
@@ -227,7 +227,7 @@ const ToBuy = () => {
                     })
                     toast('Enjoy it · in your wardrobe, with its photo, and in the budget')
                   }}>Bought it</button>
-                  <button className="btn ghost sm" onClick={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency ?? 'PLN')} saved`) }}>Let it go</button>
+                  <LetGo onGo={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency ?? 'PLN')} saved`) }} />
                   {s.link && <a className="btn ghost sm" style={{ textDecoration: 'none', color: 'inherit' }} href={s.link} target="_blank" rel="noreferrer">Link</a>}
                 </div>
             </div>
@@ -237,6 +237,13 @@ const ToBuy = () => {
       <button className="btn full dashed" onClick={() => openSheet(<SavedEdit />)}>+ Save something I want</button>
     </>
   )
+}
+
+// first tap asks, a second one within 3 seconds lets it go
+const LetGo = ({ onGo }: { onGo: () => void }) => {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(t) }, [armed])
+  return <button className="btn ghost sm" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => (armed ? onGo() : setArmed(true))}>{armed ? 'Tap again' : 'Let it go'}</button>
 }
 
 const fitsNote = (st: ReturnType<typeof useSt>, price: number) => {
