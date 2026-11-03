@@ -161,6 +161,7 @@ export interface ClosetItem {
   name: string
   cat: ClosetCat
   photo?: string // data URL
+  size?: string
   worn: number
   lastWorn?: string
   added?: string
@@ -171,6 +172,7 @@ export interface ClosetItem {
 export interface Need {
   id: ID
   name: string
+  size?: string // e.g. M, 38, 27/32
   note?: string
   maxPrice?: number
   urgent?: boolean
@@ -179,6 +181,7 @@ export interface Need {
 export interface Saved {
   id: ID
   name: string
+  size?: string
   price: number
   link?: string
   savedAt: string

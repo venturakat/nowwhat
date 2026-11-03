@@ -111,17 +111,17 @@ const PhotoField = ({ value, onChange }: { value?: string; onChange: (v?: string
   </Field>
 )
 
-const ItemEdit = ({ id, from }: { id?: string; from?: { name: string; cat: ClosetCat; photo?: string } }) => {
+const ItemEdit = ({ id, from }: { id?: string; from?: { name: string; cat: ClosetCat; photo?: string; size?: string } }) => {
   const st = useSt()
   const it = st.closet.find((x) => x.id === id)
   const [photo, setPhoto] = useState(it?.photo ?? from?.photo)
   return (
-    <FormSheet title={it ? 'Edit' : 'Add to wardrobe'} initial={it ?? { cat: from?.cat ?? 'base', name: from?.name }}
-      fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Black knit' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
+    <FormSheet title={it ? 'Edit' : 'Add to wardrobe'} initial={it ?? { cat: from?.cat ?? 'base', name: from?.name, size: from?.size }}
+      fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Black knit' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
       extra={<PhotoField value={photo} onChange={setPhoto} />}
       onSave={(v) => update((d) => {
-        if (it) Object.assign(d.closet.find((x) => x.id === it.id)!, { name: v.name, cat: v.cat, photo })
-        else d.closet.push({ id: uid(), name: v.name, cat: v.cat ?? 'base', photo, worn: 0, pairs: [], added: today() })
+        if (it) Object.assign(d.closet.find((x) => x.id === it.id)!, { name: v.name, cat: v.cat, photo, size: v.size?.trim() || undefined })
+        else d.closet.push({ id: uid(), name: v.name, cat: v.cat ?? 'base', photo, size: v.size?.trim() || undefined, worn: 0, pairs: [], added: today() })
       })}
       onDelete={it ? () => update((d) => {
         d.closet = d.closet.filter((x) => x.id !== it.id)
@@ -144,7 +144,7 @@ const ItemSheet = ({ id }: { id: ID }) => {
       <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
         <div style={{ width: 120 }}><Tile it={{ ...it, name: '' }} /></div>
         <div className="col grow" style={{ gap: 6 }}>
-          <span className="t15 muted">{CAT1[it.cat]} · worn {it.worn}×{it.lastWorn ? ` · last ${fmtDay(it.lastWorn)}` : ''}</span>
+          <span className="t15 muted">{CAT1[it.cat]}{it.size ? ` · size ${it.size}` : ''} · worn {it.worn}×{it.lastWorn ? ` · last ${fmtDay(it.lastWorn)}` : ''}</span>
           <button className="btn closet" onClick={() => { wear([it.id]); toast('Counted') }}>Wore it today</button>
         </div>
       </div>
@@ -195,7 +195,7 @@ const ToBuy = () => {
     <>
       <List title="Need" right="real gaps" empty="Nothing missing right now.">
         {st.needs.map((n) => (
-          <Row key={n.id} dot={n.urgent ? C.alert : C.closet} title={n.name} meta={[n.note, n.maxPrice ? `up to ${fmt(n.maxPrice)}` : ''].filter(Boolean).join(' · ') || undefined} trail={n.urgent ? 'Soon' : '→'} onClick={() => openSheet(<NeedEdit id={n.id} />)} />
+          <Row key={n.id} dot={n.urgent ? C.alert : C.closet} title={n.name} meta={[n.size ? `Size ${n.size}` : '', n.note, n.maxPrice ? `up to ${fmt(n.maxPrice)}` : ''].filter(Boolean).join(' · ') || undefined} trail={n.urgent ? 'Soon' : '→'} onClick={() => openSheet(<NeedEdit id={n.id} />)} />
         ))}
         <Row title={<span className="muted">+ Add a need</span>} onClick={() => openSheet(<NeedEdit />)} />
       </List>
@@ -210,7 +210,7 @@ const ToBuy = () => {
           <div key={s.id} className={'card' + (ready ? ' closet' : '')} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: '18px 16px 18px 14px' }}>
             <div style={{ width: 72, flex: 'none' }} onClick={() => openSheet(<SavedEdit id={s.id} />)}><Tile it={{ ...s, name: '' }} /></div>
             <div className="col grow" style={{ gap: 3 }} onClick={() => openSheet(<SavedEdit id={s.id} />)}>
-              <span className="t17">{s.name}</span>
+              <span className="t17">{s.name}{s.size && <span className="t14 muted"> · size {s.size}</span>}</span>
               <span className="t15 w5">{fmt(s.price)}{ready ? fitsNote(st, s.price) : ''}</span>
               <span className="t13 muted">{age === 0 ? 'Saved today' : `Saved ${age} days ago`}{ready ? ' — ready to decide' : ` · decide in ${WAIT - age} days`}</span>
               {ready && (
@@ -218,7 +218,7 @@ const ToBuy = () => {
                   <button className="btn sm" onClick={() => {
                     update((d) => {
                       d.saved = d.saved.filter((x) => x.id !== s.id)
-                      d.closet.push({ id: uid(), name: s.name, cat: s.cat, photo: s.photo, worn: 0, pairs: [], added: today() })
+                      d.closet.push({ id: uid(), name: s.name, cat: s.cat, photo: s.photo, size: s.size, worn: 0, pairs: [], added: today() })
                       ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name} (closet)`, amount: s.price, date: today(), oneOff: true })
                     })
                     toast('Enjoy it · added to wardrobe and budget')
@@ -252,10 +252,10 @@ const NeedEdit = ({ id }: { id?: string }) => {
   const n = st.needs.find((x) => x.id === id)
   return (
     <FormSheet title={n ? 'Need' : 'Something I need'} initial={n ?? {}}
-      fields={[{ key: 'name', label: 'What', type: 'text', placeholder: 'Black ankle boots' }, { key: 'note', label: 'Why / note', type: 'text', placeholder: 'Current pair is worn out' }, { key: 'maxPrice', label: 'Up to (zł)', type: 'number' }, { key: 'urgent', label: 'Soon?', type: 'toggle' }]}
-      extra={n && <button className="btn full closet" onClick={() => { update((d) => { d.needs = d.needs.filter((x) => x.id !== n.id) }); openSheet(<ItemEdit from={{ name: n.name, cat: 'other' }} />) }}>Got it → add to wardrobe</button>}
+      fields={[{ key: 'name', label: 'What', type: 'text', placeholder: 'Black ankle boots' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'note', label: 'Why / note', type: 'text', placeholder: 'Current pair is worn out' }, { key: 'maxPrice', label: 'Up to (zł)', type: 'number' }, { key: 'urgent', label: 'Soon?', type: 'toggle' }]}
+      extra={n && <button className="btn full closet" onClick={() => { update((d) => { d.needs = d.needs.filter((x) => x.id !== n.id) }); openSheet(<ItemEdit from={{ name: n.name, cat: 'other', size: n.size }} />) }}>Got it → add to wardrobe</button>}
       onSave={(v) => update((d) => {
-        const data = { name: v.name, note: v.note, maxPrice: v.maxPrice, urgent: !!v.urgent }
+        const data = { name: v.name, size: v.size?.trim() || undefined, note: v.note, maxPrice: v.maxPrice, urgent: !!v.urgent }
         if (n) Object.assign(d.needs.find((x) => x.id === n.id)!, data)
         else d.needs.push({ id: uid(), ...data })
       })}
@@ -270,10 +270,10 @@ const SavedEdit = ({ id }: { id?: string }) => {
   const [photo, setPhoto] = useState(s?.photo)
   return (
     <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ?? { cat: 'base' }}
-      fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'price', label: 'Price (zł)', type: 'number' }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
+      fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'price', label: 'Price (zł)', type: 'number' }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
       extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">Saved {fmtDay(s.savedAt)} · ready on {fmtDay(addDays(s.savedAt, WAIT))}</span>}</>}
       onSave={(v) => update((d) => {
-        const data = { name: v.name, price: v.price ?? 0, link: v.link, cat: v.cat ?? 'base', photo }
+        const data = { name: v.name, size: v.size?.trim() || undefined, price: v.price ?? 0, link: v.link, cat: v.cat ?? 'base', photo }
         if (s) Object.assign(d.saved.find((x) => x.id === s.id)!, data)
         else d.saved.push({ id: uid(), savedAt: today(), ...data })
       })}
