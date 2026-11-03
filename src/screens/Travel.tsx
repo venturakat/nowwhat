@@ -123,8 +123,8 @@ const TripSheet = ({ id }: { id: string }) => {
   const btn = (label: string, onClick: () => void, child: ReactNode) => (
     <span role="button" aria-label={label} className="qbtn" onClick={(e) => { e.stopPropagation(); onClick() }}>{child}</span>
   )
-  const item = (i: PackItem, meta?: string) => (
-    <Row key={i.id} done={!!i.packed} title={nameOf(st, i)} meta={meta} onClick={() => toggle(i.id)}
+  const item = (i: PackItem) => (
+    <Row key={i.id} done={!!i.packed} title={nameOf(st, i)} onClick={() => toggle(i.id)}
       trail={<span className="row" style={{ gap: 12, alignItems: 'center' }}>
         <span className="qty">
           {btn((i.qty ?? 1) > 1 ? 'One less' : 'Remove', () => step(i.id, -1), (i.qty ?? 1) > 1 ? '−' : <Icon.x />)}
@@ -140,7 +140,7 @@ const TripSheet = ({ id }: { id: string }) => {
       <div className="t15 muted" style={{ marginTop: -4 }}>{dates(x)}{when(x, today())}{x.items.length ? ` · ${count(x)}` : ''}</div>
       <List title="Clothes" right={pieces(clothes.map((c) => c.i))}>
         {groups.map((g) => (
-          <div key={g.cat}>
+          <div key={g.cat} className="pgroup">
             <div className="list-sub">{g.label}</div>
             {g.items.map((i) => item(i))}
           </div>
@@ -148,11 +148,11 @@ const TripSheet = ({ id }: { id: string }) => {
         <Row title={<span className="muted">+ Add from wardrobe</span>} onClick={() => pushSheet(<ClosetPick id={id} />)} />
       </List>
       <List title="Care" right={pieces(care)}>
-        {care.map((i) => item(i, st.supplies.find((s) => s.id === i.refId)?.details))}
+        {care.length > 0 && <div className="pgroup">{care.map((i) => item(i))}</div>}
         <Row title={<span className="muted">+ Add from Supplies › Care</span>} onClick={() => pushSheet(<CarePick id={id} />)} />
       </List>
       <List title="Other" right={pieces(own)}>
-        {own.map((i) => item(i))}
+        {own.length > 0 && <div className="pgroup">{own.map((i) => item(i))}</div>}
         <div className="row" style={{ gap: 8, padding: '6px 12px 10px' }}>
           <input className="input" style={{ flex: 1, minWidth: 0 }} value={text} placeholder="Charger, passport, book…" enterKeyHint="done"
             onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addOwn() }} />
