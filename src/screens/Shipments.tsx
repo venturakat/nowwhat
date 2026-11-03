@@ -3,7 +3,7 @@ import { update, useSt } from '../store'
 import { addDays, diffDays, fmtDay, fmtWeekday, today, uid } from '../lib'
 import { C, Check, closeSheet, Field, List, openSheet, Row, Sheet } from '../ui'
 
-export const COURIERS = ['InPost', 'DHL', 'DPD', 'Orlen']
+export const COURIERS = ['InPost', 'DHL', 'DPD'] // anything else goes under Other
 
 // when it's due, in words
 const due = (eta: string | undefined, t: string) => {
