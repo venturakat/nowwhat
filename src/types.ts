@@ -30,6 +30,7 @@ export interface Settings {
   weightKg?: number
   activity?: 'low' | 'light' | 'active' | 'very'
   proteinGoal?: number // g a day, set by hand; empty = from weight and activity
+  travelUsual?: string[] // travel necessities offered under a packing list's Other field (not set = the starter list)
 }
 
 export interface BudgetItem {

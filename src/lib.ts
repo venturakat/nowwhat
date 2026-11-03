@@ -597,3 +597,7 @@ export const dailyNeeds = (s: Settings) => {
   const protein = s.proteinGoal || autoProtein(s.weightKg, s.activity, s.age) // your own goal wins
   return protein ? { protein, fiber: 25 } : undefined
 }
+
+// travel necessities: offered under a packing list's Other field; edited in Settings
+const TRAVEL_STARTER = ['Passport', 'Residence permit', 'Charger', 'MacBook', 'Powerbank', 'AirPods', 'Meds', 'Book', 'Umbrella', 'Hairbrush', 'Hairclip', 'Hairdryer']
+export const travelUsual = (s: { travelUsual?: string[] }) => s.travelUsual ?? TRAVEL_STARTER

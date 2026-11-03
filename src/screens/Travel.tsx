@@ -1,15 +1,12 @@
 import { useState, type ReactNode } from 'react'
 import { update, useSt } from '../store'
 import type { ID, PackItem, State, Trip } from '../types'
-import { addDays, diffDays, fmtDay, today, uid } from '../lib'
+import { addDays, diffDays, fmtDay, today, travelUsual, uid } from '../lib'
 import { C, Check, closeSheet, Field, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast } from '../ui'
 import { byFormula, CATS, Tile } from './Closet'
 
 // Travel (Closet › Travel): packing lists. A list mixes things from the wardrobe, from Supplies › Care
 // and anything typed in by hand. Tick things off as they go into the suitcase.
-
-// the usual things to take, offered under the Other field (each disappears once it's on the list)
-const USUAL = ['Passport', 'Residence permit', 'Charger', 'MacBook', 'Powerbank', 'AirPods', 'Meds', 'Book', 'Umbrella', 'Hairbrush', 'Hairclip', 'Hairdryer']
 
 const dates = (x: Trip) => {
   if (!x.start) return 'no dates yet'
@@ -124,10 +121,10 @@ const TripSheet = ({ id }: { id: string }) => {
   const pieces = (xs: PackItem[]) => xs.reduce((a, i) => a + (i.qty ?? 1), 0) || undefined
   const care = x.items.filter((i) => i.src === 'care')
   const own = x.items.filter((i) => i.src === 'own')
-  // usual things not on the list yet, narrowed down by what's typed
+  // travel necessities (Settings) not on the list yet, narrowed down by what's typed
   const onList = new Set(own.map((i) => i.name.toLowerCase()))
   const q = text.trim().toLowerCase()
-  const options = USUAL.filter((o) => !onList.has(o.toLowerCase()) && o.toLowerCase() !== q && (!q || o.toLowerCase().includes(q)))
+  const options = travelUsual(st.settings).filter((o) => !onList.has(o.toLowerCase()) && o.toLowerCase() !== q && (!q || o.toLowerCase().includes(q)))
   const btn = (label: string, onClick: () => void, child: ReactNode) => (
     <span role="button" aria-label={label} className="qbtn" onClick={(e) => { e.stopPropagation(); onClick() }}>{child}</span>
   )

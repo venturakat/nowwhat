@@ -1,9 +1,10 @@
 import { exportJson, importJson, update, useSt, useStore } from './store'
-import { popSheet, pushSheet, Sheet, toast } from './ui'
+import { useState } from 'react'
+import { Icon, List, popSheet, pushSheet, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
 import { refreshRates } from './rates'
-import { autoProtein, dailyNeeds, fmtDay, parseNum } from './lib'
+import { autoProtein, dailyNeeds, fmtDay, parseNum, travelUsual } from './lib'
 
 export const SettingsSheet = () => {
   const st = useSt()
@@ -14,6 +15,7 @@ export const SettingsSheet = () => {
       <TaxesCard />
       <DaysCard />
       <AboutCard />
+      <TravelCard />
       <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<BackupSheet />)}>
         <span className="t17">Backup</span>
         <span className="t14 muted">Save a backup file, restore one, or start fresh</span>
@@ -84,6 +86,49 @@ const AboutCard = () => {
       <span className="t17">About you</span>
       <span className="t14 muted">{s.weightKg || s.proteinGoal ? [s.age ? `${s.age} y` : '', s.weightKg ? `${s.weightKg} kg` : '', s.activity ? { low: 'mostly sitting', light: 'light activity', active: 'active', very: 'very active' }[s.activity] : '', dailyNeeds(s) ? `protein ${dailyNeeds(s)!.protein} g a day` : ''].filter(Boolean).join(' · ') : 'Age, weight, activity, protein goal — for recipes'}</span>
     </button>
+  )
+}
+
+const TravelCard = () => {
+  const st = useSt()
+  const all = travelUsual(st.settings)
+  return (
+    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<TravelSheet />)}>
+      <span className="t17">Travel necessities</span>
+      <span className="t14 muted">{all.length ? all.slice(0, 4).join(', ') + (all.length > 4 ? ` and ${all.length - 4} more` : '') : 'What you always take — offered on packing lists'}</span>
+    </button>
+  )
+}
+
+// the things offered in a packing list's Other field, so they don't have to be remembered
+const TravelSheet = () => {
+  const st = useSt()
+  const all = travelUsual(st.settings)
+  const [text, setText] = useState('')
+  const set = (xs: string[]) => update((d) => { d.settings = { ...d.settings, travelUsual: xs } })
+  const add = () => {
+    const have = new Set(all.map((x) => x.toLowerCase()))
+    const names = text.split(',').map((x) => x.trim()).filter((x) => x && !have.has(x.toLowerCase())).map((x) => x[0].toUpperCase() + x.slice(1))
+    if (names.length) set([...all, ...new Set(names)])
+    setText('')
+  }
+  return (
+    <Sheet title="Travel necessities" full onBack={popSheet}>
+      <span className="t15 muted">Offered in the Other field of every packing list — pick them instead of remembering. Each one hides once it’s on that list.</span>
+      <List empty="Nothing yet — add what you always take.">
+        {all.map((x) => (
+          <div key={x} className="lrow" style={{ paddingTop: 9, paddingBottom: 9 }}>
+            <span className="grow"><div className="title">{x}</div></span>
+            <button aria-label={`Remove ${x}`} className="muted" style={{ display: 'flex', padding: 4, margin: -4 }} onClick={() => set(all.filter((y) => y !== x))}><Icon.x /></button>
+          </div>
+        ))}
+      </List>
+      <div className="row" style={{ gap: 8 }}>
+        <input className="input" style={{ flex: 1, minWidth: 0 }} value={text} placeholder="Sunglasses, adapter…" enterKeyHint="done"
+          onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} />
+        <button className="btn" disabled={!text.trim()} onClick={add}>Add</button>
+      </div>
+    </Sheet>
   )
 }
 
