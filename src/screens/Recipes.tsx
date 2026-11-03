@@ -103,13 +103,13 @@ const NutriTiles = ({ r }: { r: Recipe }) => {
   const st = useSt()
   const nu = recipeNutrition(st, r)
   const need = dailyNeeds(st.settings)
-  const [look, setLook] = useState<'idle' | 'busy' | 'off'>('idle')
+  const [look, setLook] = useState<'idle' | 'busy' | 'off' | 'limit'>('idle')
   const [open, setOpen] = useState(false)
   const key = nu.pending.join('|')
   useEffect(() => {
-    if (!key || look === 'off') return
+    if (!key || look === 'off' || look === 'limit') return
     setLook('busy')
-    fetchNutrition(nu.pending).then((ok) => setLook(ok ? 'idle' : 'off'))
+    fetchNutrition(nu.pending).then((res) => setLook(res === 'ok' ? 'idle' : res))
   }, [key])
   if (!r.ingredients.length) return null
   const tile = (label: string, g: number, norm: number | undefined, bg: string) => {
@@ -128,7 +128,7 @@ const NutriTiles = ({ r }: { r: Recipe }) => {
     )
   }
   const por = Math.max(1, r.portions ?? 1)
-  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
+  const note = look === 'busy' ? 'Looking up nutrition…' : look === 'limit' ? (st.settings.usdaKey ? 'USDA lookups limit reached for now — try again in an hour' : 'The shared USDA key is used up for now — try in an hour, or add your own free key in Settings → About you') : look === 'off' ? 'Couldn’t reach the nutrition data — try again later' : `Per portion${por > 1 ? ` (makes ${por})` : ''} · USDA data${nu.guessed ? ' · some weights guessed' : ''}${nu.notFound ? ` · ${nu.notFound} not found` : ''}`
   return (
     <>
       <div className="ntiles">
