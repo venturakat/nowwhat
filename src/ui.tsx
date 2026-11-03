@@ -90,7 +90,8 @@ export const Icon = {
 }
 
 const GARMENT: Record<ClosetCat, string> = {
-  top: 'M8 3 3 6l2 4 3-1v12h8V9l3 1 2-4-5-3c-1 2-2 3-4 3S9 5 8 3z',
+  base: 'M8 3 3 6l2 4 3-1v12h8V9l3 1 2-4-5-3c-1 2-2 3-4 3S9 5 8 3z', // tee
+  mid: 'M8 3 3 5.5 1.5 18l3 .7L6.6 10v11h10.8V10l2.1 8.7 3-.7L21 5.5 16 3c-1 2-2 3-4 3S9 5 8 3z', // long sleeves
   bottom: 'M6 3h12l1 18h-5l-2-11-2 11H5z',
   outer: 'M8 3 4 6v15h5v-9h6v9h5V6l-4-3-4 4z',
   shoes: 'M2 17v-6l5 1 3-3 4 4 6 2 2 2v3H2z',

@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { ClosetCat, ClosetItem, ID } from '../types'
 import { diffDays, fmt, fmtDay, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
-import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, useUi } from '../ui'
 import { FormSheet } from '../form'
 
-const CATS: [ClosetCat, string][] = [['top', 'Tops'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['outer', 'Outer'], ['shoes', 'Shoes'], ['bag', 'Bags'], ['underwear', 'Underwear'], ['jewelry', 'Jewelry'], ['other', 'Other']]
-const CAT1: Record<ClosetCat, string> = { top: 'Top', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Jewelry', other: 'Other' }
+const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['outer', 'Outer'], ['shoes', 'Shoes'], ['bag', 'Bags'], ['underwear', 'Underwear'], ['jewelry', 'Jewelry'], ['other', 'Other']]
+const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Jewelry', other: 'Other' }
 const WAIT = 7
 
 // shrink a photo to ~480px JPEG so storage stays small
@@ -67,7 +67,7 @@ const Own = () => {
       )}
       {items.length === 0 ? (
         <div className="card" style={{ alignItems: 'center', textAlign: 'center', padding: 28 }}>
-          <Garment cat="top" size={48} />
+          <Garment cat="base" size={48} />
           <span className="t17">Start with what you wear most</span>
           <span className="t14 muted">Snap a photo or just type a name. 10 things is plenty to start.</span>
         </div>
@@ -105,12 +105,12 @@ const ItemEdit = ({ id, from }: { id?: string; from?: { name: string; cat: Close
   const it = st.closet.find((x) => x.id === id)
   const [photo, setPhoto] = useState(it?.photo ?? from?.photo)
   return (
-    <FormSheet title={it ? 'Edit' : 'Add to wardrobe'} initial={it ?? { cat: from?.cat ?? 'top', name: from?.name }}
+    <FormSheet title={it ? 'Edit' : 'Add to wardrobe'} initial={it ?? { cat: from?.cat ?? 'base', name: from?.name }}
       fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Black knit' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
       extra={<PhotoField value={photo} onChange={setPhoto} />}
       onSave={(v) => update((d) => {
         if (it) Object.assign(d.closet.find((x) => x.id === it.id)!, { name: v.name, cat: v.cat, photo })
-        else d.closet.push({ id: uid(), name: v.name, cat: v.cat ?? 'top', photo, worn: 0, pairs: [], added: today() })
+        else d.closet.push({ id: uid(), name: v.name, cat: v.cat ?? 'base', photo, worn: 0, pairs: [], added: today() })
       })}
       onDelete={it ? () => update((d) => {
         d.closet = d.closet.filter((x) => x.id !== it.id)
@@ -251,11 +251,11 @@ const SavedEdit = ({ id }: { id?: string }) => {
   const s = st.saved.find((x) => x.id === id)
   const [photo, setPhoto] = useState(s?.photo)
   return (
-    <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ?? { cat: 'top' }}
+    <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ?? { cat: 'base' }}
       fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'price', label: 'Price (zł)', type: 'number' }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
       extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">Saved {fmtDay(s.savedAt)} · ready on {fmtDay(addDays(s.savedAt, WAIT))}</span>}</>}
       onSave={(v) => update((d) => {
-        const data = { name: v.name, price: v.price ?? 0, link: v.link, cat: v.cat ?? 'top', photo }
+        const data = { name: v.name, price: v.price ?? 0, link: v.link, cat: v.cat ?? 'base', photo }
         if (s) Object.assign(d.saved.find((x) => x.id === s.id)!, data)
         else d.saved.push({ id: uid(), savedAt: today(), ...data })
       })}
@@ -319,10 +319,57 @@ const Outfits = () => {
         {st.outfits.map((o) => {
           const its = o.itemIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[]
           return <Row key={o.id} dot={C.closet} title={o.name} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(`Wearing ${o.name}`) }}>Wear</span>}
-            onClick={() => openSheet(<Sheet title={o.name}><div className="hscroll">{its.map((i) => <Tile key={i.id} it={i} size={72} />)}</div><button className="btn full" onClick={() => { setPlan(o.itemIds); closeSheet() }}>Plan it for tomorrow</button><button className="btn full soft" onClick={() => { update((d) => { d.outfits = d.outfits.filter((x) => x.id !== o.id) }); closeSheet() }}>Delete</button></Sheet>)} />
+            onClick={() => openSheet(<OutfitSheet id={o.id} onPlan={setPlan} />)} />
         })}
       </List>
     </>
+  )
+}
+
+// a saved outfit: plan it, edit it (name + pieces) or delete it
+const OutfitSheet = ({ id, onPlan }: { id: ID; onPlan: (ids: ID[]) => void }) => {
+  const st = useSt()
+  const o = st.outfits.find((x) => x.id === id)
+  if (!o) return null
+  const its = o.itemIds.map((i) => st.closet.find((x) => x.id === i)).filter(Boolean) as ClosetItem[]
+  return (
+    <Sheet title={o.name}>
+      <div className="hscroll">{its.map((i) => <Tile key={i.id} it={i} size={72} />)}</div>
+      <button className="btn full" onClick={() => { onPlan(o.itemIds); closeSheet() }}>Plan it for tomorrow</button>
+      <button className="btn full soft" onClick={() => pushSheet(<OutfitEdit id={o.id} />)}>Edit</button>
+      <button className="btn full soft" onClick={() => { if (confirm(`Delete ${o.name}?`)) { update((d) => { d.outfits = d.outfits.filter((x) => x.id !== o.id) }); closeSheet() } }}>Delete</button>
+    </Sheet>
+  )
+}
+
+// change an outfit's name and which pieces are in it (tap to add / take out)
+const OutfitEdit = ({ id }: { id: ID }) => {
+  const st = useSt()
+  const o = st.outfits.find((x) => x.id === id)!
+  const [name, setName] = useState(o.name)
+  const [ids, setIds] = useState<ID[]>(o.itemIds)
+  const toggle = (i: ID) => setIds(ids.includes(i) ? ids.filter((x) => x !== i) : [...ids, i])
+  return (
+    <Sheet title="Edit outfit" onBack={popSheet} full>
+      <Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+      <span className="t14 w5 muted">Pieces · {ids.length} · tap to add or take out</span>
+      {CATS.map(([cat, label]) => {
+        const items = st.closet.filter((x) => x.cat === cat)
+        if (!items.length) return null
+        return (
+          <div key={cat} className="col" style={{ gap: 8 }}>
+            <span className="t14 w5">{label}</span>
+            <div className="hscroll">{items.map((i) => <Tile key={i.id} it={i} size={72} sel={ids.includes(i.id)} onClick={() => toggle(i.id)} />)}</div>
+          </div>
+        )
+      })}
+      <div className="sheet-foot">
+        <button className="btn full" disabled={!name.trim() || !ids.length} onClick={() => {
+          update((d) => { const x = d.outfits.find((y) => y.id === id); if (x) { x.name = name.trim(); x.itemIds = ids } })
+          popSheet(); toast('Outfit saved')
+        }}>Save</button>
+      </div>
+    </Sheet>
   )
 }
 

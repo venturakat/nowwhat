@@ -70,6 +70,8 @@ export const migrate = (s: State): State => {
     out.version = 8
   }
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
+  // closet: "Tops" became Base (and Mid, for the layer over it) — old tops go to Base
+  for (const list of [out.closet, out.saved, out.needs] as { cat: string }[][]) for (const x of list ?? []) if (x.cat === 'top') x.cat = 'base'
   // recipes: the old plain "steps" list becomes the Stove block
   for (const r of out.recipes ?? []) {
     if (r.steps) { if (r.steps.length && !r.stove?.length) r.stove = r.steps.map((text) => ({ text })); delete r.steps }

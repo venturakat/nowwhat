@@ -14,12 +14,20 @@ const set = (els: HTMLElement[], x: number, o: number, tr = 'none') => {
   for (const el of els) { el.style.transition = tr; el.style.transform = x ? `translateX(${x}px)` : ''; el.style.opacity = o === 1 ? '' : String(o) }
 }
 
+// is the finger on something that scrolls sideways by itself (a row of outfit pieces, chips…)? then leave it alone
+const inSideScroll = (el: HTMLElement | null) => {
+  for (let n = el; n && n !== document.body; n = n.parentElement) {
+    if (n.scrollWidth > n.clientWidth + 1) { const ox = getComputedStyle(n).overflowX; if (ox === 'auto' || ox === 'scroll') return true }
+  }
+  return false
+}
+
 export const startSwipe = () => {
   let s: { x: number; y: number; t: number; lock?: 'h' | 'v'; els: HTMLElement[]; dx: number } | null = null
   document.addEventListener('touchstart', (e) => {
     const el = e.target as HTMLElement
     s = null
-    if (useUi.getState().sheet || e.touches.length > 1 || el.closest('.chips, input, textarea, select, .noswipe, .tabbar, .fabs') || !el.closest('.app')) return
+    if (useUi.getState().sheet || e.touches.length > 1 || el.closest('.chips, input, textarea, select, .noswipe, .tabbar, .fabs') || !el.closest('.app') || inSideScroll(el)) return
     s = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), els: [], dx: 0 }
   }, { passive: true })
   document.addEventListener('touchmove', (e) => {
@@ -75,7 +83,7 @@ export const startSheetSwipe = () => {
     const top = sheet?.querySelector<HTMLElement>(':scope > .page.top')
     // a field you're typing in keeps its own touches; an untouched field can still be swiped across
     const field = t.closest('input, textarea, select')
-    if (!sheet || !top || e.touches.length > 1 || t.closest('.noswipe') || (field && field === document.activeElement)) return
+    if (!sheet || !top || e.touches.length > 1 || t.closest('.noswipe') || (field && field === document.activeElement) || inSideScroll(t)) return
     g = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), sheet, top, below: sheet.querySelector<HTMLElement>(':scope > .page.below'), dx: 0, dy: 0 }
   }, { passive: true })
   document.addEventListener('touchmove', (e) => {

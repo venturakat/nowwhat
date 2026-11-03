@@ -155,7 +155,7 @@ export interface Project {
   done?: boolean
 }
 
-export type ClosetCat = 'top' | 'bottom' | 'outer' | 'shoes' | 'dress' | 'bag' | 'underwear' | 'jewelry' | 'other'
+export type ClosetCat = 'base' | 'mid' | 'bottom' | 'outer' | 'shoes' | 'dress' | 'bag' | 'underwear' | 'jewelry' | 'other'
 
 export interface ClosetItem {
   id: ID
