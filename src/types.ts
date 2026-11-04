@@ -144,6 +144,7 @@ export interface CleanPlan {
   moves: Record<string, string> // scheduled Sunday -> date it was moved to
   extras: string[] // dates of planned Extra cleans (once a season)
   skips: string[] // scheduled Sundays that were skipped
+  times?: Record<string, { start: string; end?: string }> // a clean's time, by its key (the scheduled Sunday, or x-<date> for an Extra)
   start: string // nothing before this date counts (when the rotation was set up)
 }
 
@@ -396,5 +397,6 @@ export interface State {
   planned: { date: string; itemIds: ID[] } | null
   trips?: Trip[]
   events?: CalEvent[] // own appointments in the calendar
+  shopPlans?: Record<string, { date: string; time?: string }> // calendar-only: a shopping run moved / timed for planning the day (key: planned date|category)
   dismissed: { date: string; ids: string[] }
 }

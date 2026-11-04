@@ -11,7 +11,7 @@ const when = (o: Occurrence) => {
   const n = diffDays(today(), o.date)
   const day = n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday' : n < 0 ? `${fmtWeekday(o.date)} · still open` : fmtWeekday(o.date)
   const moved = o.sunday && o.sunday !== o.date ? ` (moved from ${fmtDay(o.sunday)})` : ''
-  return day + moved
+  return day + (o.start ? ` · ${o.start}${o.end ? `–${o.end}` : ''}` : '') + moved
 }
 
 export const Cleaning = () => {
@@ -83,11 +83,13 @@ const Current = ({ occ }: { occ: Occurrence }) => {
   )
 }
 
-const moveOcc = (occ: Occurrence, date: string) =>
+export const moveOcc = (occ: Occurrence, date: string) =>
   update((d) => {
     if (occ.mode === 3 && !occ.sunday) {
       d.cleanPlan.extras = d.cleanPlan.extras.filter((x) => x !== occ.date).concat(date)
       if (d.cleanDone[occ.key]) { d.cleanDone['x-' + date] = d.cleanDone[occ.key]; delete d.cleanDone[occ.key] }
+      const tm = d.cleanPlan.times?.[occ.key]
+      if (tm && occ.key !== 'x-' + date) { d.cleanPlan.times!['x-' + date] = tm; delete d.cleanPlan.times![occ.key] }
     } else if (occ.sunday) {
       if (date === occ.sunday) delete d.cleanPlan.moves[occ.sunday]
       else d.cleanPlan.moves[occ.sunday] = date

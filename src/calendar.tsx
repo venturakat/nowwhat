@@ -5,7 +5,8 @@ import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
   prevMonth, subDate, taxFor, today, uid
 } from './lib'
-import { MODE_NAME, occurrences } from './cleaning'
+import { addHours, MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
+import { moveOcc } from './screens/Cleaning'
 import { C, Check, closeSheet, Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast, useUi, type Tab as UiTab } from './ui'
 import { ShipmentSheet } from './screens/Shipments'
 
@@ -107,12 +108,20 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     const runs = new Map<string, { date: string; cat: keyof typeof CAT_LABEL; names: string[] }>()
     for (const sp of st.supplies) {
       if (sp.paused) continue
-      for (let d = nextBuy(sp, st.settings, t), g = 0; d <= to && g < 60; d = addDays(d, Math.max(1, sp.lastsDays)), g++) {
-        if (d >= from) { const k = d + sp.cat; const r = runs.get(k) ?? { date: d, cat: sp.cat, names: [] }; r.names.push(sp.name); runs.set(k, r) }
+      // a little wider than the view: a run moved in the calendar may land inside it
+      for (let d = nextBuy(sp, st.settings, t), g = 0; d <= addDays(to, 31) && g < 80; d = addDays(d, Math.max(1, sp.lastsDays)), g++) {
+        if (d >= addDays(from, -31)) { const k = d + sp.cat; const r = runs.get(k) ?? { date: d, cat: sp.cat, names: [] }; r.names.push(sp.name); runs.set(k, r) }
         if (sp.once) break
       }
     }
-    for (const [k, r] of runs) out.push({ id: 'shop-' + k, date: r.date, title: `Shopping · ${CAT_LABEL[r.cat]}`, meta: r.names.slice(0, 3).join(', ') + (r.names.length > 3 ? ` +${r.names.length - 3}` : ''), dot: C.supplies, go: ['supplies', r.cat] })
+    for (const r of runs.values()) {
+      const key = `${r.date}|${r.cat}`
+      const plan = st.shopPlans?.[key]
+      const d = plan?.date ?? r.date
+      if (d < from || d > to) continue
+      const title = `Shopping · ${CAT_LABEL[r.cat]}`
+      out.push({ id: 'shop-' + key, date: d, time: plan?.time, title, meta: r.names.slice(0, 3).join(', ') + (r.names.length > 3 ? ` +${r.names.length - 3}` : ''), dot: C.supplies, go: ['supplies', r.cat], edit: () => <ShopWhen k={key} planned={r.date} title={title} cat={r.cat} /> })
+    }
   }
   if (on.deliveries) for (const x of st.shipments ?? []) {
     const d = x.eta ?? x.deliveredAt
@@ -122,7 +131,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
       toggle: { on: !!x.deliveredAt, run: () => update((s) => { const y = s.shipments?.find((z) => z.id === x.id); if (y) y.deliveredAt = y.deliveredAt ? undefined : today() }) }
     })
   }
-  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, title: `${MODE_NAME[o.mode]} clean`, meta: 'Cleaning', dot: C.home, go: ['home', 'cleaning'] })
+  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, time: o.start ? `${o.start}${o.end ? `–${o.end}` : ''}` : undefined, title: `${MODE_NAME[o.mode]} clean`, meta: o.sunday && o.sunday !== o.date ? `Cleaning · moved from ${fmtDay(o.sunday)}` : 'Cleaning', dot: C.home, go: ['home', 'cleaning'], edit: () => <CleanWhen occ={o} /> })
   return out.sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '99').localeCompare(b.time ?? '99') || a.title.localeCompare(b.title))
 }
 
@@ -239,6 +248,67 @@ const CareWhen = ({ id }: { id: string }) => {
       </div>
       <button className="btn full" disabled={!d} onClick={() => { update((s) => { const y = s.selfcare?.find((z) => z.id === id); if (y) { y.next = d; y.time = time || undefined } }); popSheet() }}>Save</button>
       <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'selfcare') }}>Open in Selfcare</button>
+    </Sheet>
+  )
+}
+
+// this one clean: its day and time (the rotation stays as it is)
+const CleanWhen = ({ occ }: { occ: Occurrence }) => {
+  const hours = MODE_HOURS[occ.mode]
+  const [d, setD] = useState(occ.date)
+  const [start, setStart] = useState(occ.start ?? '')
+  const [end, setEnd] = useState(occ.end ?? '')
+  const [endSet, setEndSet] = useState(!!occ.end && !!occ.start && occ.end !== addHours(occ.start, hours)) // changed by hand: stop following the start
+  const save = () => {
+    moveOcc(occ, d)
+    const key = occ.sunday ?? 'x-' + d
+    update((s) => {
+      const tm = (s.cleanPlan.times ??= {})
+      if (start) tm[key] = { start, end: end || undefined }
+      else delete tm[key]
+    })
+    popSheet()
+  }
+  return (
+    <Sheet title={`${MODE_NAME[occ.mode]} clean`} onBack={popSheet}>
+      <span className="t15 muted">Just this clean — the Sunday rotation stays as it is. A {MODE_NAME[occ.mode]} clean takes about {hours} hours.</span>
+      <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || occ.date)} /></Field>
+      <div className="row" style={{ gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><Field label="Starts"><input className="input" type="time" value={start} onChange={(e) => { const v = e.target.value; setStart(v); if (!endSet) setEnd(v ? addHours(v, hours) : '') }} /></Field></div>
+        <div style={{ flex: 1, minWidth: 0 }}><Field label="Ends"><input className="input" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setEndSet(!!e.target.value) }} /></Field></div>
+      </div>
+      {occ.sunday && occ.sunday !== occ.date && <button className="btn full soft" onClick={() => setD(occ.sunday!)}>Back to Sunday {fmtDay(occ.sunday)}</button>}
+      <button className="btn full" onClick={save}>Save</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'cleaning') }}>Open Cleaning</button>
+    </Sheet>
+  )
+}
+
+// a shopping run, for planning the day only: moving it here doesn't change anything in Supplies
+const ShopWhen = ({ k, planned, title, cat }: { k: string; planned: string; title: string; cat: string }) => {
+  const st = useSt()
+  const plan = st.shopPlans?.[k]
+  const [d, setD] = useState(plan?.date ?? planned)
+  const [time, setTime] = useState(plan?.time ?? '')
+  const save = () => {
+    update((s) => {
+      const all = (s.shopPlans ??= {})
+      for (const key of Object.keys(all)) if (key.split('|')[0] < addDays(today(), -31)) delete all[key] // old ones
+      if (d === planned && !time) delete all[k]
+      else all[k] = { date: d, time: time || undefined }
+    })
+    popSheet()
+  }
+  return (
+    <Sheet title={title} onBack={popSheet}>
+      <span className="t15 muted">Planned for {fmtDay(planned)}. Moving it here is just for planning your day — Supplies stays as it is.</span>
+      <div className="row" style={{ gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || planned)} /></Field></div>
+        <div style={{ flex: 1, minWidth: 0 }}><Field label="Time"><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field></div>
+      </div>
+      {(d !== planned || time) && <button className="btn full soft" onClick={() => { setD(planned); setTime('') }}>Back to {fmtDay(planned)}, no time</button>}
+      <button className="btn full" onClick={save}>Save</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('supplies', cat) }}>Open in Supplies</button>
     </Sheet>
   )
 }

@@ -2,6 +2,9 @@ import type { CleanMode, CleanPlan, CleanTask, State } from './types'
 import { addDays, diffDays, parse, today, uid, ymd } from './lib'
 
 export const MODE_NAME: Record<CleanMode, string> = { 1: 'Light', 2: 'Regular', 3: 'Extra' }
+export const MODE_HOURS: Record<CleanMode, number> = { 1: 2, 2: 4, 3: 8 } // how long each kind of clean takes
+// '10:00' + 4 h -> '14:00' (stops at 23:59)
+export const addHours = (hhmm: string, h: number) => { const [a, b] = hhmm.split(':').map(Number); const m = Math.min(23 * 60 + 59, a * 60 + b + h * 60); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }
 
 const LIGHT = ['Kitchen sink', 'Window boards', 'Table', 'Bedsheets change', 'Bedsheets laundry', 'Ironing', 'WC', 'Bathroom sink', 'Vacuuming', 'Floors', 'Towels laundry', 'Trash out']
 const REGULAR = ['Vacuuming', 'Rugs laundry', 'Showering plants', 'Dusting the kitchen', 'Kitchen surfaces', 'Kitchen sink', 'Window boards', 'Table', 'Mirrors', 'Lamps', 'Dusting the rooms', 'Bedsheets change', 'Bedsheets laundry', 'Baseboards', 'Ironing', 'WC', 'Litter boxes', 'Shower', 'Vanity area', 'Bathroom sink', 'Vacuuming extra', 'Floors', 'Towels laundry', 'Trash out']
@@ -32,6 +35,8 @@ export interface Occurrence {
   date: string // when it actually happens (after moves)
   mode: CleanMode
   sunday?: string
+  start?: string // HH:MM, when it's planned
+  end?: string
 }
 
 // all cleans whose date falls in [from, to]
@@ -45,9 +50,9 @@ export const occurrences = (st: State, from: string, to: string): Occurrence[] =
     const date = p.moves[s] ?? s
     if (date < from || date > to) continue
     if (extraDates.has(date)) continue // an Extra on that day replaces the usual clean
-    out.push({ key: s, date, mode: modeForSunday(p, s), sunday: s })
+    out.push({ key: s, date, mode: modeForSunday(p, s), sunday: s, ...p.times?.[s] })
   }
-  for (const x of p.extras) if (x >= from && x <= to) out.push({ key: 'x-' + x, date: x, mode: 3 })
+  for (const x of p.extras) if (x >= from && x <= to) out.push({ key: 'x-' + x, date: x, mode: 3, ...p.times?.['x-' + x] })
   return out.sort((a, b) => a.date.localeCompare(b.date))
 }
 
