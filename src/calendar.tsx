@@ -1,4 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { update, useSt } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import {
@@ -147,21 +148,46 @@ export const CalendarSheet = () => {
   const t = today()
   const [mk, setMk] = useState(t.slice(0, 7))
   const [sel, setSel] = useState(t)
-  // the grid: Monday-first weeks covering the month
-  const first = `${mk}-01`
-  const lead = (parse(first).getDay() + 6) % 7
-  const start = addDays(first, -lead)
-  const dim = daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7))
-  const weeks = Math.ceil((lead + dim) / 7)
-  const end = addDays(start, weeks * 7 - 1)
-  const items = calItems(st, start < sel ? start : sel, end > sel ? end : sel)
+  // the three months on the track: previous, this one, next (the grid follows the finger between them)
+  const span = (m: string) => {
+    const first = `${m}-01`
+    const start = addDays(first, -((parse(first).getDay() + 6) % 7))
+    const weeks = Math.ceil(((parse(first).getDay() + 6) % 7 + daysInMonth(+m.slice(0, 4), +m.slice(5, 7))) / 7)
+    return { start, weeks, end: addDays(start, weeks * 7 - 1) }
+  }
+  const months = [prevMonth(mk), mk, nextMonth(mk)]
+  const from = span(months[0]).start, to = span(months[2]).end
+  const items = calItems(st, from < sel ? from : sel, to > sel ? to : sel)
   const byDay = new Map<string, Item[]>()
   for (const i of items) { const a = byDay.get(i.date) ?? []; a.push(i); byDay.set(i.date, a) }
   const dayItems = byDay.get(sel) ?? []
   const anyOn = Object.values(st.settings.calendar ?? {}).some(Boolean)
   const go = (m: string) => { setMk(m); setSel(m === t.slice(0, 7) ? t : `${m}-01`) }
-  // swipe the grid sideways for the next / previous month
-  const touch = useRef<{ x: number; y: number } | null>(null)
+  const view = useRef<HTMLDivElement>(null)
+  const track = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ x: number; y: number; t: number; lock?: 'h' | 'v'; dx: number } | null>(null)
+  const busy = useRef(false)
+  const GAP = 16 // between the month cards while they slide
+  const place = (dx: number, how = 'none') => { const el = track.current; if (!el) return; el.style.transition = how; el.style.transform = `translateX(${-((view.current?.offsetWidth ?? 360) + GAP) + dx}px)` }
+  // slide to the next / previous month (or back to this one), then make that month the middle one
+  const slide = (dir: -1 | 0 | 1) => {
+    const w = view.current?.offsetWidth ?? 360
+    if (busy.current) return
+    if (!dir) { place(0, 'transform .22s cubic-bezier(.2,.8,.2,1)'); return }
+    busy.current = true
+    place(-dir * (w + GAP), 'transform .24s cubic-bezier(.2,.8,.2,1)')
+    setTimeout(() => {
+      flushSync(() => go(dir > 0 ? nextMonth(mk) : prevMonth(mk)))
+      place(0)
+      busy.current = false
+    }, 240)
+  }
+  // the box takes the height of the month in the middle (5 or 6 weeks)
+  useLayoutEffect(() => {
+    const mid = track.current?.children[1] as HTMLElement | undefined
+    if (view.current && mid) view.current.style.height = mid.offsetHeight + 'px'
+    if (!busy.current && !drag.current) place(0)
+  })
   const open = (i: Item) => {
     if (i.event) { pushSheet(<EventEdit id={i.event.id} />); return }
     if (i.edit) { pushSheet(i.edit()); return }
@@ -172,30 +198,47 @@ export const CalendarSheet = () => {
   return (
     <Sheet title="Calendar" full>
       <div className="between" style={{ alignItems: 'center' }}>
-        <button className="cal-nav" aria-label="Previous month" onClick={() => go(prevMonth(mk))}><Icon.chevL /></button>
+        <button className="cal-nav" aria-label="Previous month" onClick={() => slide(-1)}><Icon.chevL /></button>
         <button className="mid" onClick={() => go(t.slice(0, 7))}>{MONTH_LONG[+mk.slice(5, 7) - 1]}{mk.slice(0, 4) !== t.slice(0, 4) ? ` ${mk.slice(0, 4)}` : ''}</button>
-        <button className="cal-nav" aria-label="Next month" onClick={() => go(nextMonth(mk))}><Icon.chevR /></button>
+        <button className="cal-nav" aria-label="Next month" onClick={() => slide(1)}><Icon.chevR /></button>
       </div>
-      <div className="cal noswipe"
-        onTouchStart={(e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
-        onTouchEnd={(e) => {
-          const s = touch.current; touch.current = null
-          if (!s) return
-          const dx = e.changedTouches[0].clientX - s.x, dy = e.changedTouches[0].clientY - s.y
-          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? nextMonth(mk) : prevMonth(mk))
+      <div className="cal-view noswipe" ref={view}
+        onTouchStart={(e) => { if (!busy.current) drag.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dx: 0 } }}
+        onTouchMove={(e) => {
+          const g = drag.current
+          if (!g) return
+          const dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y
+          if (!g.lock) { if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; g.lock = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v' }
+          if (g.lock !== 'h') return
+          g.dx = dx; place(dx)
+        }}
+        onTouchEnd={() => {
+          const g = drag.current; drag.current = null
+          if (!g || g.lock !== 'h') return
+          const w = view.current?.offsetWidth ?? 360
+          const fast = Math.abs(g.dx) / Math.max(1, Date.now() - g.t) > 0.4 && Math.abs(g.dx) > 30
+          slide(Math.abs(g.dx) > w * 0.25 || fast ? (g.dx < 0 ? 1 : -1) : 0)
         }}>
-        {WD.map((w) => <span key={w} className="cal-wd">{w}</span>)}
-        {Array.from({ length: weeks * 7 }, (_, i) => {
-          const d = addDays(start, i)
-          const its = byDay.get(d) ?? []
-          const dots = [...new Set(its.filter((x) => !x.done).map((x) => x.dot))].slice(0, 3)
-          return (
-            <button key={d} className={'cal-day' + (d.slice(0, 7) !== mk ? ' out' : '') + (d === t ? ' today' : '') + (d === sel ? ' sel' : '')} onClick={() => setSel(d)}>
-              <span className="n">{+d.slice(8)}</span>
-              <span className="dots">{dots.map((c) => <i key={c} style={{ background: c }} />)}</span>
-            </button>
-          )
-        })}
+        <div className="cal-track" ref={track}>
+          {months.map((m) => {
+            const { start, weeks } = span(m)
+            return (
+              <div key={m} className="cal">
+                {WD.map((w) => <span key={w} className="cal-wd">{w}</span>)}
+                {Array.from({ length: weeks * 7 }, (_, i) => {
+                  const d = addDays(start, i)
+                  const dots = [...new Set((byDay.get(d) ?? []).filter((x) => !x.done).map((x) => x.dot))].slice(0, 3)
+                  return (
+                    <button key={d} className={'cal-day' + (d.slice(0, 7) !== m ? ' out' : '') + (d === t ? ' today' : '') + (d === sel && m === mk ? ' sel' : '')} onClick={() => setSel(d)}>
+                      <span className="n">{+d.slice(8)}</span>
+                      <span className="dots">{dots.map((c) => <i key={c} style={{ background: c }} />)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
       </div>
       <List title={`${LONG_WD[sd.getDay()]}, ${fmtDay(sel)}`} right={sel === t ? 'today' : undefined}
         empty={dayItems.length ? undefined : 'Nothing planned.'}>
