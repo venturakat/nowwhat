@@ -10,6 +10,7 @@ import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
 import { C, Check, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi, type Tab as UiTab } from './ui'
 import { ShipmentSheet } from './screens/Shipments'
+import { dotOf, TaskSheet } from './screens/Today'
 
 // Calendar (its own page, to the left of Today): your own appointments, plus whatever you chose in
 // its settings (the gear on the page) from the tabs. It only shows the tabs' things — they still live in their tabs,
@@ -64,6 +65,12 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
   const on = st.settings.calendar ?? {}
   const out: Item[] = []
   const t = today()
+  // Parking lot tasks given a day (always shown, like your own appointments)
+  for (const x of st.tasks ?? []) if (x.date && x.date >= from && x.date <= to) out.push({
+    id: 'task-' + x.id, date: x.date, title: x.text, time: timeSpan(x.time, x.end), meta: 'Parking lot', dot: dotOf(x.color), done: !!x.doneAt,
+    edit: () => <TaskSheet id={x.id} back={1} />,
+    toggle: { on: !!x.doneAt, run: () => update((s) => { const y = s.tasks?.find((z) => z.id === x.id); if (y) y.doneAt = y.doneAt ? undefined : today() }) }
+  })
   for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.note, dot: C.ink, event: e })
   if (on.taxes) for (const mk of monthsIn(from, to)) {
     const forMonth = prevMonth(mk)
@@ -245,8 +252,8 @@ export const CalendarPage = () => {
               ? i.toggle.label
                 ? <span role="button" className="t15 w5 muted" onClick={(e) => { e.stopPropagation(); i.toggle!.run() }} style={{ padding: '6px 2px', margin: '-6px -2px' }}>{i.toggle.on ? i.toggle.label[0] : i.toggle.label[1]}</span>
                 : <span onClick={(e) => { e.stopPropagation(); i.toggle!.run() }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={i.toggle.on} /></span>
-              : i.go || i.event ? <Icon.chevR /> : undefined}
-            onClick={i.go || i.event ? () => open(i) : undefined} />
+              : i.go || i.event || i.edit ? <Icon.chevR /> : undefined}
+            onClick={i.go || i.event || i.edit ? () => open(i) : undefined} />
         ))}
         <Row title={<span className="muted">+ Add on {fmtDay(sel)}</span>} onClick={() => pushSheet(<AddSheet date={sel} />)} />
       </List>
@@ -264,6 +271,7 @@ const AddSheet = ({ date }: { date: string }) => {
     <Sheet title={`Add on ${fmtDay(date)}`} onBack={popSheet}>
       <List>
         {opt('Appointment', 'Your own — not tied to any tab', () => pushSheet(<EventEdit date={date} />))}
+        {opt('Parking lot task', 'On the Parking lot, and here on that day', () => pushSheet(<TaskSheet date={date} back={2} />))}
         {opt('Delivery', 'Goes on the Shipment log', () => pushSheet(<ShipmentSheet eta={date} back={2} />))}
         {classes.map((c) => opt(`Extra ${c.name} class`, c.time ? `At ${timeSpan(c.time, classEnd(c))}` : 'One extra class that day', () => {
           update((d) => { const L = d.classes?.find((y) => y.id === c.id); if (!L) return; L.skips = L.skips.filter((y) => y !== date); if (!L.extra.includes(date)) L.extra.push(date) })

@@ -39,6 +39,10 @@ export interface Settings {
   oficialArs?: number // dólar oficial (sell): pesos for 1 USD
   taxAccount?: string // mikrorachunek podatkowy
   zusAccount?: string // rachunek składkowy
+  nip?: string
+  regon?: string
+  pesel?: string
+  taxIdKind?: 'nip' | 'regon' | 'pesel' // which one identifies you in tax transfers (shown in Taxes)
   // about you (for daily protein / fiber needs in Recipes)
   age?: number
   weightKg?: number
@@ -359,6 +363,9 @@ export interface Task {
   text: string
   color: string // one of TASK_COLORS
   doneAt?: string // YYYY-MM-DD it was ticked — gone after that midnight
+  date?: string // on the calendar that day (optional)
+  time?: string
+  end?: string
 }
 
 export interface Note {

@@ -58,6 +58,7 @@ export const Splash = ({ onDone }: { onDone: () => void }) => {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
     let t0 = 0, raf = 0, hold = 0
     const frame = (now: number) => {
+      if (!wrect.current || !word.current) return // already gone (tapped away)
       if (!t0) t0 = now
       const t = reduced ? SPLASH_MS + 100 : now - t0
       const m = easeInOut(clamp((t - MOVE_AT) / MOVE))

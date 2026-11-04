@@ -3,7 +3,7 @@ import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
 import { addDays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
-import { C, Check, Chips, closeSheet, Header, Icon, openSettings, openSheet, Row, Sheet, toast, useUi } from '../ui'
+import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
 import { RecipeSheet } from './Recipes'
 import { ShipmentLog } from './Shipments'
@@ -149,8 +149,8 @@ const shiftDay = (d: string) => addDays(d, 1)
 
 
 // ---------- other tasks: a plain checklist with my own colour dots ----------
-const TASK_COLORS: [string, string][] = [['money', C.money], ['work', C.work], ['supplies', C.supplies], ['closet', C.closet], ['home', C.home], ['alert', C.alert]]
-const dotOf = (c: string) => TASK_COLORS.find((x) => x[0] === c)?.[1] ?? C.line
+export const TASK_COLORS: [string, string][] = [['money', C.money], ['work', C.work], ['supplies', C.supplies], ['closet', C.closet], ['home', C.home], ['alert', C.alert]]
+export const dotOf = (c: string) => TASK_COLORS.find((x) => x[0] === c)?.[1] ?? C.line
 
 const OtherTasks = () => {
   const st = useSt()
@@ -163,7 +163,7 @@ const OtherTasks = () => {
     <div className="list">
       <div className="list-h"><span className="t17">Parking lot</span></div>
       {[...open, ...done].map((x) => (
-        <Row key={x.id} done={!!x.doneAt} title={x.text} dot={dotOf(x.color)}
+        <Row key={x.id} done={!!x.doneAt} title={x.text} dot={dotOf(x.color)} meta={x.date ? [fmtWeekday(x.date), timeSpan(x.time, x.end)].filter(Boolean).join(' · ') : undefined}
           trail={<span onClick={(e) => { e.stopPropagation(); toggle(x.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!x.doneAt} /></span>}
           onClick={() => openSheet(<TaskSheet id={x.id} />)} />
       ))}
@@ -172,31 +172,48 @@ const OtherTasks = () => {
   )
 }
 
-const TaskSheet = ({ id }: { id?: string }) => {
+// back: opened from the calendar (go back this many pages instead of closing); date: a new task for that day
+export const TaskSheet = ({ id, back, date }: { id?: string; back?: number; date?: string }) => {
   const st = useSt()
   const x = st.tasks?.find((y) => y.id === id)
   const [text, setText] = useState(x?.text ?? '')
   const [color, setColor] = useState(x?.color ?? 'money')
+  const [onCal, setOnCal] = useState(!!(x?.date ?? date))
+  const [d, setD] = useState(x?.date ?? date ?? today())
+  const [time, setTime] = useState(x?.time ?? '')
+  const [end, setEnd] = useState(x?.end ?? '')
+  const done = () => { if (back) for (let i = 0; i < back; i++) popSheet(false); else closeSheet() }
   const save = () => {
     if (!text.trim()) return
-    update((d) => {
-      d.tasks ??= []
-      const y = d.tasks.find((z) => z.id === id)
-      if (y) Object.assign(y, { text: text.trim(), color })
-      else d.tasks.push({ id: uid(), text: text.trim(), color })
+    update((s) => {
+      s.tasks ??= []
+      const y = s.tasks.find((z) => z.id === id)
+      const data = { text: text.trim(), color, date: onCal ? d : undefined, time: onCal && time ? time : undefined, end: onCal && time && end ? end : undefined }
+      if (y) Object.assign(y, data)
+      else s.tasks.push({ id: uid(), ...data })
     })
-    closeSheet()
+    done()
   }
   return (
-    <Sheet title={x ? 'Task' : 'New task'}>
-      <input className="input" autoFocus value={text} placeholder="What needs doing" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} />
+    <Sheet title={x ? 'Task' : 'New task'} onBack={back ? popSheet : undefined}>
+      <input className="input" autoFocus={!x} value={text} placeholder="What needs doing" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} />
       <div className="row" style={{ gap: 10 }}>
         {TASK_COLORS.map(([k, c]) => (
           <button key={k} aria-label={k} className="swatch" onClick={() => setColor(k)} style={{ width: 34, height: 34, borderRadius: '50%', background: c, outline: color === k ? '2px solid var(--ink)' : 'none', outlineOffset: 3 }} />
         ))}
       </div>
+      <button className="row" style={{ gap: 12, padding: '4px 0' }} onClick={() => setOnCal(!onCal)}>
+        <span className="t15 grow" style={{ textAlign: 'left' }}>Put it in the calendar</span>
+        <span className={'switch' + (onCal ? ' on' : '')} role="switch" aria-checked={onCal} aria-label="Put it in the calendar"><i /></span>
+      </button>
+      {onCal && (
+        <>
+          <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || today())} /></Field>
+          <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
+        </>
+      )}
       <button className="btn full" disabled={!text.trim()} onClick={save}>Save</button>
-      {x && <button className="btn full soft" onClick={() => { update((d) => { d.tasks = d.tasks!.filter((z) => z.id !== id) }); closeSheet() }}>Delete</button>}
+      {x && <button className="btn full soft" onClick={() => { update((s) => { s.tasks = s.tasks!.filter((z) => z.id !== id) }); done() }}>Delete</button>}
     </Sheet>
   )
 }

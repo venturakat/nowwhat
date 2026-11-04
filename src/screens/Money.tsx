@@ -607,6 +607,11 @@ const Taxes = () => {
     copyText(acc.trim(), `${pick === 'zus' ? 'ZUS' : 'PIT'} account copied`)
   }
   const editMonth = (m: string) => openSheet(<TaxMonthSheet m={m} />)
+  // the number that identifies me on the tax transfer (chosen in Settings › Taxes & accounts)
+  const s = st.settings
+  const idKind = s.taxIdKind ?? (s.nip ? 'nip' : s.regon ? 'regon' : s.pesel ? 'pesel' : undefined)
+  const idNum = idKind ? s[idKind] : undefined
+  const ID_NAME = { nip: 'NIP', regon: 'REGON', pesel: 'PESEL' } as const
   return (
     <>
       <div className="card dark" style={{ gap: 6 }}>
@@ -624,6 +629,15 @@ const Taxes = () => {
           <button className="btn money" onClick={() => update((d) => { d.taxMonths[due] = { ...(d.taxMonths[due] ?? {}), paid: !tx.paid } })}>{tx.paid ? 'Undo paid' : 'Mark as paid'}</button>
           <button className="btn ghost" onClick={copyAccount}>Copy {pick === 'zus' ? 'ZUS' : 'PIT'} account</button>
         </div>
+        {idKind && idNum ? (
+          <button className="idline" onClick={() => copyText(idNum, `${ID_NAME[idKind]} copied`)}>
+            <span className="t13" style={{ opacity: 0.7 }}>{ID_NAME[idKind]}</span>
+            <span className="t17 w5 grow" style={{ textAlign: 'left', letterSpacing: '.02em' }}>{idNum}</span>
+            <span className="t13 w5">Copy</span>
+          </button>
+        ) : (
+          <span className="t13" style={{ opacity: 0.7 }}>Add your NIP, REGON or PESEL in Settings › Taxes & accounts to copy it from here.</span>
+        )}
         <span className="t13" style={{ opacity: 0.7 }}>Already in your budget for {fmtDay(payDate)}. Revenue {fmt(tx.revenue, true)} · <u onClick={() => editMonth(due)}>edit</u></span>
       </div>
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>

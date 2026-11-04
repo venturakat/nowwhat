@@ -270,3 +270,7 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .cal-tab svg { width: 16px; height: 16px; }
 .cal-tab.open { left: 0; border-radius: 0 14px 14px 0; z-index: 25; }
 .cal-tab.back { right: 0; border-radius: 14px 0 0 14px; position: absolute; }
+
+/* Taxes: the id used on tax transfers, tap to copy */
+.idline { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08); color: inherit; }
+.idline:active { background: rgba(255,255,255,.14); }

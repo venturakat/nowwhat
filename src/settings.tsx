@@ -50,16 +50,21 @@ const TaxesCard = () => {
           { key: 'taxPayDay', label: 'I pay ZUS + PIT on day (puts it in the budget)', type: 'number', step: 1 },
           { key: 'taxDueDay', label: 'Official deadline, day', type: 'number', step: 1 },
           { key: 'zusAccount', label: 'ZUS account (rachunek składkowy)', type: 'text' },
-          { key: 'taxAccount', label: 'Tax account (mikrorachunek)', type: 'text' }
+          { key: 'taxAccount', label: 'Tax account (mikrorachunek)', type: 'text' },
+          { key: 'nip', label: 'NIP', type: 'text' },
+          { key: 'regon', label: 'REGON', type: 'text' },
+          { key: 'pesel', label: 'PESEL', type: 'text' },
+          { key: 'taxIdKind', label: 'Identify me in tax transfers with', type: 'select', options: [['nip', 'NIP'], ['regon', 'REGON'], ['pesel', 'PESEL']] }
         ]}
         onSave={(v) => update((d) => {
           const { pitPct, ...rest } = v
-          d.settings = { ...d.settings, ...rest, pitRate: (pitPct ?? 14) / 100 }
+          const clean = (x?: string) => x?.replace(/\s/g, '') || undefined // numbers without spaces, the way the transfer form wants them
+          d.settings = { ...d.settings, ...rest, nip: clean(v.nip), regon: clean(v.regon), pesel: clean(v.pesel), pitRate: (pitPct ?? 14) / 100 }
         })}
       />
     )}>
       <span className="t17">Taxes & accounts</span>
-      <span className="t14 muted">ZUS amounts, PIT %, pay days, account numbers for transfers</span>
+      <span className="t14 muted">ZUS amounts, PIT %, pay days, account numbers, NIP / REGON / PESEL</span>
     </button>
   )
 }
