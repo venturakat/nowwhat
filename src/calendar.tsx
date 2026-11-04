@@ -8,11 +8,11 @@ import {
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
-import { C, Check, closeSheet, Field, Icon, List, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi, type Tab as UiTab } from './ui'
+import { C, Check, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi, type Tab as UiTab } from './ui'
 import { ShipmentSheet } from './screens/Shipments'
 
-// Calendar (the icon next to Settings): your own appointments, plus whatever you chose in
-// Settings › Calendar from the tabs. It only shows the tabs' things — they still live in their tabs,
+// Calendar (its own page, to the left of Today): your own appointments, plus whatever you chose in
+// its settings (the gear on the page) from the tabs. It only shows the tabs' things — they still live in their tabs,
 // so it's never out of date. Tap one to go there; deliveries and classes can be ticked / cancelled here.
 
 export const CAL_OPTIONS: [CalKey, string][] = [
@@ -143,7 +143,7 @@ const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const LONG_WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-export const CalendarSheet = () => {
+export const CalendarPage = () => {
   const st = useSt()
   const t = today()
   const [mk, setMk] = useState(t.slice(0, 7))
@@ -152,7 +152,7 @@ export const CalendarSheet = () => {
   const span = (m: string) => {
     const first = `${m}-01`
     const start = addDays(first, -((parse(first).getDay() + 6) % 7))
-    const weeks = Math.ceil(((parse(first).getDay() + 6) % 7 + daysInMonth(+m.slice(0, 4), +m.slice(5, 7))) / 7)
+    const weeks = 6 // always six rows, so the grid never changes height between months
     return { start, weeks, end: addDays(start, weeks * 7 - 1) }
   }
   const months = [prevMonth(mk), mk, nextMonth(mk)]
@@ -167,7 +167,7 @@ export const CalendarSheet = () => {
   const track = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; y: number; t: number; lock?: 'h' | 'v'; dx: number } | null>(null)
   const busy = useRef(false)
-  const GAP = 16 // between the month cards while they slide
+  const GAP = 0 // the months sit edge to edge, like one long strip
   const place = (dx: number, how = 'none') => { const el = track.current; if (!el) return; el.style.transition = how; el.style.transform = `translateX(${-((view.current?.offsetWidth ?? 360) + GAP) + dx}px)` }
   // slide to the next / previous month (or back to this one), then make that month the middle one
   const slide = (dir: -1 | 0 | 1) => {
@@ -182,21 +182,17 @@ export const CalendarSheet = () => {
       busy.current = false
     }, 240)
   }
-  // the box takes the height of the month in the middle (5 or 6 weeks)
-  useLayoutEffect(() => {
-    const mid = track.current?.children[1] as HTMLElement | undefined
-    if (view.current && mid) view.current.style.height = mid.offsetHeight + 'px'
-    if (!busy.current && !drag.current) place(0)
-  })
+  useLayoutEffect(() => { if (!busy.current && !drag.current) place(0) })
   const open = (i: Item) => {
     if (i.event) { pushSheet(<EventEdit id={i.event.id} />); return }
     if (i.edit) { pushSheet(i.edit()); return }
     if (!i.go) return
-    closeSheet(); useUi.getState().go(i.go[0], i.go[1])
+    useUi.getState().go(i.go[0], i.go[1]) // closes the calendar too
   }
   const sd = parse(sel)
   return (
-    <Sheet title="Calendar" full>
+    <div className="calscreen">
+      <Header sub={`${LONG_WD[parse(t).getDay()]}, ${fmtDay(t)}`} title="Calendar" right={<button className="hdr-gear" aria-label="Calendar settings" onClick={() => openSheet(<CalendarSettings />)}><Icon.gear /></button>} />
       <div className="between" style={{ alignItems: 'center' }}>
         <button className="cal-nav" aria-label="Previous month" onClick={() => slide(-1)}><Icon.chevL /></button>
         <button className="mid" onClick={() => go(t.slice(0, 7))}>{MONTH_LONG[+mk.slice(5, 7) - 1]}{mk.slice(0, 4) !== t.slice(0, 4) ? ` ${mk.slice(0, 4)}` : ''}</button>
@@ -254,8 +250,8 @@ export const CalendarSheet = () => {
         ))}
         <Row title={<span className="muted">+ Add on {fmtDay(sel)}</span>} onClick={() => pushSheet(<AddSheet date={sel} />)} />
       </List>
-      {!anyOn && <span className="t13 muted" style={{ padding: '0 4px' }}>Want taxes, classes, deliveries and more here too? Choose them in Settings › Calendar.</span>}
-    </Sheet>
+      {!anyOn && <span className="t13 muted" style={{ padding: '0 4px' }}>Want taxes, classes, deliveries and more here too? Choose them with the gear above.</span>}
+    </div>
   )
 }
 
@@ -423,7 +419,7 @@ export const CalendarSettings = () => {
   const on = st.settings.calendar ?? {}
   const flip = (k: CalKey) => update((d) => { d.settings = { ...d.settings, calendar: { ...(d.settings.calendar ?? {}), [k]: !on[k] || undefined } } })
   return (
-    <Sheet title="Calendar" full onBack={popSheet}>
+    <Sheet title="Calendar settings">
       <span className="t15 muted">Your own appointments are always there. Choose what else the calendar shows from the tabs.</span>
       <div className="list">
         {CAL_OPTIONS.map(([k, label]) => (

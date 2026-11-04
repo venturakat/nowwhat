@@ -1,5 +1,6 @@
 import { flushSync } from 'react-dom'
 import { canSwipe, closeSheet, crossesTab, popSheet, swipeSub, UNDER_SHIFT, useUi } from './ui'
+import { calCloseDrag, calCloseEnd, calOpenDrag, calOpenEnd } from './calpage'
 
 // Sideways swipe between sub-tabs, and past the first/last one on to the neighbouring tab:
 // the content follows your finger, then slides away and the next one slides in. Moving to another
@@ -25,14 +26,22 @@ const inSideScroll = (el: HTMLElement | null) => {
 }
 
 export const startSwipe = () => {
-  let s: { x: number; y: number; t: number; lock?: 'h' | 'v'; els: HTMLElement[]; dx: number; cross?: boolean } | null = null
+  let s: { x: number; y: number; t: number; lock?: 'h' | 'v'; els: HTMLElement[]; dx: number; cross?: boolean; cal?: 'open' | 'close' } | null = null
   document.addEventListener('touchstart', (e) => {
     const el = e.target as HTMLElement
     s = null
-    if (useUi.getState().sheet || e.touches.length > 1 || el.closest('.chips, input, textarea, select, .noswipe, .tabbar, .fabs') || !el.closest('.app') || inSideScroll(el)) return
+    const ui = useUi.getState()
+    if (ui.sheet || e.touches.length > 1) return
+    const at = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), els: [], dx: 0 }
+    // the little calendar tabs on the screen edges
+    if (el.closest('.cal-tab.open')) { s = { ...at, cal: 'open' }; return }
+    if (el.closest('.cal-tab.back')) { s = { ...at, cal: 'close' }; return }
+    if (el.closest('input, textarea, select, .noswipe') || inSideScroll(el)) return
+    if (ui.cal) { if (el.closest('.calpage')) s = { ...at, cal: 'close' }; return }
+    if (el.closest('.chips, .tabbar, .fabs') || !el.closest('.app')) return
     const x0 = e.touches[0].clientX
     if (x0 < EDGE || x0 > window.innerWidth - EDGE) return
-    s = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), els: [], dx: 0 }
+    s = at
   }, { passive: true })
   document.addEventListener('touchmove', (e) => {
     if (!s) return
@@ -40,17 +49,23 @@ export const startSwipe = () => {
     if (!s.lock) {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
       s.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v'
-      if (s.lock === 'h') { s.cross = crossesTab(dx < 0 ? 1 : -1); s.els = content(s.cross) }
+      // swiping right on Today: that's where the calendar is
+      if (s.lock === 'h' && !s.cal && dx > 0 && useUi.getState().tab === 'today') s.cal = 'open'
+      if (s.lock === 'h' && !s.cal) { s.cross = crossesTab(dx < 0 ? 1 : -1); s.els = content(s.cross) }
     }
     if (s.lock !== 'h') return
     e.preventDefault() // no page scrolling while swiping sideways
     s.dx = dx
+    if (s.cal === 'open') { calOpenDrag(dx); return }
+    if (s.cal === 'close') { calCloseDrag(dx); return }
     const can = canSwipe(dx < 0 ? 1 : -1)
     set(s.els, can ? dx : dx * 0.22, can ? 1 - Math.min(0.4, Math.abs(dx) / 800) : 1)
   }, { passive: false })
   const end = () => {
     const g = s; s = null
     if (!g || g.lock !== 'h') return
+    if (g.cal === 'open') { calOpenEnd(g.dx, Date.now() - g.t); return }
+    if (g.cal === 'close') { calCloseEnd(g.dx, Date.now() - g.t); return }
     const dir: 1 | -1 = g.dx < 0 ? 1 : -1
     const w = window.innerWidth
     const speed = Math.abs(g.dx) / Math.max(1, Date.now() - g.t)

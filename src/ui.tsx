@@ -11,6 +11,8 @@ interface Ui {
   sheet: ReactNode | null
   under: ReactNode[] // pages the current sheet was opened on top of (Settings → a category); they stay put underneath
   toast: string | null
+  cal: boolean // the calendar page (to the left of Today) is open
+  setCal: (on: boolean) => void
   go: (tab: Tab, sub?: string) => void
   setSub: (sub: string) => void
   open: (n: ReactNode) => void
@@ -25,8 +27,10 @@ export const useUi = create<Ui>((set, get) => ({
   sheet: null,
   under: [],
   toast: null,
+  cal: false,
+  setCal: (on) => set({ cal: on }),
   go: (tab, sub) => {
-    set({ tab, sub: sub ? { ...get().sub, [tab]: sub } : get().sub })
+    set({ cal: false, tab, sub: sub ? { ...get().sub, [tab]: sub } : get().sub })
     window.scrollTo({ top: 0 })
   },
   setSub: (sub) => set({ sub: { ...get().sub, [get().tab]: sub } }),
@@ -65,9 +69,7 @@ export const toast = (m: string) => useUi.getState().say(m)
 let settingsFactory: (() => ReactNode) | null = null
 export const registerSettings = (f: () => ReactNode) => { settingsFactory = f }
 export const openSettings = () => { if (settingsFactory) openSheet(settingsFactory()) }
-let calendarFactory: (() => ReactNode) | null = null
-export const registerCalendar = (f: () => ReactNode) => { calendarFactory = f }
-export const openCalendar = () => { if (calendarFactory) openSheet(calendarFactory()) }
+
 
 // ---------- icons ----------
 const S = (p: { children: ReactNode; size?: number; color?: string; fill?: boolean }) => (
@@ -117,12 +119,7 @@ export const Header = ({ sub, title, right }: { sub: string; title: ReactNode; r
       <div className="sub">{sub}</div>
       <h1 className="h1">{title}</h1>
     </div>
-    {right ?? (
-      <div className="row" style={{ gap: 14, alignSelf: 'flex-start' }}>
-        <button className="hdr-gear" aria-label="Calendar" onClick={openCalendar}><Icon.calendar /></button>
-        <button className="hdr-gear" aria-label="Settings" onClick={openSettings}><Icon.gear /></button>
-      </div>
-    )}
+    {right ?? <button className="hdr-gear" aria-label="Settings" onClick={openSettings}><Icon.gear /></button>}
   </div>
 )
 

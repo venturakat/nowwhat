@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { Icon, List, popSheet, pushSheet, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
-import { CAL_OPTIONS, CalendarSettings } from './calendar'
 import { refreshRates } from './rates'
 import { autoProtein, dailyNeeds, fmtDay, parseNum, travelUsual } from './lib'
 
@@ -15,7 +14,6 @@ export const SettingsSheet = () => {
       <DaysCard />
       <AboutCard />
       <TravelCard />
-      <CalendarCard />
       <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<BackupSheet />)}>
         <span className="t17">Backup</span>
         <span className="t14 muted">Save a backup file, restore one, or start fresh</span>
@@ -84,17 +82,6 @@ const AboutCard = () => {
     )}>
       <span className="t17">About you</span>
       <span className="t14 muted">{s.weightKg || s.proteinGoal ? [s.age ? `${s.age} y` : '', s.weightKg ? `${s.weightKg} kg` : '', s.activity ? { low: 'mostly sitting', light: 'light activity', active: 'active', very: 'very active' }[s.activity] : '', dailyNeeds(s) ? `protein ${dailyNeeds(s)!.protein} g a day` : ''].filter(Boolean).join(' · ') : 'Age, weight, activity, protein goal — for recipes'}</span>
-    </button>
-  )
-}
-
-const CalendarCard = () => {
-  const st = useSt()
-  const on = CAL_OPTIONS.filter(([k]) => st.settings.calendar?.[k]).map(([, l]) => l)
-  return (
-    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<CalendarSettings />)}>
-      <span className="t17">Calendar</span>
-      <span className="t14 muted">{on.length ? `Shows ${on.slice(0, 3).join(', ').toLowerCase()}${on.length > 3 ? ` and ${on.length - 3} more` : ''}` : 'Choose what the calendar shows from the tabs'}</span>
     </button>
   )
 }

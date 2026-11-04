@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSt, useStore } from './store'
-import { Icon, openSheet, registerCalendar, registerSettings, useUi, type Tab } from './ui'
-import { CalendarSheet } from './calendar'
+import { Icon, openSheet, registerSettings, useUi, type Tab } from './ui'
+import { CalendarPage } from './calendar'
+import { closeCal, openCal } from './calpage'
 import { SettingsSheet } from './settings'
 import { Today } from './screens/Today'
 import { Money, SpendSheet, StartTimerSheet, stopTimer } from './screens/Money'
@@ -12,7 +13,6 @@ import { fmtClock } from './lib'
 import { Splash } from './Splash'
 
 registerSettings(() => <SettingsSheet />)
-registerCalendar(() => <CalendarSheet />)
 
 const TABS: [Tab, string, () => JSX.Element][] = [
   ['today', 'Today', Icon.today], ['money', 'Money', Icon.money], ['supplies', 'Supplies', Icon.supplies], ['home', 'Home', Icon.home], ['closet', 'Closet', Icon.closet]
@@ -82,7 +82,7 @@ const useVisibleArea = () => {
 
 export const App = () => {
   const ready = useStore((s) => s.ready)
-  const { tab, sheet, under, toast, go, close } = useUi()
+  const { tab, sheet, under, toast, go, close, cal } = useUi()
   const area = useVisibleArea()
   const [splash, setSplash] = useState(true) // the loading animation, once per app start
   return (
@@ -99,6 +99,12 @@ export const App = () => {
           <TimerFab />
         </div>
       )}
+      {/* the calendar page, waiting to the left of Today; a little tab on the edge shows it's there */}
+      <div className={'calpage' + (cal ? ' open' : '')} aria-hidden={!cal}>
+        <div className="calscroll"><CalendarPage /></div>
+        <button className="cal-tab back" aria-label="Back to Today" onClick={closeCal}><Icon.today /></button>
+      </div>
+      {tab === 'today' && !cal && <button className="cal-tab open" aria-label="Calendar" onClick={openCal}><Icon.calendar /></button>}
       <nav className="tabbar">
         {TABS.map(([k, label, I]) => (
           <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => go(k)}>

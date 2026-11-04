@@ -245,9 +245,9 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .dropdown button:active { background: var(--swatch); }
 
 /* Calendar: Monday-first month grid with a dot per kind of thing on each day */
-.cal-view { overflow: hidden; touch-action: pan-y; transition: height .2s ease; flex-shrink: 0; }
-.cal-track { display: flex; gap: 16px; align-items: flex-start; will-change: transform; }
-.cal { flex: 0 0 100%; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 10px 8px 8px; background: var(--card); border-radius: var(--r); }
+.cal-view { overflow: hidden; touch-action: pan-y; flex-shrink: 0; margin: 0 -20px; background: var(--card); } /* full width, edge to edge: one continuous strip */
+.cal-track { display: flex; align-items: flex-start; will-change: transform; }
+.cal { flex: 0 0 100%; display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 10px 14px 8px; }
 .cal-wd { text-align: center; font-size: 13px; font-weight: 500; color: var(--ink2); padding-bottom: 6px; }
 .cal-day { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 5px; border-radius: 12px; min-height: 48px; }
 .cal-day .n { font-size: 17px; font-weight: 500; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; }
@@ -258,3 +258,15 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .cal-day .dots i { width: 6px; height: 6px; border-radius: 50%; }
 .cal-nav { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; }
 .cal-nav:active { background: var(--swatch); }
+
+/* the calendar page: full screen, to the left of Today */
+.calpage { position: fixed; inset: 0; z-index: 30; background: var(--bg); transform: translateX(-100%); visibility: hidden; transition: transform .26s cubic-bezier(.2,.8,.2,1), visibility 0s .26s; }
+.calpage.open { transform: none; visibility: visible; transition: transform .26s cubic-bezier(.2,.8,.2,1); }
+.calscroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.calscreen { max-width: 480px; margin: 0 auto; padding: calc(var(--safe-t) + 28px) 20px calc(var(--safe-b) + 40px); display: flex; flex-direction: column; gap: 14px; }
+.calscreen > * { flex-shrink: 0; }
+/* little black tabs peeking from the screen edge: open the calendar / go back to Today */
+.cal-tab { position: fixed; top: 42%; z-index: 31; width: 26px; height: 58px; background: var(--ink); color: var(--inv); display: grid; place-items: center; box-shadow: 0 0 0 2px var(--bg); } /* the ring keeps it apart from dark cards */
+.cal-tab svg { width: 16px; height: 16px; }
+.cal-tab.open { left: 0; border-radius: 0 14px 14px 0; z-index: 25; }
+.cal-tab.back { right: 0; border-radius: 14px 0 0 14px; position: absolute; }
