@@ -600,13 +600,8 @@ const Taxes = () => {
   const afterTx = taxFor(st, after)
   const yearPit = months.reduce((a, m) => a + taxFor(st, m).pit, 0)
 
-  const [pick, setPick] = useState<'zus' | 'pit'>('zus')
   const zus = r2(tx.dra + tx.rca)
-  const copyAccount = () => {
-    const acc = pick === 'zus' ? st.settings.zusAccount : st.settings.taxAccount
-    if (!acc) { toast(`Add the ${pick === 'zus' ? 'ZUS' : 'tax (PIT)'} account in Settings first`); return }
-    copyText(acc.trim(), `${pick === 'zus' ? 'ZUS' : 'PIT'} account copied`)
-  }
+  const [details, setDetails] = useState(false) // transfer details, closed until it's time to pay
   const editMonth = (m: string) => openSheet(<TaxMonthSheet m={m} />)
   // the number that identifies me on the tax transfer (chosen in Settings › Taxes & accounts)
   const s = st.settings
@@ -622,37 +617,40 @@ const Taxes = () => {
         </div>
         <div className="big" style={{ fontSize: 60 }}>{fmt(tx.paid ? tx.total : tx.left)}</div>
         <div className="parts" style={{ paddingTop: 6 }}>
-          <Quota label="ZUS (DRA + RCA)" amount={zus} on={pick === 'zus'} paid={tx.zusPaid} onPick={() => setPick('zus')} />
-          <Quota label="PIT-28" amount={tx.pit} on={pick === 'pit'} paid={tx.pitPaid} onPick={() => setPick('pit')} />
+          <Quota label="ZUS (DRA + RCA)" amount={zus} paid={tx.zusPaid} />
+          <Quota label="PIT-28" amount={tx.pit} paid={tx.pitPaid} />
         </div>
-        <span className="t13" style={{ opacity: 0.7 }}>Tap to choose · hold to copy the amount</span>
+        <span className="t13" style={{ opacity: 0.7 }}>Tap an amount to copy it</span>
+        {/* ZUS and PIT are sometimes paid on different days */}
         <div className="btn2" style={{ paddingTop: 4 }}>
-          {(() => {
-            // marks the part that's chosen above (ZUS or PIT) — they're sometimes paid on different days
-            const done = pick === 'zus' ? tx.zusPaid : tx.pitPaid
-            const name = pick === 'zus' ? 'ZUS' : 'PIT'
-            return <button className="btn money" onClick={() => update((d) => setTaxPaid(d, due, pick, !done))}>{done ? `Undo ${name} paid` : `Mark ${name} paid`}</button>
-          })()}
-          <button className="btn ghost" onClick={copyAccount}>Copy {pick === 'zus' ? 'ZUS' : 'PIT'} account</button>
+          <button className={'btn ' + (tx.zusPaid ? 'ghost' : 'money')} onClick={() => update((d) => setTaxPaid(d, due, 'zus', !tx.zusPaid))}>{tx.zusPaid ? 'Undo ZUS paid' : 'Mark ZUS paid'}</button>
+          <button className={'btn ' + (tx.pitPaid ? 'ghost' : 'money')} onClick={() => update((d) => setTaxPaid(d, due, 'pit', !tx.pitPaid))}>{tx.pitPaid ? 'Undo PIT paid' : 'Mark PIT paid'}</button>
         </div>
-        {idKind && idNum ? (
-          <button className="idline" onClick={() => copyText(idNum, `${ID_NAME[idKind]} copied`)}>
-            <span className="t13" style={{ opacity: 0.7 }}>{ID_NAME[idKind]}</span>
-            <span className="t17 w5 grow" style={{ textAlign: 'left', letterSpacing: '.02em' }}>{idNum}</span>
-            <span className="t13 w5">Copy</span>
-          </button>
-        ) : (
-          <span className="t13" style={{ opacity: 0.7 }}>Add your NIP, REGON or PESEL in Settings › Taxes & accounts to copy it from here.</span>
-        )}
-        {s.zusBasis ? (
-          // podstawa wymiaru składek ZUS
-          <button className="idline" style={{ marginTop: 0 }} onClick={() => copyText(bankAmount(s.zusBasis!), `Basis ${bankAmount(s.zusBasis!)} copied`)}>
-            <span className="t13" style={{ opacity: 0.7 }}>Basis</span>
-            <span className="t17 w5 grow" style={{ textAlign: 'left' }}>{bankAmount(s.zusBasis)}</span>
-            <span className="t13 w5">Copy</span>
-          </button>
-        ) : null}
         <span className="t13" style={{ opacity: 0.7 }}>Already in your budget for {fmtDay(payDate)}. Revenue {fmt(tx.revenue, true)} · <u onClick={() => editMonth(due)}>edit</u></span>
+      </div>
+      {/* everything typed into the transfer form, once a month (or twice, when paid on different days) */}
+      <div className="card" style={{ gap: 0, padding: '4px 0' }}>
+        <button className="between" style={{ padding: '14px 20px', alignItems: 'center' }} onClick={() => setDetails(!details)}>
+          <span className="t17">Transfer details</span>
+          <span style={{ display: 'flex', transform: details ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s', color: 'var(--ink2)' }}><Icon.chevR /></span>
+        </button>
+        {details && (
+          <div className="copylist">
+            {([
+              ['ZUS account', s.zusAccount?.trim()],
+              ['PIT account', s.taxAccount?.trim()],
+              [idKind ? ID_NAME[idKind] : 'NIP', idNum],
+              ['Basis', s.zusBasis ? bankAmount(s.zusBasis) : undefined],
+              ['Title', zusTitle(due)]
+            ] as [string, string | undefined][]).map(([label, value]) => (
+              <button key={label} className="copyrow" disabled={!value} onClick={() => value && copyText(value, `${label} copied`)}>
+                <span className="k">{label}</span>
+                <span className="v">{value ?? 'add in Settings'}</span>
+                {value && <span className="c">Copy</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
@@ -749,34 +747,12 @@ export const copyText = (text: string, msg: string) => {
 }
 
 // Tap = choose this quota, hold (~0.5 s) = copy its amount as 954,54
-const Quota = ({ label, amount, on, paid, onPick }: { label: string; amount: number; on: boolean; paid?: boolean; onPick: () => void }) => {
-  const [holding, setHolding] = useState(false)
-  const start = useRef(0)
-  const timer = useRef<number>()
-  const begin = () => {
-    start.current = Date.now()
-    timer.current = window.setTimeout(() => setHolding(true), 450)
-  }
-  const end = () => {
-    clearTimeout(timer.current)
-    const long = Date.now() - start.current >= 450
-    setHolding(false)
-    start.current = 0
-    if (long) copyText(bankAmount(amount), `${bankAmount(amount)} copied`)
-    else onPick()
-  }
-  const cancel = () => { clearTimeout(timer.current); setHolding(false); start.current = 0 }
-  return (
-    <button
-      className={'quota' + (on ? ' on' : '') + (holding ? ' hold' : '')}
-      onPointerDown={begin}
-      onPointerUp={() => start.current && end()}
-      onPointerLeave={cancel}
-      onPointerCancel={cancel}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <span className="t13 w5">{label}{paid ? ' · paid' : ''}</span>
-      <span className="t17" style={paid ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{fmt(amount, true)}</span>
-    </button>
-  )
-}
+const Quota = ({ label, amount, paid }: { label: string; amount: number; paid?: boolean }) => (
+  <button className="quota" onClick={() => copyText(bankAmount(amount), `${bankAmount(amount)} copied`)}>
+    <span className="t13 w5">{label}{paid ? ' · paid' : ''}</span>
+    <span className="t17" style={paid ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{fmt(amount, true)}</span>
+  </button>
+)
+// the title of the ZUS transfer: "Składki za listopad 2026" (the month the contributions are for)
+const PL_MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień']
+const zusTitle = (mk: string) => `Składki za ${PL_MONTHS[+mk.slice(5, 7) - 1]} ${mk.slice(0, 4)}`

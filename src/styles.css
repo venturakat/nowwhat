@@ -274,3 +274,12 @@ input.input::-webkit-datetime-edit { padding: 0; }
 /* Taxes: the id used on tax transfers, tap to copy */
 .idline { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08); color: inherit; }
 .idline:active { background: rgba(255,255,255,.14); }
+
+/* Taxes › Transfer details: label column, value column, Copy — lined up */
+.copylist { display: flex; flex-direction: column; padding: 0 0 8px; }
+.copyrow { display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 12px; padding: 11px 20px; text-align: left; width: 100%; }
+.copyrow:active:not(:disabled) { background: var(--swatch); }
+.copyrow .k { font-size: 14px; color: var(--ink2); font-weight: 500; }
+.copyrow .v { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; } /* wraps at spaces first */
+.copyrow:disabled .v { color: var(--ink2); font-weight: 400; }
+.copyrow .c { font-size: 14px; font-weight: 600; }
