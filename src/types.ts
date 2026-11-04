@@ -252,6 +252,7 @@ export interface SelfCare {
   currency?: Currency // default PLN
   everyDays: number // days between two times
   next: string // YYYY-MM-DD, next planned time
+  time?: string // HH:MM of the next time (set it when it's booked)
   lastDone?: string
   details?: string // place, master, what exactly
   paused?: boolean

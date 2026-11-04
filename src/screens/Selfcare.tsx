@@ -39,7 +39,7 @@ export const Selfcare = () => {
           const late = diffDays(t, x.next) < 0
           return (
             <Row key={x.id} dot={x.paused ? C.line : late ? C.warn : C.closet} done={x.paused} title={x.name}
-              meta={<>{x.details && <div className="details">{x.details}</div>}{x.paused ? 'Paused' : `${everyText(x.everyDays)} · ${whenText(x.next, t)}${month.filter((c) => c.x.id === x.id).length > 1 ? ` · ${month.filter((c) => c.x.id === x.id).length}× in ${monthName(mk, true)}` : ''}`}</>}
+              meta={<>{x.details && <div className="details">{x.details}</div>}{x.paused ? 'Paused' : `${everyText(x.everyDays)} · ${whenText(x.next, t)}${x.time ? ` at ${x.time}` : ''}${month.filter((c) => c.x.id === x.id).length > 1 ? ` · ${month.filter((c) => c.x.id === x.id).length}× in ${monthName(mk, true)}` : ''}`}</>}
               trail={fmtBoth(st.settings, x.price, x.currency ?? 'PLN')} onClick={() => openSheet(<CareSheet id={x.id} />)} />
           )
         })}
@@ -71,18 +71,19 @@ const CareSheet = ({ id }: { id: string }) => {
       ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: uid(), kind: 'expense', label: x.name, amount, currency: cur, date, oneOff: true })
       y.lastDone = date
       y.next = addDays(date, Math.max(1, y.everyDays))
+      y.time = undefined // the booked time was for this visit
     })
     closeSheet(); toast(`Logged · next time ${fmtDay(addDays(date, Math.max(1, x.everyDays)))}`)
   }
   const skip = () => {
     const next = addDays(careNext(x, t), Math.max(1, x.everyDays))
-    update((d) => { d.selfcare!.find((z) => z.id === id)!.next = next })
+    update((d) => { const y = d.selfcare!.find((z) => z.id === id)!; y.next = next; y.time = undefined })
     closeSheet(); toast(`Skipped · next time ${fmtDay(next)}`)
   }
   return (
     <Sheet title={x.name}>
       {x.details && <div className="t17" style={{ marginTop: -4 }}>{x.details}</div>}
-      <div className="t15 muted">{x.paused ? 'Paused' : `${everyText(x.everyDays)} · next ${whenText(x.next, t)}`}{x.lastDone ? ` · last time ${fmtDay(x.lastDone)}` : ''}</div>
+      <div className="t15 muted">{x.paused ? 'Paused' : `${everyText(x.everyDays)} · next ${whenText(x.next, t)}${x.time ? ` at ${x.time}` : ''}`}{x.lastDone ? ` · last time ${fmtDay(x.lastDone)}` : ''}</div>
       {!x.paused && (
         <div className="card closet" style={{ gap: 10 }}>
           <span className="t15 w5">Done?</span>
@@ -116,11 +117,12 @@ const CareEdit = ({ id, preset }: { id?: string; preset?: Partial<SelfCare> }) =
         { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES },
         { key: 'everyDays', label: 'Repeat every (days)', type: 'number', step: 1 },
         { key: 'next', label: 'Next time', type: 'date' },
+        { key: 'time', label: 'Time (when it’s booked)', type: 'time' },
         ...(x ? ([{ key: 'paused', label: 'Paused', type: 'toggle' }] as const) : [])
       ]}
       onSave={(v) => update((d) => {
         d.selfcare ??= []
-        const data = { name: v.name.trim(), details: v.details?.trim() || undefined, price: v.price ?? 0, currency: (v.currency ?? 'PLN') as Currency, everyDays: Math.max(1, Math.round(v.everyDays || 30)), next: v.next || today(), paused: !!v.paused || undefined }
+        const data = { name: v.name.trim(), details: v.details?.trim() || undefined, price: v.price ?? 0, currency: (v.currency ?? 'PLN') as Currency, everyDays: Math.max(1, Math.round(v.everyDays || 30)), next: v.next || today(), time: v.time || undefined, paused: !!v.paused || undefined }
         if (x) Object.assign(d.selfcare.find((y) => y.id === x.id)!, data)
         else d.selfcare.push({ id: uid(), ...data })
       })}

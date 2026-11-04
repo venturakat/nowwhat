@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { update, useSt } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import {
-  addDays, CAT_LABEL, careInPeriod, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
+  addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
   prevMonth, subDate, taxFor, today, uid
 } from './lib'
 import { MODE_NAME, occurrences } from './cleaning'
@@ -29,6 +29,7 @@ interface Item {
   go?: [UiTab, string?] // where it lives
   toggle?: { on: boolean; run: () => void; label?: [string, string] } // a tick right in the calendar (or a text button: [when on, when off])
   event?: CalEvent
+  edit?: () => ReactNode // opens its own editor (changes go straight to the tab)
 }
 
 const monthsIn = (from: string, to: string) => {
@@ -95,8 +96,12 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     if (b && b.due >= from && b.due <= to) out.push({ id: `clpay-${c.id}`, date: b.due, title: `Pay for ${c.name}`, meta: `${b.dates.length} ${b.dates.length === 1 ? 'class' : 'classes'} · ${monthName(b.month, true)}`, dot: C.money, go: ['money', 'classes'] })
   }
   if (on.selfcare) {
-    for (const x of careInPeriod(st, from, to)) out.push({ id: `care-${x.x.id}-${x.date}`, date: x.date, title: x.x.name, meta: 'Selfcare', dot: C.closet, go: ['money', 'selfcare'] })
-    for (const x of st.selfcare ?? []) if (x.lastDone && x.lastDone >= from && x.lastDone <= to) out.push({ id: `cared-${x.id}`, date: x.lastDone, title: x.name, meta: 'Selfcare · done', dot: C.closet, done: true, go: ['money', 'selfcare'] })
+    // only the next time of each (the one date the Selfcare tab keeps); overdue ones sit on today
+    for (const x of st.selfcare ?? []) {
+      if (x.paused) continue
+      const d = careNext(x, t)
+      if (d >= from && d <= to) out.push({ id: `care-${x.id}`, date: d, title: x.name, time: x.time, meta: x.next < t ? 'Selfcare · overdue' : 'Selfcare', dot: C.closet, go: ['money', 'selfcare'], edit: () => <CareWhen id={x.id} /> })
+    }
   }
   if (on.shopping) {
     const runs = new Map<string, { date: string; cat: keyof typeof CAT_LABEL; names: string[] }>()
@@ -113,7 +118,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     const d = x.eta ?? x.deliveredAt
     if (!d || d < from || d > to) continue
     out.push({
-      id: 'sh-' + x.id, date: d, title: x.name, meta: `Delivery · ${x.courier || 'courier'}${x.deliveredAt ? ' · delivered' : ''}`, dot: C.supplies, done: !!x.deliveredAt, go: ['today'],
+      id: 'sh-' + x.id, date: d, title: x.name, meta: `Delivery · ${x.courier || 'courier'}${x.deliveredAt ? ' · delivered' : ''}`, dot: C.supplies, done: !!x.deliveredAt, go: ['today'], edit: () => <ShipmentSheet id={x.id} back={1} />,
       toggle: { on: !!x.deliveredAt, run: () => update((s) => { const y = s.shipments?.find((z) => z.id === x.id); if (y) y.deliveredAt = y.deliveredAt ? undefined : today() }) }
     })
   }
@@ -147,6 +152,7 @@ export const CalendarSheet = () => {
   const touch = useRef<{ x: number; y: number } | null>(null)
   const open = (i: Item) => {
     if (i.event) { pushSheet(<EventEdit id={i.event.id} />); return }
+    if (i.edit) { pushSheet(i.edit()); return }
     if (!i.go) return
     closeSheet(); useUi.getState().go(i.go[0], i.go[1])
   }
@@ -207,12 +213,32 @@ const AddSheet = ({ date }: { date: string }) => {
     <Sheet title={`Add on ${fmtDay(date)}`} onBack={popSheet}>
       <List>
         {opt('Appointment', 'Your own — not tied to any tab', () => pushSheet(<EventEdit date={date} />))}
-        {opt('Delivery', 'Goes on the Shipment log', () => pushSheet(<ShipmentSheet eta={date} back />))}
+        {opt('Delivery', 'Goes on the Shipment log', () => pushSheet(<ShipmentSheet eta={date} back={2} />))}
         {classes.map((c) => opt(`Extra ${c.name} class`, c.time ? `At ${c.time}` : 'One extra class that day', () => {
           update((d) => { const L = d.classes?.find((y) => y.id === c.id); if (!L) return; L.skips = L.skips.filter((y) => y !== date); if (!L.extra.includes(date)) L.extra.push(date) })
           popSheet(); toast(`Extra ${c.name} class on ${fmtDay(date)}`)
         }))}
       </List>
+    </Sheet>
+  )
+}
+
+// a selfcare's next time, right from the calendar: the same date (and time) the Selfcare tab shows
+const CareWhen = ({ id }: { id: string }) => {
+  const st = useSt()
+  const x = st.selfcare?.find((y) => y.id === id)
+  const [d, setD] = useState(x ? careNext(x) : today())
+  const [time, setTime] = useState(x?.time ?? '')
+  if (!x) return null
+  return (
+    <Sheet title={x.name} onBack={popSheet}>
+      <span className="t15 muted">Next time — changing it here changes it in Selfcare too.</span>
+      <div className="row" style={{ gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}><Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value)} /></Field></div>
+        <div style={{ flex: 1, minWidth: 0 }}><Field label="Time"><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field></div>
+      </div>
+      <button className="btn full" disabled={!d} onClick={() => { update((s) => { const y = s.selfcare?.find((z) => z.id === id); if (y) { y.next = d; y.time = time || undefined } }); popSheet() }}>Save</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'selfcare') }}>Open in Selfcare</button>
     </Sheet>
   )
 }

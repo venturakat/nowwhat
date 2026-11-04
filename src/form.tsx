@@ -3,7 +3,7 @@ import { Check, closeSheet, Field, Sheet } from './ui'
 import { addDays, numText, parseNum, today } from './lib'
 
 export type FieldDef =
-  | { key: string; label: string; type: 'text' | 'date' | 'datetime' | 'url'; placeholder?: string; clearable?: boolean }
+  | { key: string; label: string; type: 'text' | 'date' | 'time' | 'datetime' | 'url'; placeholder?: string; clearable?: boolean }
   | { key: string; label: string; type: 'number'; step?: number; placeholder?: string | ((v: Record<string, any>) => string) } // a function: placeholder follows the other fields
   | { key: string; label: string; type: 'select'; options: [string, string][] }
   | { key: string; label: string; type: 'toggle' }

@@ -86,7 +86,7 @@ const things = (st: State): Thing[] => {
   // selfcare: from the day before until a week overdue
   for (const x of (st.selfcare ?? []).filter((x) => !x.paused)) {
     const n = diffDays(t, x.next)
-    if (n <= 1 && n >= -7) out.push({ id: `care-${x.id}-${x.next}`, dot: C.closet, title: x.name, meta: `Selfcare · ${n < 0 ? `${-n} ${n === -1 ? 'day' : 'days'} overdue` : n === 0 ? 'today' : 'tomorrow'}`, trail: fmtCur(x.price, x.currency ?? 'PLN'), go: () => go('money', 'selfcare') })
+    if (n <= 1 && n >= -7) out.push({ id: `care-${x.id}-${x.next}`, dot: C.closet, title: x.name, meta: `Selfcare · ${n < 0 ? `${-n} ${n === -1 ? 'day' : 'days'} overdue` : n === 0 ? 'today' : 'tomorrow'}${x.time && n >= 0 ? ` at ${x.time}` : ''}`, trail: fmtCur(x.price, x.currency ?? 'PLN'), go: () => go('money', 'selfcare') })
   }
   out.push(...paidChecks)
   out.unshift(...meds)

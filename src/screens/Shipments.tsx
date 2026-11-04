@@ -52,8 +52,9 @@ export const ShipmentLog = () => {
   )
 }
 
-// back: opened on top of another page (the calendar) — saving goes back to it instead of closing
-export const ShipmentSheet = ({ id, eta: etaFor, back }: { id?: string; eta?: string; back?: boolean }) => {
+// back: opened on top of other pages (the calendar) — saving goes back this many pages instead of closing
+export const ShipmentSheet = ({ id, eta: etaFor, back }: { id?: string; eta?: string; back?: number }) => {
+  const done = () => { if (back) for (let i = 0; i < back; i++) popSheet(false); else closeSheet() }
   const st = useSt()
   const x = st.shipments?.find((y) => y.id === id)
   const [name, setName] = useState(x?.name ?? '')
@@ -68,7 +69,7 @@ export const ShipmentSheet = ({ id, eta: etaFor, back }: { id?: string; eta?: st
       if (y) Object.assign(y, data)
       else d.shipments.push({ id: uid(), ...data })
     })
-    if (back) { popSheet(false); popSheet(false) } else closeSheet()
+    done()
   }
   return (
     <Sheet title={x ? 'Shipment' : 'New shipment'} onBack={back ? popSheet : undefined}>
@@ -76,8 +77,8 @@ export const ShipmentSheet = ({ id, eta: etaFor, back }: { id?: string; eta?: st
       <Field label="Courier"><CourierPick value={courier} onChange={setCourier} /></Field>
       <Field label="Delivery date"><input className="input" type="date" value={eta} onChange={(e) => setEta(e.target.value)} /></Field>
       <button className="btn full" disabled={!name.trim()} onClick={save}>Save</button>
-      {x && !x.deliveredAt && <button className="btn full soft" onClick={() => { update((d) => { const y = d.shipments!.find((z) => z.id === id)!; y.deliveredAt = today() }); closeSheet() }}>Delivered</button>}
-      {x && <button className="btn full soft" onClick={() => { update((d) => { d.shipments = d.shipments!.filter((z) => z.id !== id) }); closeSheet() }}>Delete</button>}
+      {x && !x.deliveredAt && <button className="btn full soft" onClick={() => { update((d) => { const y = d.shipments!.find((z) => z.id === id)!; y.deliveredAt = today() }); done() }}>Delivered</button>}
+      {x && <button className="btn full soft" onClick={() => { update((d) => { d.shipments = d.shipments!.filter((z) => z.id !== id) }); done() }}>Delete</button>}
     </Sheet>
   )
 }
