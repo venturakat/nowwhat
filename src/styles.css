@@ -275,11 +275,11 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .idline { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08); color: inherit; }
 .idline:active { background: rgba(255,255,255,.14); }
 
-/* Taxes › Transfer details: label column, value column, Copy — lined up */
+/* Taxes › Transfer details: the name small on top, the value on one full-width line, a copy icon on the right */
 .copylist { display: flex; flex-direction: column; padding: 0 0 8px; }
-.copyrow { display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 12px; padding: 11px 20px; text-align: left; width: 100%; }
+.copyrow { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'k c' 'v c'; align-items: center; column-gap: 12px; row-gap: 2px; padding: 10px 20px; text-align: left; width: 100%; }
 .copyrow:active:not(:disabled) { background: var(--swatch); }
-.copyrow .k { font-size: 14px; color: var(--ink2); font-weight: 500; }
-.copyrow .v { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; } /* wraps at spaces first */
+.copyrow .k { grid-area: k; font-size: 13px; color: var(--ink2); font-weight: 500; }
+.copyrow .v { grid-area: v; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .copyrow:disabled .v { color: var(--ink2); font-weight: 400; }
-.copyrow .c { font-size: 14px; font-weight: 600; }
+.copyrow .c { grid-area: c; color: var(--ink2); display: flex; }

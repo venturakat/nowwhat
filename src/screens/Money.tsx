@@ -648,7 +648,7 @@ const Taxes = () => {
               <button key={label} className="copyrow" disabled={!value} onClick={() => value && copyText(value, `${label} copied`)}>
                 <span className="k">{label}</span>
                 <span className="v">{value ?? 'add in Settings'}</span>
-                {value && <span className="c">Copy</span>}
+                {value && <span className="c" aria-hidden><Icon.copy /></span>}
               </button>
             ))}
           </div>
