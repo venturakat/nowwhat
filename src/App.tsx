@@ -68,7 +68,14 @@ const useVisibleArea = () => {
     const onFocus = (e: FocusEvent) => { if ((e.target as HTMLElement).closest?.('.sheet')) { setTimeout(keepInView, 60); setTimeout(keepInView, 400) } }
     vv.addEventListener('resize', f); vv.addEventListener('scroll', f)
     document.addEventListener('focusin', onFocus)
-    return () => { vv.removeEventListener('resize', f); vv.removeEventListener('scroll', f); document.removeEventListener('focusin', onFocus) }
+    // tapping a chip or a colour in a sheet while typing keeps the keyboard up (no jump)
+    const keep = (e: Event) => {
+      const a = document.activeElement as HTMLElement | null
+      if (a?.matches('input, textarea') && a.closest('.sheet') && (e.target as HTMLElement).closest?.('.sheet .chip, .sheet .swatch')) e.preventDefault()
+    }
+    document.addEventListener('mousedown', keep)
+    document.addEventListener('pointerdown', keep)
+    return () => { vv.removeEventListener('resize', f); vv.removeEventListener('scroll', f); document.removeEventListener('focusin', onFocus); document.removeEventListener('mousedown', keep); document.removeEventListener('pointerdown', keep) }
   }, [])
   return v
 }

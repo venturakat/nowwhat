@@ -192,7 +192,7 @@ const TaskSheet = ({ id }: { id?: string }) => {
       <input className="input" autoFocus value={text} placeholder="What needs doing" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} />
       <div className="row" style={{ gap: 10 }}>
         {TASK_COLORS.map(([k, c]) => (
-          <button key={k} aria-label={k} onClick={() => setColor(k)} style={{ width: 34, height: 34, borderRadius: '50%', background: c, outline: color === k ? '2px solid var(--ink)' : 'none', outlineOffset: 3 }} />
+          <button key={k} aria-label={k} className="swatch" onClick={() => setColor(k)} style={{ width: 34, height: 34, borderRadius: '50%', background: c, outline: color === k ? '2px solid var(--ink)' : 'none', outlineOffset: 3 }} />
         ))}
       </div>
       <button className="btn full" disabled={!text.trim()} onClick={save}>Save</button>
