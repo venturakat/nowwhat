@@ -40,19 +40,21 @@ const TimerFab = () => {
 
 // the field you're typing in, inside a sheet: scroll the sheet so it sits above the keyboard.
 // A field with a fall-down list (.combo) goes near the top, so the list has room under it.
-const keepInView = () => {
+const keepInView = (smooth = true) => {
   const el = document.activeElement as HTMLElement | null
   const page = el?.closest<HTMLElement>('.sheet > .page.top')
   if (!el || !page || !el.matches('input, textarea')) return
   const box = (el.closest<HTMLElement>('.combo') ?? el).getBoundingClientRect()
   const view = page.getBoundingClientRect()
   const combo = !!el.closest('.combo')
-  const bottom = Math.min(view.bottom, window.visualViewport?.height ?? innerHeight) - 16
+  // the visible part of the screen, in the same coordinates as the boxes (the page may be panned up by the keyboard)
+  const vv = window.visualViewport
+  const bottom = Math.min(view.bottom, vv ? vv.offsetTop + vv.height : innerHeight) - 16
   let by = 0
   if (combo) by = box.top - (view.top + 12)
   else if (box.bottom > bottom) by = box.bottom - bottom
   else if (box.top < view.top + 8) by = box.top - view.top - 8
-  if (Math.abs(by) > 2) page.scrollBy({ top: by, behavior: 'smooth' })
+  if (Math.abs(by) > 2) page.scrollBy({ top: by, behavior: smooth ? 'smooth' : 'auto' })
 }
 
 // the part of the screen you can actually see — shrinks when the keyboard opens,
@@ -62,12 +64,15 @@ const useVisibleArea = () => {
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const f = () => { setV({ top: vv.offsetTop, h: vv.height }); requestAnimationFrame(keepInView) }
+    const f = () => { setV({ top: vv.offsetTop, h: vv.height }); requestAnimationFrame(() => keepInView()) }
     f()
     // the keyboard takes a moment to come up: check again once it has
-    const onFocus = (e: FocusEvent) => { if ((e.target as HTMLElement).closest?.('.sheet')) { setTimeout(keepInView, 60); setTimeout(keepInView, 400) } }
+    const onFocus = (e: FocusEvent) => { if ((e.target as HTMLElement).closest?.('.sheet')) { setTimeout(() => keepInView(), 60); setTimeout(() => keepInView(), 400) } }
     vv.addEventListener('resize', f); vv.addEventListener('scroll', f)
     document.addEventListener('focusin', onFocus)
+    // while typing, too: iOS shifts things as the text changes — put the field back above the keyboard
+    const onType = (e: Event) => { if ((e.target as HTMLElement).closest?.('.sheet')) requestAnimationFrame(() => keepInView(false)) }
+    document.addEventListener('input', onType)
     // tapping a chip or a colour in a sheet while typing keeps the keyboard up (no jump)
     const keep = (e: Event) => {
       const a = document.activeElement as HTMLElement | null
@@ -75,7 +80,7 @@ const useVisibleArea = () => {
     }
     document.addEventListener('mousedown', keep)
     document.addEventListener('pointerdown', keep)
-    return () => { vv.removeEventListener('resize', f); vv.removeEventListener('scroll', f); document.removeEventListener('focusin', onFocus); document.removeEventListener('mousedown', keep); document.removeEventListener('pointerdown', keep) }
+    return () => { vv.removeEventListener('resize', f); vv.removeEventListener('scroll', f); document.removeEventListener('focusin', onFocus); document.removeEventListener('input', onType); document.removeEventListener('mousedown', keep); document.removeEventListener('pointerdown', keep) }
   }, [])
   return v
 }
