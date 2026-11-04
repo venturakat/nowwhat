@@ -644,11 +644,19 @@ const Taxes = () => {
         ) : (
           <span className="t13" style={{ opacity: 0.7 }}>Add your NIP, REGON or PESEL in Settings › Taxes & accounts to copy it from here.</span>
         )}
+        {s.zusBasis ? (
+          // podstawa wymiaru składek ZUS
+          <button className="idline" style={{ marginTop: 0 }} onClick={() => copyText(bankAmount(s.zusBasis!), `Basis ${bankAmount(s.zusBasis!)} copied`)}>
+            <span className="t13" style={{ opacity: 0.7 }}>Basis</span>
+            <span className="t17 w5 grow" style={{ textAlign: 'left' }}>{bankAmount(s.zusBasis)}</span>
+            <span className="t13 w5">Copy</span>
+          </button>
+        ) : null}
         <span className="t13" style={{ opacity: 0.7 }}>Already in your budget for {fmtDay(payDate)}. Revenue {fmt(tx.revenue, true)} · <u onClick={() => editMonth(due)}>edit</u></span>
       </div>
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <div className="col"><span className="t14 w5 muted">Revenue {year} so far</span><span className="mid">{fmt(ytd)}</span></div>
+          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">Revenue {year} so far</span><span className="mid">{fmt(ytd)}</span></button>
           <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5 muted">avg / month</span><span className="t17" style={{ fontSize: 20 }}>{fmt(ytd / nonZero)}</span></div>
         </div>
         <div className="chart">

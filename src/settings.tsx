@@ -47,6 +47,7 @@ const TaxesCard = () => {
           { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
           { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
+          { key: 'zusBasis', label: 'ZUS contribution basis (podstawa wymiaru składek)', type: 'number' },
           { key: 'taxPayDay', label: 'I pay ZUS + PIT on day (puts it in the budget)', type: 'number', step: 1 },
           { key: 'taxDueDay', label: 'Official deadline, day', type: 'number', step: 1 },
           { key: 'zusAccount', label: 'ZUS account (rachunek składkowy)', type: 'text' },
@@ -59,7 +60,7 @@ const TaxesCard = () => {
         onSave={(v) => update((d) => {
           const { pitPct, ...rest } = v
           const clean = (x?: string) => x?.replace(/\s/g, '') || undefined // numbers without spaces, the way the transfer form wants them
-          d.settings = { ...d.settings, ...rest, nip: clean(v.nip), regon: clean(v.regon), pesel: clean(v.pesel), pitRate: (pitPct ?? 14) / 100 }
+          d.settings = { ...d.settings, ...rest, zusBasis: v.zusBasis || undefined, nip: clean(v.nip), regon: clean(v.regon), pesel: clean(v.pesel), pitRate: (pitPct ?? 14) / 100 }
         })}
       />
     )}>

@@ -39,6 +39,7 @@ export interface Settings {
   oficialArs?: number // dólar oficial (sell): pesos for 1 USD
   taxAccount?: string // mikrorachunek podatkowy
   zusAccount?: string // rachunek składkowy
+  zusBasis?: number // podstawa wymiaru składek ZUS (shown in Taxes as Basis, to copy)
   nip?: string
   regon?: string
   pesel?: string
