@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { addDays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
+import { addDays, taxLeftName, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtEur, fmtHours, fmtWeekday, hours, monthName, sessionPln, fmtSum, nextBuy, periodOf, prevMonth, sessionEur, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
@@ -28,10 +28,10 @@ const things = (st: State): Thing[] => {
   const pay = `${monthKey(t)}-${String(st.settings.taxPayDay ?? st.settings.taxDueDay).padStart(2, '0')}`
   const deadline = `${monthKey(t)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
   const dd = diffDays(t, pay)
-  if (!tx.paid && tx.total > 0 && dd <= 2 && t <= deadline)
-    out.push({ id: 'tax-' + pm, dot: C.money, title: 'Pay ZUS + PIT', meta: `For ${monthName(pm, true)} · ${dd > 0 ? (dd === 1 ? 'tomorrow' : `in ${dd} days`) : dd === 0 ? 'today' : `deadline ${fmtDay(deadline)}`}`, trail: fmt(tx.total), go: () => go('money', 'taxes') })
-  else if (!tx.paid && tx.total > 0 && t > deadline && diffDays(deadline, t) <= 10)
-    out.push({ id: 'tax-' + pm, dot: C.alert, title: 'Pay ZUS + PIT', meta: `For ${monthName(pm, true)} · late!`, trail: fmt(tx.total), go: () => go('money', 'taxes') })
+  if (!tx.paid && tx.left > 0 && dd <= 2 && t <= deadline)
+    out.push({ id: 'tax-' + pm, dot: C.money, title: `Pay ${taxLeftName(tx)}`, meta: `For ${monthName(pm, true)} · ${dd > 0 ? (dd === 1 ? 'tomorrow' : `in ${dd} days`) : dd === 0 ? 'today' : `deadline ${fmtDay(deadline)}`}`, trail: fmt(tx.left), go: () => go('money', 'taxes') })
+  else if (!tx.paid && tx.left > 0 && t > deadline && diffDays(deadline, t) <= 10)
+    out.push({ id: 'tax-' + pm, dot: C.alert, title: `Pay ${taxLeftName(tx)}`, meta: `For ${monthName(pm, true)} · late!`, trail: fmt(tx.left), go: () => go('money', 'taxes') })
   // credit payments due today / tomorrow
   for (const c of st.credits ?? []) {
     const n = creditStatus(c).next
@@ -139,8 +139,8 @@ export const Today = () => {
       <CookToday />
       <ShipmentLog />
       <BrainDump />
-      {tx.total > 0 && !tx.paid && diffDays(t, due) > 5 && (
-        <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: ZUS + PIT on {fmtDay(due)} · {fmt(tx.total)} · already in your budget</div>
+      {tx.left > 0 && !tx.paid && diffDays(t, due) > 5 && (
+        <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: {taxLeftName(tx)} on {fmtDay(due)} · {fmt(tx.left)} · already in your budget</div>
       )}
     </div>
   )

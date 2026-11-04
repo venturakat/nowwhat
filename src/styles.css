@@ -88,7 +88,7 @@ button { background: none; border: 0; padding: 0; cursor: pointer; text-align: l
 .btn:disabled { opacity: 0.4; }
 .dashed { border: 1.5px dashed var(--line); color: var(--ink2); background: transparent; }
 .link { font-size: 15px; font-weight: 600; color: var(--ink2); }
-.pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 100px; font-size: 13px; font-weight: 600; background: var(--money); color: var(--ink); }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 100px; font-size: 13px; font-weight: 600; background: var(--money); color: var(--ink); white-space: nowrap; flex: none; align-self: flex-start; }
 
 /* bar */
 .bar { height: 10px; border-radius: 5px; background: var(--card); overflow: hidden; }
@@ -272,5 +272,5 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .cal-tab.back { right: 0; border-radius: 14px 0 0 14px; position: absolute; }
 
 /* Taxes: the id used on tax transfers, tap to copy */
-.idline { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08); color: inherit; }
+.idline { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08); color: inherit; }
 .idline:active { background: rgba(255,255,255,.14); }

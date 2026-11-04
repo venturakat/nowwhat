@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
 import type { Currency, Session, State } from '../types'
 import {
-  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, sessionPln, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid
+  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toPln, fmtClock, fmtDay, fmtEur, fmtHours, hours, monthKey, sessionPln, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionEur, shiftPeriod, summarize, taxFor, today, uid,
+  setTaxPaid
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
@@ -617,16 +618,21 @@ const Taxes = () => {
       <div className="card dark" style={{ gap: 6 }}>
         <div className="between">
           <span className="t15 w5">{monthName(due, true)} · {inDays < 0 ? `${-inDays} days late` : `you pay ${fmtDay(payDate)} · deadline ${fmtDay(dueDate)}`}</span>
-          {tx.paid && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> paid</span>}
+          {(tx.zusPaid || tx.pitPaid) && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> {tx.paid ? 'paid' : tx.zusPaid ? 'ZUS paid' : 'PIT paid'}</span>}
         </div>
-        <div className="big" style={{ fontSize: 60 }}>{fmt(tx.total)}</div>
+        <div className="big" style={{ fontSize: 60 }}>{fmt(tx.paid ? tx.total : tx.left)}</div>
         <div className="parts" style={{ paddingTop: 6 }}>
-          <Quota label="ZUS (DRA + RCA)" amount={zus} on={pick === 'zus'} onPick={() => setPick('zus')} />
-          <Quota label="PIT-28" amount={tx.pit} on={pick === 'pit'} onPick={() => setPick('pit')} />
+          <Quota label="ZUS (DRA + RCA)" amount={zus} on={pick === 'zus'} paid={tx.zusPaid} onPick={() => setPick('zus')} />
+          <Quota label="PIT-28" amount={tx.pit} on={pick === 'pit'} paid={tx.pitPaid} onPick={() => setPick('pit')} />
         </div>
         <span className="t13" style={{ opacity: 0.7 }}>Tap to choose · hold to copy the amount</span>
         <div className="btn2" style={{ paddingTop: 4 }}>
-          <button className="btn money" onClick={() => update((d) => { d.taxMonths[due] = { ...(d.taxMonths[due] ?? {}), paid: !tx.paid } })}>{tx.paid ? 'Undo paid' : 'Mark as paid'}</button>
+          {(() => {
+            // marks the part that's chosen above (ZUS or PIT) — they're sometimes paid on different days
+            const done = pick === 'zus' ? tx.zusPaid : tx.pitPaid
+            const name = pick === 'zus' ? 'ZUS' : 'PIT'
+            return <button className="btn money" onClick={() => update((d) => setTaxPaid(d, due, pick, !done))}>{done ? `Undo ${name} paid` : `Mark ${name} paid`}</button>
+          })()}
           <button className="btn ghost" onClick={copyAccount}>Copy {pick === 'zus' ? 'ZUS' : 'PIT'} account</button>
         </div>
         {idKind && idNum ? (
@@ -678,7 +684,8 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
   const [rev, setRev] = useState(numText(r2(tx.revenue)))
   const [pit, setPit] = useState(numText(r2(tx.pit)))
   const [pitOwn, setPitOwn] = useState(tm?.pitOverride !== undefined)
-  const [paid, setPaid] = useState(!!tm?.paid)
+  const [zusPaid, setZusPaid] = useState(tx.zusPaid)
+  const [pitPaid, setPitPaid] = useState(tx.pitPaid)
   const calcPit = (r: number) => Math.max(0, r2(st.settings.pitRate * (r - 0.5 * tx.dra)))
   const revNum = parseNum(rev) ?? 0
   const pitNum = pitOwn ? parseNum(pit) ?? 0 : calcPit(revNum)
@@ -692,8 +699,8 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
         {pitOwn && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => { setPitOwn(false); setPit(numText(calcPit(revNum))) }}>Use the calculated amount</button>}
       </Field>
       <div className="seg">
-        <button className={'chip' + (paid ? ' on' : '')} onClick={() => setPaid(true)}>Paid</button>
-        <button className={'chip' + (!paid ? ' on' : '')} onClick={() => setPaid(false)}>Not paid</button>
+        <button className={'chip' + (zusPaid ? ' on' : '')} onClick={() => setZusPaid(!zusPaid)}>{zusPaid ? '✓ ' : ''}ZUS paid</button>
+        <button className={'chip' + (pitPaid ? ' on' : '')} onClick={() => setPitPaid(!pitPaid)}>{pitPaid ? '✓ ' : ''}PIT paid</button>
       </div>
       <div className="t14 muted">DRA {fmt(tx.dra, true)} · RCA {fmt(tx.rca, true)} · PIT {fmt(pitNum, true)} = <b>{fmt(r2(tx.dra + tx.rca + pitNum), true)}</b></div>
       <button className="btn full" onClick={() => {
@@ -702,7 +709,7 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
             ...(d.taxMonths[m] ?? {}),
             revenueOverride: Math.abs(revNum - fromIncome) < 0.005 ? undefined : revNum,
             pitOverride: pitOwn ? pitNum : undefined,
-            paid
+            paid: zusPaid && pitPaid, zusPaid: zusPaid || undefined, pitPaid: pitPaid || undefined
           }
         })
         closeSheet()
@@ -734,7 +741,7 @@ export const copyText = (text: string, msg: string) => {
 }
 
 // Tap = choose this quota, hold (~0.5 s) = copy its amount as 954,54
-const Quota = ({ label, amount, on, onPick }: { label: string; amount: number; on: boolean; onPick: () => void }) => {
+const Quota = ({ label, amount, on, paid, onPick }: { label: string; amount: number; on: boolean; paid?: boolean; onPick: () => void }) => {
   const [holding, setHolding] = useState(false)
   const start = useRef(0)
   const timer = useRef<number>()
@@ -760,8 +767,8 @@ const Quota = ({ label, amount, on, onPick }: { label: string; amount: number; o
       onPointerCancel={cancel}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <span className="t13 w5">{label}</span>
-      <span className="t17">{fmt(amount, true)}</span>
+      <span className="t13 w5">{label}{paid ? ' · paid' : ''}</span>
+      <span className="t17" style={paid ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{fmt(amount, true)}</span>
     </button>
   )
 }

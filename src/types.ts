@@ -118,7 +118,9 @@ export interface TaxMonth {
   draOverride?: number
   rcaOverride?: number
   pitOverride?: number
-  paid: boolean
+  paid: boolean // both paid
+  zusPaid?: boolean // paid on their own (it happens)
+  pitPaid?: boolean
 }
 
 export interface Supply {

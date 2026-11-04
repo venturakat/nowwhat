@@ -143,7 +143,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   if (due >= p.start && due <= p.end) {
     const forMonth = prevMonth(p.month)
     const tx = taxFor(st, forMonth)
-    if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${st.taxMonths[forMonth]?.paid ? 'paid' : 'pay ' + fmtDay(due)}`, kind: 'tax' })
+    if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${tx.paid ? 'paid' : tx.zusPaid ? 'ZUS paid · PIT ' + fmtDay(due) : tx.pitPaid ? 'PIT paid · ZUS ' + fmtDay(due) : 'pay ' + fmtDay(due)}`, kind: 'tax' })
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
   const localDay = (iso: string) => { const x = new Date(iso); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}` }
@@ -284,7 +284,19 @@ export const taxFor = (st: State, mk: string) => {
   const pit = tm?.pitOverride ?? Math.max(0, r2(s.pitRate * (revenue - 0.5 * dra)))
   // ZUS (DRA + RCA) is a fixed monthly amount, due whether or not there was revenue; only PIT depends on revenue
   const total = r2(dra + rca + pit)
-  return { revenue, dra, rca, pit, total, paid: !!tm?.paid, override: tm?.revenueOverride !== undefined }
+  const zusPaid = !!(tm?.paid || tm?.zusPaid), pitPaid = !!(tm?.paid || tm?.pitPaid)
+  const left = r2((zusPaid ? 0 : dra + rca) + (pitPaid ? 0 : pit)) // still to pay
+  return { revenue, dra, rca, pit, total, paid: zusPaid && pitPaid, zusPaid, pitPaid, left, override: tm?.revenueOverride !== undefined }
+}
+// what's still to pay, in words: 'ZUS + PIT', 'ZUS' or 'PIT'
+export const taxLeftName = (tx: { zusPaid: boolean; pitPaid: boolean }) => (tx.zusPaid ? 'PIT' : tx.pitPaid ? 'ZUS' : 'ZUS + PIT')
+// mark ZUS or PIT (or both) paid / not paid for a month
+export const setTaxPaid = (d: State, mk: string, part: 'zus' | 'pit' | 'both', on: boolean) => {
+  const tm = (d.taxMonths[mk] ??= { paid: false })
+  let z = !!(tm.paid || tm.zusPaid), p = !!(tm.paid || tm.pitPaid)
+  if (part !== 'pit') z = on
+  if (part !== 'zus') p = on
+  tm.zusPaid = z || undefined; tm.pitPaid = p || undefined; tm.paid = z && p
 }
 
 // ---------- work ----------
