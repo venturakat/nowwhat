@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { ClassRate, Course, Currency, PayCur } from '../types'
-import { addDays, classBatch, classPayIn, classRate, classRateKind, CUR_SIGN, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toPln, today, uid, weekdayName } from '../lib'
-import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, toast } from '../ui'
+import { addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, CUR_SIGN, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toPln, today, uid, weekdayName } from '../lib'
+import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, TimeRange, toast } from '../ui'
 import { refreshRates } from '../rates'
 import { copyText } from './Money'
 
@@ -88,20 +88,18 @@ const ClassBlock = ({ c }: { c: Course }) => {
 // every scheduled class of the month; tapping one cancels it (or brings it back)
 const MonthClasses = ({ c, month }: { c: Course; month: string }) => {
   const paid = new Set(c.pays.flatMap((p) => p.dates))
+  const away = movedAway(c)
   const all: string[] = []
   for (let d = `${month}-01`; d.startsWith(month); d = addDays(d, 1)) if (d >= c.since && (c.days.includes(new Date(d + 'T12:00:00').getDay()) || c.extra.includes(d))) all.push(d)
   return (
     <>
-      {all.map((d) => {
+      {all.filter((d) => !away.has(d)).map((d) => {
         const off = c.skips.includes(d)
         const isPaid = paid.has(d)
         return (
           <Row key={d} dot={isPaid ? C.ok : off ? C.line : C.money} done={off} title={fmtWeekday(d)}
-            meta={[c.time, c.extra.includes(d) && 'extra', isPaid ? 'paid' : off ? 'cancelled' : d < today() ? 'had it' : ''].filter(Boolean).join(' · ')}
-            onClick={isPaid ? undefined : () => editClass(c.id, (L) => {
-              if (L.extra.includes(d) && !off) L.extra = L.extra.filter((y) => y !== d)
-              else L.skips = off ? L.skips.filter((y) => y !== d) : [...L.skips, d]
-            })} />
+            meta={[classTime(c, d), c.moved?.[d] ? `moved from ${fmtDay(c.moved[d])}` : c.extra.includes(d) && 'extra', isPaid ? 'paid' : off ? 'cancelled' : d < today() ? 'had it' : ''].filter(Boolean).join(' · ')}
+            onClick={isPaid ? undefined : () => editClass(c.id, (L) => toggleClass(L, d))} />
         )
       })}
     </>
@@ -207,6 +205,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
   const [feeCur, setFeeCur] = useState<Currency>(c?.feeCurrency ?? 'PLN')
   const [days, setDays] = useState<number[]>(c?.days ?? [])
   const [time, setTime] = useState(c?.time ?? '')
+  const [endTime, setEndTime] = useState(c ? classEnd(c) ?? '' : '')
   const [payDay, setPayDay] = useState(String(c?.payDay ?? st.settings.splitDay))
   const [since, setSince] = useState(c?.since ?? today())
   const p = parseNum(price)
@@ -244,7 +243,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
           ))}
         </div>
       </Field>
-      <Field label="Time"><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
+      <TimeRange start={time} end={endTime} onChange={(a, b) => { setTime(a); setEndTime(b) }} />
       <Field label="I pay on day of the month"><input className="input" inputMode="numeric" value={payDay} onChange={(e) => setPayDay(e.target.value.replace(/\D/g, ''))} /></Field>
       {!c?.pays.length && <Field label="First class you haven’t paid for yet"><input className="input" type="date" value={since} onChange={(e) => setSince(e.target.value)} /></Field>}
       {p && !differs && cur !== 'PLN' ? <span className="t13 muted">About {fmt(toPln(st.settings, p, cur))} a class</span> : null}
@@ -255,7 +254,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
           const data = {
             name: name.trim(), price: p!, currency: cur, payIn: payIn === cur ? undefined : payIn, rate: payIn === cur ? undefined : rateNow,
             fee: parseNum(fee) || undefined, feeCurrency: parseNum(fee) ? feeCur : undefined,
-            days: [...days].sort(), time: time || undefined, payDay: Math.min(31, Math.max(1, Number(payDay) || d.settings.splitDay))
+            days: [...days].sort(), time: time || undefined, endTime: (time && endTime) || undefined, payDay: Math.min(31, Math.max(1, Number(payDay) || d.settings.splitDay))
           }
           const x = d.classes.find((y) => y.id === id)
           if (x) Object.assign(x, data, x.pays.length ? {} : { since })

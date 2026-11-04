@@ -430,6 +430,32 @@ export const classDates = (l: Course, from: string, to: string) => {
   for (const x of l.extra) if (x >= from && x <= to) out.add(x)
   return [...out].filter((d) => !l.skips.includes(d)).sort()
 }
+// a class's time on a day ('17:00–18:00'): its own time if it was changed, else the usual one
+export const classEnd = (c: Course) => c.endTime ?? (c.time ? addHours(c.time, 1) : undefined) // classes are an hour unless set
+export const classTime = (c: Course, d: string) => (c.times?.[d] ? timeSpan(c.times[d].start, c.times[d].end) : timeSpan(c.time, classEnd(c)))
+// dates of classes that were moved away (they don't show as cancelled where they used to be)
+export const movedAway = (c: Course) => new Set(Object.entries(c.moved ?? {}).filter(([to]) => c.extra.includes(to)).map(([, from]) => from))
+// cancel / bring back one class
+export const toggleClass = (L: Course, d: string) => {
+  const off = L.skips.includes(d)
+  if (L.extra.includes(d) && !off && !L.moved?.[d]) L.extra = L.extra.filter((y) => y !== d)
+  else L.skips = off ? L.skips.filter((y) => y !== d) : [...L.skips, d]
+}
+// move one class to another day and/or time (the weekly schedule stays as it is)
+export const rescheduleClass = (L: Course, d: string, to: string, start: string, end: string) => {
+  if (to !== d) {
+    const own = L.moved?.[d] ?? (L.extra.includes(d) ? undefined : d) // the class's own scheduled date (extras have none)
+    if (L.moved?.[d]) { delete L.moved[d]; L.extra = L.extra.filter((x) => x !== d) }
+    else if (L.extra.includes(d)) L.extra = L.extra.filter((x) => x !== d)
+    else L.skips = [...L.skips, d]
+    L.skips = L.skips.filter((x) => x !== to || x === own)
+    if (own && to === own) L.skips = L.skips.filter((x) => x !== own) // back on its own day
+    else { if (!L.extra.includes(to)) L.extra.push(to); if (own) (L.moved ??= {})[to] = own }
+    if (L.times?.[d]) delete L.times[d]
+  }
+  if (!start || (start === (L.time ?? '') && (end || '') === (classEnd(L) ?? ''))) { if (L.times) delete L.times[to] }
+  else (L.times ??= {})[to] = { start, end: end || undefined }
+}
 // the next batch to pay for: the unpaid classes in the month of the first unpaid one
 export const classBatch = (st: State, c: Course, t = today()) => {
   if (!c.price) return undefined

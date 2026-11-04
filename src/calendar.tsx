@@ -3,7 +3,7 @@ import { update, useSt } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
-  prevMonth, subDate, taxFor, timeSpan, today, uid
+  prevMonth, subDate, taxFor, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
@@ -85,12 +85,15 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     const dates = new Set<string>()
     for (let d = from < c.since ? c.since : from; d <= to; d = addDays(d, 1)) if (c.days.includes(parse(d).getDay())) dates.add(d)
     for (const x of c.extra) if (x >= from && x <= to && x >= c.since) dates.add(x)
+    const away = movedAway(c)
     for (const d of dates) {
+      if (away.has(d)) continue
       const off = c.skips.includes(d)
       out.push({
-        id: `cl-${c.id}-${d}`, date: d, title: c.name, time: c.time, dot: C.money, done: off, go: ['money', 'classes'],
-        meta: ['Class', c.extra.includes(d) ? 'extra' : '', off ? 'cancelled' : paid.has(d) ? 'paid' : ''].filter(Boolean).join(' · '),
-        toggle: paid.has(d) ? undefined : { on: !off, label: ['Cancel', 'Bring back'], run: () => update((s) => { const L = s.classes?.find((y) => y.id === c.id); if (!L) return; if (L.extra.includes(d) && !off) L.extra = L.extra.filter((y) => y !== d); else L.skips = off ? L.skips.filter((y) => y !== d) : [...L.skips, d] }) }
+        id: `cl-${c.id}-${d}`, date: d, title: c.name, time: classTime(c, d), dot: C.money, done: off, go: ['money', 'classes'],
+        meta: ['Class', c.moved?.[d] ? `moved from ${fmtDay(c.moved[d])}` : c.extra.includes(d) ? 'extra' : '', off ? 'cancelled' : paid.has(d) ? 'paid' : ''].filter(Boolean).join(' · '),
+        edit: off ? undefined : () => <ClassWhen id={c.id} date={d} />,
+        toggle: paid.has(d) ? undefined : { on: !off, label: ['Cancel', 'Bring back'], run: () => update((s) => { const L = s.classes?.find((y) => y.id === c.id); if (L) toggleClass(L, d) }) }
       })
     }
     const b = classBatch(st, c)
@@ -223,7 +226,7 @@ const AddSheet = ({ date }: { date: string }) => {
       <List>
         {opt('Appointment', 'Your own — not tied to any tab', () => pushSheet(<EventEdit date={date} />))}
         {opt('Delivery', 'Goes on the Shipment log', () => pushSheet(<ShipmentSheet eta={date} back={2} />))}
-        {classes.map((c) => opt(`Extra ${c.name} class`, c.time ? `At ${c.time}` : 'One extra class that day', () => {
+        {classes.map((c) => opt(`Extra ${c.name} class`, c.time ? `At ${timeSpan(c.time, classEnd(c))}` : 'One extra class that day', () => {
           update((d) => { const L = d.classes?.find((y) => y.id === c.id); if (!L) return; L.skips = L.skips.filter((y) => y !== date); if (!L.extra.includes(date)) L.extra.push(date) })
           popSheet(); toast(`Extra ${c.name} class on ${fmtDay(date)}`)
         }))}
@@ -247,6 +250,28 @@ const CareWhen = ({ id }: { id: string }) => {
       <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
       <button className="btn full" disabled={!d} onClick={() => { update((s) => { const y = s.selfcare?.find((z) => z.id === id); if (y) { y.next = d; y.time = time || undefined; y.endTime = (time && end) || undefined } }); popSheet() }}>Save</button>
       <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'selfcare') }}>Open in Selfcare</button>
+    </Sheet>
+  )
+}
+
+// one class: another day or time, just this once (the weekly schedule stays as it is)
+const ClassWhen = ({ id, date }: { id: string; date: string }) => {
+  const st = useSt()
+  const c = st.classes?.find((x) => x.id === id)
+  const [d, setD] = useState(date)
+  const [start, setStart] = useState(c?.times?.[date]?.start ?? c?.time ?? '')
+  const [end, setEnd] = useState(c?.times?.[date] ? c.times[date].end ?? '' : c ? classEnd(c) ?? '' : '')
+  if (!c) return null
+  const paid = c.pays.some((p) => p.dates.includes(date))
+  const own = c.moved?.[date]
+  return (
+    <Sheet title={c.name} onBack={popSheet}>
+      <span className="t15 muted">Just this class — the weekly schedule stays as it is.{paid ? ' It’s paid for already, so it keeps its date.' : ''}</span>
+      <Field label="Date"><input className="input" type="date" value={d} disabled={paid} onChange={(e) => setD(e.target.value || date)} /></Field>
+      <TimeRange start={start} end={end} onChange={(a, b) => { setStart(a); setEnd(b) }} />
+      {own && <button className="btn full soft" onClick={() => { setD(own); setStart(c.time ?? ''); setEnd(classEnd(c) ?? '') }}>Back to {fmtDay(own)}{c.time ? ` at ${c.time}` : ''}</button>}
+      <button className="btn full" onClick={() => { update((s) => { const L = s.classes?.find((y) => y.id === id); if (L) rescheduleClass(L, date, d, start, end) }); popSheet() }}>Save</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'classes') }}>Open Classes</button>
     </Sheet>
   )
 }
