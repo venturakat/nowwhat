@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { addHours } from './lib'
 import type { ClosetCat } from './types'
 
 // ---------- navigation / sheets / toast ----------
@@ -224,4 +225,15 @@ export const Field = ({ label, children }: { label: string; children: ReactNode 
 
 export const C = {
   money: 'var(--money)', supplies: 'var(--supplies)', home: 'var(--home)', closet: 'var(--closet)', work: 'var(--work)', alert: 'var(--alert)', warn: 'var(--warn)', ok: 'var(--ok)', ink: 'var(--ink)', line: 'var(--line)'
+}
+
+// Starts / Ends: the end follows the start (start + hours) until it's changed by hand
+export const TimeRange = ({ start, end, hours = 1, onChange }: { start: string; end: string; hours?: number; onChange: (start: string, end: string) => void }) => {
+  const [byHand, setByHand] = useState(!!end && !!start && end !== addHours(start, hours))
+  return (
+    <div className="row" style={{ gap: 8 }}>
+      <div style={{ flex: 1, minWidth: 0 }}><Field label="Starts"><input className="input" type="time" value={start} onChange={(e) => { const v = e.target.value; onChange(v, byHand && end ? end : v ? addHours(v, hours) : '') }} /></Field></div>
+      <div style={{ flex: 1, minWidth: 0 }}><Field label="Ends"><input className="input" type="time" value={end} onChange={(e) => { setByHand(!!e.target.value); onChange(start, e.target.value) }} /></Field></div>
+    </div>
+  )
 }

@@ -3,11 +3,11 @@ import { update, useSt } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
-  prevMonth, subDate, taxFor, today, uid
+  prevMonth, subDate, taxFor, timeSpan, today, uid
 } from './lib'
-import { addHours, MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
+import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
-import { C, Check, closeSheet, Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast, useUi, type Tab as UiTab } from './ui'
+import { C, Check, closeSheet, Field, Icon, List, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi, type Tab as UiTab } from './ui'
 import { ShipmentSheet } from './screens/Shipments'
 
 // Calendar (the icon next to Settings): your own appointments, plus whatever you chose in
@@ -63,7 +63,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
   const on = st.settings.calendar ?? {}
   const out: Item[] = []
   const t = today()
-  for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: e.time, meta: e.note, dot: C.ink, event: e })
+  for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.note, dot: C.ink, event: e })
   if (on.taxes) for (const mk of monthsIn(from, to)) {
     const forMonth = prevMonth(mk)
     const tx = taxFor(st, forMonth)
@@ -101,7 +101,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     for (const x of st.selfcare ?? []) {
       if (x.paused) continue
       const d = careNext(x, t)
-      if (d >= from && d <= to) out.push({ id: `care-${x.id}`, date: d, title: x.name, time: x.time, meta: x.next < t ? 'Selfcare · overdue' : 'Selfcare', dot: C.closet, go: ['money', 'selfcare'], edit: () => <CareWhen id={x.id} /> })
+      if (d >= from && d <= to) out.push({ id: `care-${x.id}`, date: d, title: x.name, time: timeSpan(x.time, x.endTime), meta: x.next < t ? 'Selfcare · overdue' : 'Selfcare', dot: C.closet, go: ['money', 'selfcare'], edit: () => <CareWhen id={x.id} /> })
     }
   }
   if (on.shopping) {
@@ -120,7 +120,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
       const d = plan?.date ?? r.date
       if (d < from || d > to) continue
       const title = `Shopping · ${CAT_LABEL[r.cat]}`
-      out.push({ id: 'shop-' + key, date: d, time: plan?.time, title, meta: r.names.slice(0, 3).join(', ') + (r.names.length > 3 ? ` +${r.names.length - 3}` : ''), dot: C.supplies, go: ['supplies', r.cat], edit: () => <ShopWhen k={key} planned={r.date} title={title} cat={r.cat} /> })
+      out.push({ id: 'shop-' + key, date: d, time: timeSpan(plan?.time, plan?.end), title, meta: r.names.slice(0, 3).join(', ') + (r.names.length > 3 ? ` +${r.names.length - 3}` : ''), dot: C.supplies, go: ['supplies', r.cat], edit: () => <ShopWhen k={key} planned={r.date} title={title} cat={r.cat} /> })
     }
   }
   if (on.deliveries) for (const x of st.shipments ?? []) {
@@ -131,7 +131,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
       toggle: { on: !!x.deliveredAt, run: () => update((s) => { const y = s.shipments?.find((z) => z.id === x.id); if (y) y.deliveredAt = y.deliveredAt ? undefined : today() }) }
     })
   }
-  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, time: o.start ? `${o.start}${o.end ? `–${o.end}` : ''}` : undefined, title: `${MODE_NAME[o.mode]} clean`, meta: o.sunday && o.sunday !== o.date ? `Cleaning · moved from ${fmtDay(o.sunday)}` : 'Cleaning', dot: C.home, go: ['home', 'cleaning'], edit: () => <CleanWhen occ={o} /> })
+  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, time: timeSpan(o.start, o.end), title: `${MODE_NAME[o.mode]} clean`, meta: o.sunday && o.sunday !== o.date ? `Cleaning · moved from ${fmtDay(o.sunday)}` : 'Cleaning', dot: C.home, go: ['home', 'cleaning'], edit: () => <CleanWhen occ={o} /> })
   return out.sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '99').localeCompare(b.time ?? '99') || a.title.localeCompare(b.title))
 }
 
@@ -238,15 +238,14 @@ const CareWhen = ({ id }: { id: string }) => {
   const x = st.selfcare?.find((y) => y.id === id)
   const [d, setD] = useState(x ? careNext(x) : today())
   const [time, setTime] = useState(x?.time ?? '')
+  const [end, setEnd] = useState(x?.endTime ?? '')
   if (!x) return null
   return (
     <Sheet title={x.name} onBack={popSheet}>
       <span className="t15 muted">Next time — changing it here changes it in Selfcare too.</span>
-      <div className="row" style={{ gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value)} /></Field></div>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Time"><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field></div>
-      </div>
-      <button className="btn full" disabled={!d} onClick={() => { update((s) => { const y = s.selfcare?.find((z) => z.id === id); if (y) { y.next = d; y.time = time || undefined } }); popSheet() }}>Save</button>
+      <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value)} /></Field>
+      <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
+      <button className="btn full" disabled={!d} onClick={() => { update((s) => { const y = s.selfcare?.find((z) => z.id === id); if (y) { y.next = d; y.time = time || undefined; y.endTime = (time && end) || undefined } }); popSheet() }}>Save</button>
       <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'selfcare') }}>Open in Selfcare</button>
     </Sheet>
   )
@@ -258,7 +257,6 @@ const CleanWhen = ({ occ }: { occ: Occurrence }) => {
   const [d, setD] = useState(occ.date)
   const [start, setStart] = useState(occ.start ?? '')
   const [end, setEnd] = useState(occ.end ?? '')
-  const [endSet, setEndSet] = useState(!!occ.end && !!occ.start && occ.end !== addHours(occ.start, hours)) // changed by hand: stop following the start
   const save = () => {
     moveOcc(occ, d)
     const key = occ.sunday ?? 'x-' + d
@@ -273,10 +271,7 @@ const CleanWhen = ({ occ }: { occ: Occurrence }) => {
     <Sheet title={`${MODE_NAME[occ.mode]} clean`} onBack={popSheet}>
       <span className="t15 muted">Just this clean — the Sunday rotation stays as it is. A {MODE_NAME[occ.mode]} clean takes about {hours} hours.</span>
       <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || occ.date)} /></Field>
-      <div className="row" style={{ gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Starts"><input className="input" type="time" value={start} onChange={(e) => { const v = e.target.value; setStart(v); if (!endSet) setEnd(v ? addHours(v, hours) : '') }} /></Field></div>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Ends"><input className="input" type="time" value={end} onChange={(e) => { setEnd(e.target.value); setEndSet(!!e.target.value) }} /></Field></div>
-      </div>
+      <TimeRange start={start} end={end} hours={hours} onChange={(a, b) => { setStart(a); setEnd(b) }} />
       {occ.sunday && occ.sunday !== occ.date && <button className="btn full soft" onClick={() => setD(occ.sunday!)}>Back to Sunday {fmtDay(occ.sunday)}</button>}
       <button className="btn full" onClick={save}>Save</button>
       <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'cleaning') }}>Open Cleaning</button>
@@ -290,23 +285,22 @@ const ShopWhen = ({ k, planned, title, cat }: { k: string; planned: string; titl
   const plan = st.shopPlans?.[k]
   const [d, setD] = useState(plan?.date ?? planned)
   const [time, setTime] = useState(plan?.time ?? '')
+  const [end, setEnd] = useState(plan?.end ?? '')
   const save = () => {
     update((s) => {
       const all = (s.shopPlans ??= {})
       for (const key of Object.keys(all)) if (key.split('|')[0] < addDays(today(), -31)) delete all[key] // old ones
       if (d === planned && !time) delete all[k]
-      else all[k] = { date: d, time: time || undefined }
+      else all[k] = { date: d, time: time || undefined, end: (time && end) || undefined }
     })
     popSheet()
   }
   return (
     <Sheet title={title} onBack={popSheet}>
       <span className="t15 muted">Planned for {fmtDay(planned)}. Moving it here is just for planning your day — Supplies stays as it is.</span>
-      <div className="row" style={{ gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || planned)} /></Field></div>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Time"><input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field></div>
-      </div>
-      {(d !== planned || time) && <button className="btn full soft" onClick={() => { setD(planned); setTime('') }}>Back to {fmtDay(planned)}, no time</button>}
+      <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || planned)} /></Field>
+      <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
+      {(d !== planned || time) && <button className="btn full soft" onClick={() => { setD(planned); setTime(''); setEnd('') }}>Back to {fmtDay(planned)}, no time</button>}
       <button className="btn full" onClick={save}>Save</button>
       <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('supplies', cat) }}>Open in Supplies</button>
     </Sheet>
@@ -321,6 +315,7 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
   const [title, setTitle] = useState(e?.title ?? '')
   const [d, setD] = useState(e?.date ?? date ?? today())
   const [time, setTime] = useState(e?.time ?? '')
+  const [end, setEnd] = useState(e?.end ?? '')
   const [repeat, setRepeat] = useState<CalEvent['repeat'] | ''>(e?.repeat ?? '')
   const [note, setNote] = useState(e?.note ?? '')
   const [armed, setArmed] = useState(false)
@@ -328,7 +323,7 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
     if (!title.trim() || !d) return
     update((s) => {
       s.events ??= []
-      const data = { title: title.trim(), date: d, time: time || undefined, repeat: repeat || undefined, note: note.trim() || undefined }
+      const data = { title: title.trim(), date: d, time: time || undefined, end: (time && end) || undefined, repeat: repeat || undefined, note: note.trim() || undefined }
       const x = s.events.find((y) => y.id === id)
       if (x) Object.assign(x, data)
       else s.events.push({ id: uid(), ...data })
@@ -339,10 +334,8 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
   return (
     <Sheet title={e ? 'Appointment' : 'New appointment'} onBack={popSheet}>
       <Field label="What"><input className="input" autoFocus={!e} value={title} placeholder="Dentist, call with Ana…" onChange={(x) => setTitle(x.target.value)} /></Field>
-      <div className="row" style={{ gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Date"><input className="input" type="date" value={d} onChange={(x) => setD(x.target.value)} /></Field></div>
-        <div style={{ flex: 1, minWidth: 0 }}><Field label="Time"><input className="input" type="time" value={time} onChange={(x) => setTime(x.target.value)} /></Field></div>
-      </div>
+      <Field label="Date"><input className="input" type="date" value={d} onChange={(x) => setD(x.target.value)} /></Field>
+      <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
       <Field label="Repeats">
         <div className="seg">{REPEATS.map(([k, l]) => <button key={l} type="button" className={'chip' + (repeat === k ? ' on' : '')} onClick={() => setRepeat(k)}>{l}</button>)}</div>
       </Field>

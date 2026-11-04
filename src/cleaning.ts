@@ -3,8 +3,7 @@ import { addDays, diffDays, parse, today, uid, ymd } from './lib'
 
 export const MODE_NAME: Record<CleanMode, string> = { 1: 'Light', 2: 'Regular', 3: 'Extra' }
 export const MODE_HOURS: Record<CleanMode, number> = { 1: 2, 2: 4, 3: 8 } // how long each kind of clean takes
-// '10:00' + 4 h -> '14:00' (stops at 23:59)
-export const addHours = (hhmm: string, h: number) => { const [a, b] = hhmm.split(':').map(Number); const m = Math.min(23 * 60 + 59, a * 60 + b + h * 60); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }
+export { addHours } from './lib'
 
 const LIGHT = ['Kitchen sink', 'Window boards', 'Table', 'Bedsheets change', 'Bedsheets laundry', 'Ironing', 'WC', 'Bathroom sink', 'Vacuuming', 'Floors', 'Towels laundry', 'Trash out']
 const REGULAR = ['Vacuuming', 'Rugs laundry', 'Showering plants', 'Dusting the kitchen', 'Kitchen surfaces', 'Kitchen sink', 'Window boards', 'Table', 'Mirrors', 'Lamps', 'Dusting the rooms', 'Bedsheets change', 'Bedsheets laundry', 'Baseboards', 'Ironing', 'WC', 'Litter boxes', 'Shower', 'Vanity area', 'Bathroom sink', 'Vacuuming extra', 'Floors', 'Towels laundry', 'Trash out']

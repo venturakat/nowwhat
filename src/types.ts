@@ -13,6 +13,7 @@ export interface CalEvent {
   title: string
   date: string // YYYY-MM-DD (first time, for repeating ones)
   time?: string // HH:MM
+  end?: string // HH:MM
   note?: string
   repeat?: 'week' | 'month' | 'year'
 }
@@ -254,6 +255,7 @@ export interface SelfCare {
   everyDays: number // days between two times
   next: string // YYYY-MM-DD, next planned time
   time?: string // HH:MM of the next time (set it when it's booked)
+  endTime?: string
   lastDone?: string
   details?: string // place, master, what exactly
   paused?: boolean
@@ -397,6 +399,6 @@ export interface State {
   planned: { date: string; itemIds: ID[] } | null
   trips?: Trip[]
   events?: CalEvent[] // own appointments in the calendar
-  shopPlans?: Record<string, { date: string; time?: string }> // calendar-only: a shopping run moved / timed for planning the day (key: planned date|category)
+  shopPlans?: Record<string, { date: string; time?: string; end?: string }> // calendar-only: a shopping run moved / timed for planning the day (key: planned date|category)
   dismissed: { date: string; ids: string[] }
 }

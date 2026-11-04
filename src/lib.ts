@@ -5,6 +5,10 @@ export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().to
 
 // ---------- dates (local, YYYY-MM-DD) ----------
 export const pad = (n: number) => String(n).padStart(2, '0')
+// '10:00' + 4 h -> '14:00' (stops at 23:59)
+export const addHours = (hhmm: string, h: number) => { const [a, b] = hhmm.split(':').map(Number); const m = Math.min(23 * 60 + 59, a * 60 + b + h * 60); return `${pad(Math.floor(m / 60))}:${pad(m % 60)}` }
+// '10:00–11:30', or just the start
+export const timeSpan = (start?: string, end?: string) => (start ? (end ? `${start}–${end}` : start) : undefined)
 export const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 export const parse = (s: string) => {
   const [y, m, d] = s.split('-').map(Number)
