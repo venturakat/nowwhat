@@ -596,8 +596,10 @@ const Taxes = () => {
   const ytd = past.reduce((a, b) => a + b, 0)
   const nonZero = past.filter((r) => r > 0).length || 1
   const max = Math.max(...revs, 1)
-  const after = nextMonth(due)
+  // the footer always speaks about this calendar month (its PIT is paid next month)
+  const after = curM
   const afterTx = taxFor(st, after)
+  const afterDue = `${nextMonth(curM)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
   const yearPit = months.reduce((a, m) => a + taxFor(st, m).pit, 0)
 
   const zus = r2(tx.dra + tx.rca)
@@ -667,18 +669,14 @@ const Taxes = () => {
         </div>
       </div>
       <List>
-        <Row dot={C.money} title={`${monthName(after, true)} cash flow`} meta={after > curM ? 'Grows as you invoice' : 'Revenue so far'} trail={`${fmt(afterTx.revenue)}${after > curM ? ' planned' : ''}`} onClick={() => editMonth(after)} />
+        <Row dot={C.money} title={`${monthName(after, true)} cash flow`} meta="Revenue so far · grows as you invoice" trail={fmt(afterTx.revenue)} onClick={() => editMonth(after)} />
         {/* what next month's PIT will roughly be, from the revenue counted so far (even before this month is paid) */}
-        <Row dot={C.money} title={`Estimated PIT-28 for ${monthName(after, true)}`} meta={`So far · to be paid before ${fmtDay(nextDue(dueDate))}`} trail={fmt(afterTx.pit)} onClick={() => editMonth(after)} />
+        <Row dot={C.money} title={`Estimated PIT-28 for ${monthName(after, true)}`} meta={`So far · to be paid by ${fmtDay(afterDue)}`} trail={fmt(afterTx.pit)} onClick={() => editMonth(after)} />
         <Row dot={C.money} title={`Annual PIT-28`} meta={`By 30 Apr ${Number(year) + 1} · ${fmt(yearPit)} paid monthly this year`} onClick={() => editMonth(curM)} />
       </List>
       <div className="t13 muted" style={{ padding: '0 4px' }}>PIT = {Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA). Tap any month to check or correct it. Rates are in Settings.</div>
     </>
   )
-}
-const nextDue = (d: string) => {
-  const [y, m, dd] = d.split('-').map(Number)
-  return m === 12 ? `${y + 1}-01-${String(dd).padStart(2, '0')}` : `${y}-${String(m + 1).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
 }
 
 const TaxMonthSheet = ({ m }: { m: string }) => {
