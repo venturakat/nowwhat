@@ -8,6 +8,7 @@ import { SpendSheet } from './Money'
 import { RecipeSheet } from './Recipes'
 import { ShipmentLog } from './Shipments'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
+import { tr, trn } from '../i18n'
 
 interface Thing { id: string; dot: string; title: string; meta: string; trail?: ReactNode; go: () => void }
 
@@ -19,24 +20,24 @@ const things = (st: State): Thing[] => {
   // (one-time buys are grouped with the projects' shopping below)
   const sup = st.supplies.filter((s) => !s.once && !s.paused).map((s) => ({ s, ...supplyStatus(s, st.settings) })).filter((x) => x.state !== 'ok').sort((a, b) => a.daysLeft - b.daysLeft)
   // meds come before everything else, as soon as it's time to buy them
-  const meds: Thing[] = sup.filter((x) => x.s.cat === 'meds').map(({ s, daysLeft }) => ({ id: 'sup-' + s.id, dot: daysLeft <= 2 ? C.alert : C.warn, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : `Runs out in ${daysLeft} days`} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', 'meds') }))
+  const meds: Thing[] = sup.filter((x) => x.s.cat === 'meds').map(({ s, daysLeft }) => ({ id: 'sup-' + s.id, dot: daysLeft <= 2 ? C.alert : C.warn, title: tr('Buy {x}', { x: s.name }), meta: `${daysLeft <= 0 ? tr('Ran out') : daysLeft === 1 ? tr('Runs out tomorrow') : trn(daysLeft, 'Runs out in {n} day', 'Runs out in {n} days')} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', 'meds') }))
   for (const { s, daysLeft } of sup.filter((x) => x.daysLeft <= 2 && x.s.cat !== 'meds'))
-    out.push({ id: 'sup-' + s.id, dot: daysLeft <= 0 ? C.alert : C.warn, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : 'Runs out in 2 days'} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', s.cat) })
+    out.push({ id: 'sup-' + s.id, dot: daysLeft <= 0 ? C.alert : C.warn, title: tr('Buy {x}', { x: s.name }), meta: `${daysLeft <= 0 ? tr('Ran out') : daysLeft === 1 ? tr('Runs out tomorrow') : trn(2, 'Runs out in {n} day', 'Runs out in {n} days')} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', s.cat) })
   // taxes: a reminder from 2 days before the pay day until the deadline, then "late!" for 10 days
   for (const x of [...taxPays(st, prevMonth(monthKey(t))), ...taxPays(st, monthKey(t))]) {
     if (x.paid || x.left <= 0) continue
     const dd = diffDays(t, x.pay)
     if (dd <= 2 && t <= x.due)
-      out.push({ id: `tax-${x.pay}`, dot: C.money, title: `Pay ${x.leftName}`, meta: `For ${x.forName} · ${dd > 0 ? (dd === 1 ? 'tomorrow' : `in ${dd} days`) : dd === 0 ? 'today' : `deadline ${fmtDay(x.due)}`}`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
+      out.push({ id: `tax-${x.pay}`, dot: C.money, title: tr('Pay {x}', { x: x.leftName }), meta: `${tr('For {x}', { x: x.forName })} · ${dd > 0 ? (dd === 1 ? tr('tomorrow') : trn(dd, 'in {n} day', 'in {n} days')) : dd === 0 ? tr('today') : tr('deadline {d}', { d: fmtDay(x.due) })}`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
     else if (t > x.due && diffDays(x.due, t) <= 10)
-      out.push({ id: `tax-${x.pay}`, dot: C.alert, title: `Pay ${x.leftName}`, meta: `For ${x.forName} · late!`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
+      out.push({ id: `tax-${x.pay}`, dot: C.alert, title: tr('Pay {x}', { x: x.leftName }), meta: `${tr('For {x}', { x: x.forName })} · ${tr('late!')}`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
   }
   // credit payments due today / tomorrow
   for (const c of st.credits ?? []) {
     const n = creditStatus(c).next
     if (!n) continue
     const dd = diffDays(t, n.date)
-    if (dd >= 0 && dd <= 1) out.push({ id: `credit-${c.id}-${n.date}`, dot: C.money, title: `Credit payment · ${c.name}`, meta: `${dd === 0 ? 'Due today' : 'Due tomorrow'} · payment ${n.n} of ${c.count}`, trail: fmtCur(n.amount, c.currency), go: () => go('money', 'credits') })
+    if (dd >= 0 && dd <= 1) out.push({ id: `credit-${c.id}-${n.date}`, dot: C.money, title: `${tr('Credit payment')} · ${c.name}`, meta: `${dd === 0 ? tr('Due today') : tr('Due tomorrow')} · ${tr('payment {n} of {m}', { n: n.n, m: c.count })}`, trail: fmtCur(n.amount, c.currency), go: () => go('money', 'credits') })
   }
   // clients: invoicing first (it's what gets the money moving), "paid yet?" checks go last
   const paidChecks: Thing[] = []
@@ -48,13 +49,13 @@ const things = (st: State): Thing[] => {
     if (unInv.length) {
       const h = unInv.reduce((a, s) => a + hours(s), 0)
       const jobs = unInv.filter((s) => s.fee !== undefined)
-      out.push({ id: 'inv-' + c.id, dot: C.work, title: `Invoice ${c.name}`,
-        meta: (c.kind ?? 'hourly') === 'hourly' ? `${fmtHours(h)} not invoiced yet` : `${jobs.map((s) => s.task).filter(Boolean).slice(0, 2).join(', ') || `${jobs.length} ${jobs.length === 1 ? 'payment' : 'payments'}`}${jobs.length > 2 ? '…' : ''} · not invoiced yet`,
+      out.push({ id: 'inv-' + c.id, dot: C.work, title: tr('Invoice {x}', { x: c.name }),
+        meta: (c.kind ?? 'hourly') === 'hourly' ? tr('{h} not invoiced yet', { h: fmtHours(h) }) : `${jobs.map((s) => s.task).filter(Boolean).slice(0, 2).join(', ') || trn(jobs.length, '{n} payment', '{n} payments')}${jobs.length > 2 ? '…' : ''} · ${tr('not invoiced yet')}`,
         trail: fmtSum(st, unInv), go: () => go('money', 'work') })
     }
     if (unpaid.length) {
       const since = unpaid.map((s) => s.invoiceDate ?? s.start.slice(0, 10)).sort()[0]
-      paidChecks.push({ id: 'paid-' + c.id, dot: C.work, title: `${c.name} paid yet?`, meta: `Invoiced · waiting since ${fmtDay(since)}`, trail: fmt(unpaid.reduce((a, s) => a + sessionMain(st, s), 0)), go: () => go('money', 'work') })
+      paidChecks.push({ id: 'paid-' + c.id, dot: C.work, title: tr('{x} paid yet?', { x: c.name }), meta: tr('Invoiced · waiting since {d}', { d: fmtDay(since) }), trail: fmt(unpaid.reduce((a, s) => a + sessionMain(st, s), 0)), go: () => go('money', 'work') })
     }
   }
   // cleaning
@@ -63,18 +64,18 @@ const things = (st: State): Thing[] => {
   if (cl?.due) {
     const pr = progress(st, cl.occ)
     const left = pr.tasks.length - pr.done.length
-    const day = cl.occ.date === t ? 'Today' : `Since ${fmtWeekday(cl.occ.date)}`
-    out.unshift({ id: 'clean-' + cl.occ.key, dot: C.home, title: `${MODE_NAME[cl.occ.mode]} clean`, meta: `${day} · ${left} of ${pr.tasks.length} steps left`, trail: '→', go: () => go('home', 'cleaning') })
+    const day = cl.occ.date === t ? tr('Today') : tr('Since {d}', { d: fmtWeekday(cl.occ.date) })
+    out.unshift({ id: 'clean-' + cl.occ.key, dot: C.home, title: tr(`${MODE_NAME[cl.occ.mode]} clean`), meta: `${day} · ${trn(left, '{n} of {m} step left', '{n} of {m} steps left', { m: pr.tasks.length })}`, trail: '→', go: () => go('home', 'cleaning') })
   }
   // supplies soon (not urgent)
   const soon = sup.filter((x) => x.daysLeft > 2 && x.s.cat !== 'meds')
-  if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s, st.settings), dot: C.supplies, title: `Shopping run · ${soon.length} ${soon.length === 1 ? 'thing' : 'things'}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · by ${fmtDay(soon[0].s.enoughUntil)}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
+  if (soon.length) out.push({ id: 'run-' + nextBuy(soon[0].s, st.settings), dot: C.supplies, title: `${tr('Shopping run')} · ${trn(soon.length, '{n} thing', '{n} things')}`, meta: `${soon.map((x) => x.s.name).slice(0, 3).join(', ')}${soon.length > 3 ? '…' : ''} · ${tr('by {d}', { d: fmtDay(soon[0].s.enoughUntil) })}`, trail: '→', go: () => go('supplies', soon[0].s.cat) })
   // one-off things to buy: one-time supplies (projects' "need to buy" items are among them)
   const onceBuys = st.supplies.filter((s) => s.once && !s.paused)
   const names = onceBuys.map((s) => s.name)
   if (names.length) {
     const sum = onceBuys.reduce((a, s) => a + s.pricePerUnit * s.buyQty, 0)
-    out.push({ id: 'tobuy-' + names.length, dot: C.home, title: `To buy · ${names.length} ${names.length === 1 ? 'thing' : 'things'}`, meta: `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''}`, trail: sum > 0 ? fmt(sum) : '→', go: () => go('supplies', onceBuys[0]?.cat ?? 'home') })
+    out.push({ id: 'tobuy-' + names.length, dot: C.home, title: `${tr('To buy')} · ${trn(names.length, '{n} thing', '{n} things')}`, meta: `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''}`, trail: sum > 0 ? fmt(sum) : '→', go: () => go('supplies', onceBuys[0]?.cat ?? 'home') })
   }
   // classes: from 3 days before the payment day
   // per class: no reminder (it's a regular planned expense); per month: the month's batch
@@ -82,12 +83,12 @@ const things = (st: State): Thing[] => {
     if (c.payEvery === 'class') continue
     const lb = classBatch(st, c)
     if (lb && t >= addDays(lb.due, -3))
-      out.push({ id: `lessons-${c.id}-${lb.due}`, dot: C.money, title: `Pay for ${c.name}`, meta: [`${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'}`, lb.paid !== undefined && classPayIn(c) !== st.settings.mainCur ? fmtPay(lb.paid, classPayIn(c)) : '', `${lb.due < t ? 'since' : 'by'} ${fmtDay(lb.due)}`].filter(Boolean).join(' · '), trail: fmt(lb.pln), go: () => go('money', 'classes') })
+      out.push({ id: `lessons-${c.id}-${lb.due}`, dot: C.money, title: tr('Pay for {x}', { x: c.name }), meta: [trn(lb.dates.length, '{n} class', '{n} classes'), lb.paid !== undefined && classPayIn(c) !== st.settings.mainCur ? fmtPay(lb.paid, classPayIn(c)) : '', tr(lb.due < t ? 'since {d}' : 'by {d}', { d: fmtDay(lb.due) })].filter(Boolean).join(' · '), trail: fmt(lb.pln), go: () => go('money', 'classes') })
   }
   // selfcare: from the day before until a week overdue
   for (const x of (st.selfcare ?? []).filter((x) => !x.paused)) {
     const n = diffDays(t, x.next)
-    if (n <= 1 && n >= -7) out.push({ id: `care-${x.id}-${x.next}`, dot: C.closet, title: x.name, meta: `Selfcare · ${n < 0 ? `${-n} ${n === -1 ? 'day' : 'days'} overdue` : n === 0 ? 'today' : 'tomorrow'}${x.time && n >= 0 ? ` at ${timeSpan(x.time, x.endTime)}` : ''}`, trail: fmtCur(x.price, x.currency), go: () => go('money', 'selfcare') })
+    if (n <= 1 && n >= -7) out.push({ id: `care-${x.id}-${x.next}`, dot: C.closet, title: x.name, meta: `${tr('Selfcare')} · ${n < 0 ? trn(-n, '{n} day overdue', '{n} days overdue') : n === 0 ? tr('today') : tr('tomorrow')}${x.time && n >= 0 ? ' ' + tr('at {t}', { t: timeSpan(x.time, x.endTime) ?? '' }) : ''}`, trail: fmtCur(x.price, x.currency), go: () => go('money', 'selfcare') })
   }
   out.push(...paidChecks)
   out.unshift(...meds)
@@ -109,28 +110,28 @@ export const Today = () => {
       <Header sub={fmtWeekday(t)} title={<Logo />} />
       {Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0 && (
         <button className="card money" style={{ gap: 6 }} onClick={() => openSettings()}>
-          <span className="t17">Fresh start</span>
-          <span className="t15">Have a backup file? Open Settings → Backup → Restore from backup. Or just start adding money in, clients and supplies.</span>
+          <span className="t17">{tr('Fresh start')}</span>
+          <span className="t15">{tr('Have a backup file? Open Settings → Backup → Restore from backup. Or just start adding money in, clients and supplies.')}</span>
         </button>
       )}
       <button className="card dark" style={{ gap: 6, paddingTop: 22, paddingBottom: 22 }} onClick={() => useUi.getState().go('money', 'budget')}>
-        <span className="t15 w5">You can spend today</span>
+        <span className="t15 w5">{tr('You can spend today')}</span>
         <span className="big" style={{ fontSize: fitSize(fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0)), 63.5, 8), color: s.perDay < 0 ? 'var(--alert)' : undefined }}>{fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0))}</span>
         <span className="t15">
           {s.daysLeft <= 1
-            ? `Last day of this fortnight${nextIncome ? ` · ${nextIncome.label.toLowerCase()} lands ${nextIncome.date === shiftDay(t) ? 'tomorrow' : fmtDay(nextIncome.date ?? nextP.info.start)}` : ''}`
-            : `${fmt(s.left)} left for ${s.daysLeft} days · ${s.perDay >= 0 ? 'on track' : 'over — go easy'}`}
+            ? `${tr('Last day of this fortnight')}${nextIncome ? ` · ${tr('{x} lands {d}', { x: nextIncome.label.toLowerCase(), d: nextIncome.date === shiftDay(t) ? tr('tomorrow') : fmtDay(nextIncome.date ?? nextP.info.start) })}` : ''}`
+            : `${trn(s.daysLeft, '{x} left for {n} day', '{x} left for {n} days', { x: fmt(s.left) })} · ${s.perDay >= 0 ? tr('on track') : tr('over — go easy')}`}
         </span>
       </button>
       <div className="list" style={{ paddingTop: 12, paddingBottom: 8 }}>
         <div className="list-h" style={{ paddingBottom: 4 }}>
-          <span className="t17">Reminders</span>
+          <span className="t17">{tr('Reminders')}</span>
         </div>
-        {top.length === 0 && <div className="list-empty">Nothing urgent. Rest counts too.</div>}
+        {top.length === 0 && <div className="list-empty">{tr('Nothing urgent. Rest counts too.')}</div>}
         {top.map((x) => (
           <div key={x.id} className="row" style={{ paddingRight: 8 }}>
             <div className="grow"><Row dot={x.dot} title={x.title} meta={x.meta} trail={x.trail} onClick={x.go} /></div>
-            <button aria-label="Not today" title="Not today" onClick={() => { dismissToday(x.id); toast('Moved off today') }} style={{ padding: 6, color: 'var(--ink2)' }}><Icon.x /></button>
+            <button aria-label={tr('Not today')} title={tr('Not today')} onClick={() => { dismissToday(x.id); toast(tr('Moved off today')) }} style={{ padding: 6, color: 'var(--ink2)' }}><Icon.x /></button>
           </div>
         ))}
       </div>
@@ -139,7 +140,7 @@ export const Today = () => {
       <ShipmentLog />
       <BrainDump />
       {nextTax && (
-        <div className="t14 muted" style={{ padding: '0 4px' }}>Coming up: {nextTax.leftName} on {fmtDay(nextTax.pay)} · {fmtTax(st.settings, nextTax.left)} · already in your budget</div>
+        <div className="t14 muted" style={{ padding: '0 4px' }}>{tr('Coming up: {x} on {d}', { x: nextTax.leftName, d: fmtDay(nextTax.pay) })} · {fmtTax(st.settings, nextTax.left)} · {tr('already in your budget')}</div>
       )}
     </div>
   )
@@ -160,13 +161,13 @@ const OtherTasks = () => {
   const toggle = (id: string) => update((d) => { const x = d.tasks?.find((y) => y.id === id); if (x) x.doneAt = x.doneAt ? undefined : today() })
   return (
     <div className="list">
-      <div className="list-h"><span className="t17">Parking lot</span></div>
+      <div className="list-h"><span className="t17">{tr('Parking lot')}</span></div>
       {[...open, ...done].map((x) => (
         <Row key={x.id} done={!!x.doneAt} title={x.text} dot={dotOf(x.color)} meta={x.date ? [fmtWeekday(x.date), timeSpan(x.time, x.end)].filter(Boolean).join(' · ') : undefined}
           trail={<span onClick={(e) => { e.stopPropagation(); toggle(x.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!x.doneAt} /></span>}
           onClick={() => openSheet(<TaskSheet id={x.id} />)} />
       ))}
-      <Row title={<span className="muted">+ Add a task</span>} onClick={() => openSheet(<TaskSheet />)} />
+      <Row title={<span className="muted">+ {tr('Add a task')}</span>} onClick={() => openSheet(<TaskSheet />)} />
     </div>
   )
 }
@@ -195,15 +196,15 @@ export const TaskSheet = ({ id, back, date }: { id?: string; back?: number; date
   }
   return (
     <Sheet title={x ? 'Task' : 'New task'} onBack={back ? popSheet : undefined}>
-      <input className="input" autoFocus={!x} value={text} placeholder="What needs doing" onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} />
+      <input className="input" autoFocus={!x} value={text} placeholder={tr('What needs doing')} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save() }} />
       <div className="row" style={{ gap: 10 }}>
         {TASK_COLORS.map(([k, c]) => (
           <button key={k} aria-label={k} className="swatch" onClick={() => setColor(k)} style={{ width: 34, height: 34, borderRadius: '50%', background: c, outline: color === k ? '2px solid var(--ink)' : 'none', outlineOffset: 3 }} />
         ))}
       </div>
       <button className="row" style={{ gap: 12, padding: '4px 0' }} onClick={() => setOnCal(!onCal)}>
-        <span className="t15 grow" style={{ textAlign: 'left' }}>Put it in the calendar</span>
-        <span className={'switch' + (onCal ? ' on' : '')} role="switch" aria-checked={onCal} aria-label="Put it in the calendar"><i /></span>
+        <span className="t15 grow" style={{ textAlign: 'left' }}>{tr('Put it in the calendar')}</span>
+        <span className={'switch' + (onCal ? ' on' : '')} role="switch" aria-checked={onCal} aria-label={tr('Put it in the calendar')}><i /></span>
       </button>
       {onCal && (
         <>
@@ -211,8 +212,8 @@ export const TaskSheet = ({ id, back, date }: { id?: string; back?: number; date
           <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
         </>
       )}
-      <button className="btn full" disabled={!text.trim()} onClick={save}>Save</button>
-      {x && <button className="btn full soft" onClick={() => { update((s) => { s.tasks = s.tasks!.filter((z) => z.id !== id) }); done() }}>Delete</button>}
+      <button className="btn full" disabled={!text.trim()} onClick={save}>{tr('Save')}</button>
+      {x && <button className="btn full soft" onClick={() => { update((s) => { s.tasks = s.tasks!.filter((z) => z.id !== id) }); done() }}>{tr('Delete')}</button>}
     </Sheet>
   )
 }
@@ -229,11 +230,11 @@ const CookToday = () => {
     .slice(0, 2)
   return (
     <div className="list">
-      <div className="list-h"><span className="t17">What to cook today</span></div>
-      {ready.length === 0 && <div className="list-empty">Nothing has everything at home right now.</div>}
+      <div className="list-h"><span className="t17">{tr('What to cook today')}</span></div>
+      {ready.length === 0 && <div className="list-empty">{tr('Nothing has everything at home right now.')}</div>}
       {ready.map((r) => (
         <Row key={r.id} dot={C.home} title={r.name}
-          meta={[r.minutes ? `${r.minutes} min` : '', 'all at home', r.lastCooked ? `cooked ${fmtDay(r.lastCooked)}` : ''].filter(Boolean).join(' · ')}
+          meta={[r.minutes ? tr('{n} min', { n: r.minutes }) : '', tr('all at home'), r.lastCooked ? tr('cooked {d}', { d: fmtDay(r.lastCooked) }) : ''].filter(Boolean).join(' · ')}
           trail="→" onClick={() => openSheet(<RecipeSheet id={r.id} />)} />
       ))}
     </div>
@@ -246,7 +247,7 @@ const BrainDump = () => {
   const notes = [...(st.notes ?? [])].sort((a, b) => b.at.localeCompare(a.at))
   return (
     <div className="list">
-      <div className="list-h"><span className="t17">Brain dump</span></div>
+      <div className="list-h"><span className="t17">{tr('Brain dump')}</span></div>
       {notes.map((n) => (
         <div key={n.id} className="row" style={{ alignItems: 'flex-start', paddingRight: 8 }}>
           <button className="note grow" onClick={() => openSheet(<NoteSheet id={n.id} />)}>
@@ -254,10 +255,10 @@ const BrainDump = () => {
             {n.text && <span className="note-text">{n.text}</span>}
             <span className="t13 muted">{fmtDay(localDay(n.at))}</span>
           </button>
-          <button aria-label="Delete note" onClick={() => { update((d) => { d.notes = d.notes!.filter((y) => y.id !== n.id) }); toast('Note deleted') }} style={{ padding: 6, marginTop: 6, color: 'var(--ink2)' }}><Icon.trash /></button>
+          <button aria-label={tr('Delete note')} onClick={() => { update((d) => { d.notes = d.notes!.filter((y) => y.id !== n.id) }); toast(tr('Note deleted')) }} style={{ padding: 6, marginTop: 6, color: 'var(--ink2)' }}><Icon.trash /></button>
         </div>
       ))}
-      <Row title={<span className="muted">+ Add a note</span>} onClick={() => openSheet(<NoteSheet />)} />
+      <Row title={<span className="muted">+ {tr('Add a note')}</span>} onClick={() => openSheet(<NoteSheet />)} />
     </div>
   )
 }
@@ -290,16 +291,16 @@ const NoteSheet = ({ id }: { id?: string }) => {
   return (
     <Sheet full={!!n} title={editing
       // the title is typed right into the header; empty = just "Note"
-      ? <input value={title} placeholder={n ? 'Note' : 'New note'} onChange={(e) => setTitle(e.target.value)} aria-label="Title" style={{ font: 'inherit', letterSpacing: 'inherit', color: 'inherit', background: 'none', border: 0, outline: 'none', padding: 0, width: '100%' }} />
-      : n?.title || 'Note'} actions={
+      ? <input value={title} placeholder={tr(n ? 'Note' : 'New note')} onChange={(e) => setTitle(e.target.value)} aria-label={tr('Title')} style={{ font: 'inherit', letterSpacing: 'inherit', color: 'inherit', background: 'none', border: 0, outline: 'none', padding: 0, width: '100%' }} />
+      : n?.title || tr('Note')} actions={
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-        {n && <button aria-label="Edit" style={round('#E3D2FF', !editing)} onClick={() => setEditing(true)}><Icon.edit /></button>}
-        <button aria-label="Save" style={round('#D6EE7A', editing && filled)} onClick={save}><Icon.check color="#1d1d1f" size={20} /></button>
+        {n && <button aria-label={tr('Edit')} style={round('#E3D2FF', !editing)} onClick={() => setEditing(true)}><Icon.edit /></button>}
+        <button aria-label={tr('Save')} style={round('#D6EE7A', editing && filled)} onClick={save}><Icon.check color="#1d1d1f" size={20} /></button>
       </div>
     }>
       {editing
         ? <>
-            <textarea className="input" autoFocus={!n} rows={11} value={text} placeholder="Whatever’s on your mind" onChange={(e) => setText(e.target.value)} style={{ resize: 'none', minHeight: 'calc(min(52vh, 420px) - 3 * 1.35em)', lineHeight: 1.35 }} />
+            <textarea className="input" autoFocus={!n} rows={11} value={text} placeholder={tr('Whatever’s on your mind')} onChange={(e) => setText(e.target.value)} style={{ resize: 'none', minHeight: 'calc(min(52vh, 420px) - 3 * 1.35em)', lineHeight: 1.35 }} />
           </>
         : n && <div style={{ padding: '4px 0 12px' }}>
             <div className="t13 muted">{fmtWeekday(localDay(n.at))}</div>

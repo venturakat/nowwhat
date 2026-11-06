@@ -1,3 +1,4 @@
+import { getLang, resolveLang, setLang } from './i18n'
 import { create } from 'zustand'
 import { get as idbGet, set as idbSet } from 'idb-keyval'
 import type { BudgetItem, State } from './types'
@@ -171,6 +172,9 @@ export const hydrate = async () => {
 
 // fmt() and friends show the main currency
 useStore.subscribe((s) => setMainCur(s.st.settings.mainCur))
+// the app's language: Settings › Language, or the phone's
+setLang(resolveLang())
+useStore.subscribe((s) => { const l = resolveLang(s.st.settings.lang); if (l !== getLang()) setLang(l) })
 
 export const useSt = () => useStore((s) => s.st)
 export const update = (recipe: (d: State) => void) => useStore.getState().update(recipe)

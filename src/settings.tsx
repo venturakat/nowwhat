@@ -7,36 +7,50 @@ import { blueFits, OFFICIAL, refreshRates } from './rates'
 import { uid, fmtCur, allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
 import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule } from './types'
 import { LAG_NAME, defaultPayDay, applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
-import { tr } from './i18n'
+import { LANGS, tr } from './i18n'
 
 export const SettingsSheet = () => {
   return (
     <Sheet title="Settings" full>
+      <LanguageCard />
       <CurrenciesCard />
       <TaxesCard />
       <DaysCard />
       <AboutCard />
       <TravelCard />
       <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<BackupSheet />)}>
-        <span className="t17">Backup</span>
-        <span className="t14 muted">Save a backup file, restore one, or start fresh</span>
+        <span className="t17">{tr('Backup')}</span>
+        <span className="t14 muted">{tr('Save a backup file, restore one, or start fresh')}</span>
       </button>
     </Sheet>
+  )
+}
+
+// Settings › Language: follows the phone unless one is picked
+const LanguageCard = () => {
+  const pick = useSt().settings.lang ?? 'auto'
+  return (
+    <div className="card" style={{ gap: 10 }}>
+      <span className="t17">{tr('Language')}</span>
+      <div className="seg">
+        {LANGS.map(([k, l]) => <button key={k} type="button" className={'chip' + (pick === k ? ' on' : '')} onClick={() => update((d) => { d.settings.lang = k === 'auto' ? undefined : k })}>{k === 'auto' ? tr(l) : l}</button>)}
+      </div>
+    </div>
   )
 }
 
 // backup lives on its own page, so "Erase everything" can't be tapped by accident from the main menu
 const BackupSheet = () => (
   <Sheet title="Backup" full onBack={popSheet}>
-    <span className="t15 muted">Everything lives only on this phone. Save a backup file now and then (e.g. to iCloud Drive).</span>
-    <button className="btn" onClick={exportJson}>Save backup file</button>
+    <span className="t15 muted">{tr('Everything lives only on this phone. Save a backup file now and then (e.g. to iCloud Drive).')}</span>
+    <button className="btn" onClick={exportJson}>{tr('Save backup file')}</button>
     <label className="btn soft" style={{ cursor: 'pointer' }}>
-      Restore from backup
-      <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { await importJson(f); toast('Restored') } catch { toast('That file is not a backup') } }} />
+      {tr('Restore from backup')}
+      <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; try { await importJson(f); toast(tr('Restored')) } catch { toast(tr('That file is not a backup')) } }} />
     </label>
     <div style={{ marginTop: 'auto', paddingTop: 32, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <span className="t13 muted">Removes all your data from this phone. Save a backup first if you need it.</span>
-      <button className="btn soft" style={{ color: 'var(--alert)' }} onClick={() => { if (confirm('Erase everything on this phone and start fresh? This can’t be undone.')) { useStore.getState().replace(seed()); toast('Fresh start') } }}>Erase everything</button>
+      <span className="t13 muted">{tr('Removes all your data from this phone. Save a backup first if you need it.')}</span>
+      <button className="btn soft" style={{ color: 'var(--alert)' }} onClick={() => { if (confirm(tr('Erase everything on this phone and start fresh? This can’t be undone.'))) { const lang = useStore.getState().st.settings.lang; const s = seed(); s.settings.lang = lang; useStore.getState().replace(s); toast(tr('Fresh start')) } }}>{tr('Erase everything')}</button>
     </div>
   </Sheet>
 )
@@ -68,8 +82,8 @@ const TaxesSheet = () => {
           {PRESETS.map((p) => (
             <button key={p.key} type="button" className="chip" style={armed === p.key ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
               if (armed !== p.key) { setArmed(p.key); setTimeout(() => setArmed((a) => (a === p.key ? null : a)), 3000); return }
-              update((d) => applyPreset(d, p.key)); setArmed(null); toast(tr('Started from {x}', { x: p.name }))
-            }}>{armed === p.key ? tr('Replace lines') : p.name}</button>
+              update((d) => applyPreset(d, p.key)); setArmed(null); toast(tr('Started from {x}', { x: tr(p.name) }))
+            }}>{armed === p.key ? tr('Replace lines') : tr(p.name)}</button>
           ))}
         </div>
       </Field>
@@ -170,15 +184,15 @@ const AboutCard = () => {
         fields={[
           { key: 'age', label: 'Age', type: 'number', step: 1 },
           { key: 'weightKg', label: 'Weight (kg)', type: 'number' },
-          { key: 'activity', label: 'Activity', type: 'select', options: [['low', 'Mostly sitting'], ['light', 'Light'], ['active', 'Active'], ['very', 'Very active']] },
-          { key: 'proteinGoal', label: 'Protein goal (g a day)', type: 'number', step: 1, placeholder: (v) => { const a = autoProtein(parseNum(v.weightKg), v.activity, parseNum(v.age)); return a ? `${a} — from your weight and activity` : 'Add your weight to work it out' } }
+          { key: 'activity', label: 'Activity', type: 'select', options: [['low', 'Mostly sitting'], ['light', 'Light activity'], ['active', 'Active'], ['very', 'Very active']] },
+          { key: 'proteinGoal', label: 'Protein goal (g a day)', type: 'number', step: 1, placeholder: (v) => { const a = autoProtein(parseNum(v.weightKg), v.activity, parseNum(v.age)); return a ? tr('{n} — from your weight and activity', { n: a }) : tr('Add your weight to work it out') } }
         ]}
-        extra={<span className="t13 muted">Recipes show how much of your daily protein and fiber one portion covers. Protein goal left empty = worked out from your weight: 0.83 g per kg when mostly sitting or no activity chosen (the official minimum), 1.0 light, 1.3 active, 1.6 very active (at least 1.0 from 65). Fiber: 25 g a day (EFSA). A general guide, not medical advice. Stays on this phone.</span>}
+        extra={<span className="t13 muted">{tr('Recipes show how much of your daily protein and fiber one portion covers. Protein goal left empty = worked out from your weight: 0.83 g per kg when mostly sitting or no activity chosen (the official minimum), 1.0 light, 1.3 active, 1.6 very active (at least 1.0 from 65). Fiber: 25 g a day (EFSA). A general guide, not medical advice. Stays on this phone.')}</span>}
         onSave={(v) => update((d) => { d.settings = { ...d.settings, age: v.age || undefined, weightKg: v.weightKg || undefined, activity: v.activity, proteinGoal: v.proteinGoal || undefined } })}
       />
     )}>
-      <span className="t17">About you</span>
-      <span className="t14 muted">{s.weightKg || s.proteinGoal ? [s.age ? `${s.age} y` : '', s.weightKg ? `${s.weightKg} kg` : '', s.activity ? { low: 'mostly sitting', light: 'light activity', active: 'active', very: 'very active' }[s.activity] : '', dailyNeeds(s) ? `protein ${dailyNeeds(s)!.protein} g a day` : ''].filter(Boolean).join(' · ') : 'Age, weight, activity, protein goal — for recipes'}</span>
+      <span className="t17">{tr('About you')}</span>
+      <span className="t14 muted">{s.weightKg || s.proteinGoal ? [s.age ? tr('{n} y', { n: s.age }) : '', s.weightKg ? tr('{n} kg', { n: s.weightKg }) : '', s.activity ? tr({ low: 'mostly sitting', light: 'light activity', active: 'active', very: 'very active' }[s.activity]) : '', dailyNeeds(s) ? tr('protein {n} g a day', { n: dailyNeeds(s)!.protein }) : ''].filter(Boolean).join(' · ') : tr('Age, weight, activity, protein goal — for recipes')}</span>
     </button>
   )
 }
@@ -188,8 +202,8 @@ const TravelCard = () => {
   const all = travelUsual(st.settings)
   return (
     <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<TravelSheet />)}>
-      <span className="t17">Travel necessities</span>
-      <span className="t14 muted">{all.length ? all.slice(0, 4).join(', ') + (all.length > 4 ? ` and ${all.length - 4} more` : '') : 'What you always take — offered on packing lists'}</span>
+      <span className="t17">{tr('Travel necessities')}</span>
+      <span className="t14 muted">{all.length ? all.slice(0, 4).join(', ') + (all.length > 4 ? ' ' + tr('and {n} more', { n: all.length - 4 }) : '') : tr('What you always take — offered on packing lists')}</span>
     </button>
   )
 }
@@ -208,19 +222,19 @@ const TravelSheet = () => {
   }
   return (
     <Sheet title="Travel necessities" full onBack={popSheet}>
-      <span className="t15 muted">Offered in the Other field of every packing list — pick them instead of remembering. Each one hides once it’s on that list.</span>
+      <span className="t15 muted">{tr('Offered in the Other field of every packing list — pick them instead of remembering. Each one hides once it’s on that list.')}</span>
       <List empty="Nothing yet — add what you always take.">
         {all.map((x) => (
           <div key={x} className="lrow" style={{ paddingTop: 9, paddingBottom: 9 }}>
             <span className="grow"><div className="title">{x}</div></span>
-            <button aria-label={`Remove ${x}`} className="muted" style={{ display: 'flex', padding: 4, margin: -4 }} onClick={() => set(all.filter((y) => y !== x))}><Icon.x /></button>
+            <button aria-label={tr('Remove {x}', { x })} className="muted" style={{ display: 'flex', padding: 4, margin: -4 }} onClick={() => set(all.filter((y) => y !== x))}><Icon.x /></button>
           </div>
         ))}
       </List>
       <div className="row" style={{ gap: 8 }}>
-        <input className="input" style={{ flex: 1, minWidth: 0 }} value={text} placeholder="Sunglasses, adapter…" enterKeyHint="done"
+        <input className="input" style={{ flex: 1, minWidth: 0 }} value={text} placeholder={tr('Sunglasses, adapter…')} enterKeyHint="done"
           onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add() }} />
-        <button className="btn" disabled={!text.trim()} onClick={add}>Add</button>
+        <button className="btn" disabled={!text.trim()} onClick={add}>{tr('Add')}</button>
       </div>
     </Sheet>
   )
@@ -239,8 +253,8 @@ const DaysCard = () => {
         onSave={(v) => update((d) => { d.settings = { ...d.settings, ...v } })}
       />
     )}>
-      <span className="t17">Budget & shopping days</span>
-      <span className="t14 muted">When the second fortnight starts, how early to restock supplies</span>
+      <span className="t17">{tr('Budget & shopping days')}</span>
+      <span className="t14 muted">{tr('When the second fortnight starts, how early to restock supplies')}</span>
     </button>
   )
 }
@@ -251,8 +265,8 @@ const CurrenciesCard = () => {
   const s = useSt().settings
   return (
     <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<CurrenciesSheet />)}>
-      <span className="t17">Currencies</span>
-      <span className="t14 muted">Main: {curName(s.mainCur)}{s.curs.length ? ` · also ${s.curs.map(curSign).join(', ')}` : ''}</span>
+      <span className="t17">{tr('Currencies')}</span>
+      <span className="t14 muted">{tr('Main: {x}', { x: curName(s.mainCur) })}{s.curs.length ? ` · ${tr('also {x}', { x: s.curs.map(curSign).join(', ') })}` : ''}</span>
     </button>
   )
 }
@@ -264,33 +278,33 @@ const CurrenciesSheet = () => {
   const s = st.settings
   const [busy, setBusy] = useState(false)
   const at = s.ratesAt ? new Date(s.ratesAt) : null
-  const when = at ? `${fmtDay(at.toISOString().slice(0, 10))}, ${at.toTimeString().slice(0, 5)}` : 'not yet'
+  const when = at ? `${fmtDay(at.toISOString().slice(0, 10))}, ${at.toTimeString().slice(0, 5)}` : tr('not yet')
   const src = (c: string) => s.rateSrc?.[c] ?? 'market'
   return (
     <Sheet title="Currencies" full onBack={popSheet}>
       <Field label="Main currency">
         <button className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: '14px 16px' }} onClick={() => pushSheet(<CurPicker main />)}>
           <span className="t17 grow" style={{ textAlign: 'left' }}>{curSign(s.mainCur)} · {curName(s.mainCur)}</span>
-          <span className="t14 muted">Change</span>
+          <span className="t14 muted">{tr('Change')}</span>
         </button>
-        <span className="t13 muted">Totals, the budget and per-day money are shown in it. Everything keeps its own currency.</span>
+        <span className="t13 muted">{tr('Totals, the budget and per-day money are shown in it. Everything keeps its own currency.')}</span>
       </Field>
       <List title="Other currencies">
         {s.curs.map((c) => (
           <Row key={c} title={`${curSign(c)} · ${curName(c)}`}
-            meta={src(c) === 'manual' ? 'typed in' : src(c) === 'blue' ? 'dólar blue' : `${src(c) === 'official' ? OFFICIAL[s.mainCur] ?? 'official' : 'market'}${s.rateNote?.[c] && src(c) !== 'manual' && s.rateNote[c] !== 'market' ? ' · ' + s.rateNote[c] : ''}`}
+            meta={src(c) === 'manual' ? tr('typed in') : src(c) === 'blue' ? 'dólar blue' : `${src(c) === 'official' ? OFFICIAL[s.mainCur] ?? tr('official') : tr('market')}${s.rateNote?.[c] && src(c) !== 'manual' && s.rateNote[c] !== 'market' ? ' · ' + tr(s.rateNote[c]) : ''}`}
             trail={<span className="t15">{fmtRate(s.rates[c])} {curSign(s.mainCur)}</span>}
             onClick={() => pushSheet(<CurSheet c={c} />)} />
         ))}
-        <Row title={<span className="muted">+ Add currency</span>} onClick={() => pushSheet(<CurPicker />)} />
+        <Row title={<span className="muted">+ {tr('Add currency')}</span>} onClick={() => pushSheet(<CurPicker />)} />
       </List>
-      <span className="t13 muted" style={{ padding: '0 4px' }}>Rates: how much {curSign(s.mainCur)} one unit is worth. Updated {when}. Past amounts keep the rate of their day.</span>
+      <span className="t13 muted" style={{ padding: '0 4px' }}>{tr('Rates: how much {x} one unit is worth. Updated {when}. Past amounts keep the rate of their day.', { x: curSign(s.mainCur), when })}</span>
       <button className="btn soft" disabled={busy} onClick={async () => {
         setBusy(true)
         const ok = await refreshRates(true).catch(() => false)
         setBusy(false)
-        toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones')
-      }}>{busy ? 'Updating…' : 'Update now'}</button>
+        toast(tr(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones'))
+      }}>{tr(busy ? 'Updating…' : 'Update now')}</button>
     </Sheet>
   )
 }
@@ -303,7 +317,7 @@ const CurSheet = ({ c }: { c: string }) => {
   const [rate, setRate] = useState(numText(s.rates[c]))
   const [armed, setArmed] = useState(false)
   const off = OFFICIAL[s.mainCur]
-  const opts: [RateSrc, string][] = [['market', 'Market'], ...(off ? [['official', `Official · ${off}`] as [RateSrc, string]] : []), ...(blueFits(s.mainCur, c) ? [['blue', 'Dólar blue'] as [RateSrc, string]] : []), ['manual', 'Type it in']]
+  const opts: [RateSrc, string][] = [['market', tr('Market')], ...(off ? [['official', `${tr('Official')} · ${off}`] as [RateSrc, string]] : []), ...(blueFits(s.mainCur, c) ? [['blue', 'Dólar blue'] as [RateSrc, string]] : []), ['manual', tr('Type it in')]]
   const used = usedCurs({ ...st, settings: { ...s, curs: [] } }).includes(c)
   return (
     <Sheet title={`${curSign(c)} · ${curName(c)}`} full onBack={popSheet}>
@@ -311,8 +325,8 @@ const CurSheet = ({ c }: { c: string }) => {
         <div className="seg">{opts.map(([k, l]) => <button key={k} type="button" className={'chip' + (srcNow === k ? ' on' : '')} onClick={() => setSrc(k)}>{l}</button>)}</div>
       </Field>
       {srcNow === 'manual'
-        ? <Field label={`1 ${curSign(c)} in ${curSign(s.mainCur)}`}><input className="input" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
-        : <span className="t14 muted">Now 1 {curSign(c)} = {fmtRate(s.rates[c])} {curSign(s.mainCur)}. {srcNow === 'official' ? `${off}’s rate, the one used in accounting.` : srcNow === 'blue' ? 'The street rate (sell), from DolarApi.' : 'Mid-market, updated a few times a day.'}</span>}
+        ? <Field label={tr('1 {a} in {b}', { a: curSign(c), b: curSign(s.mainCur) })}><input className="input" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
+        : <span className="t14 muted">{tr('Now')} 1 {curSign(c)} = {fmtRate(s.rates[c])} {curSign(s.mainCur)}. {srcNow === 'official' ? tr('{x}’s rate, the one used in accounting.', { x: off ?? '' }) : srcNow === 'blue' ? tr('The street rate (sell), from DolarApi.') : tr('Mid-market, updated a few times a day.')}</span>}
       <button className="btn full" disabled={srcNow === 'manual' && !parseNum(rate)} onClick={() => {
         update((d) => {
           d.settings.rateSrc = { ...(d.settings.rateSrc ?? {}), [c]: srcNow }
@@ -320,12 +334,12 @@ const CurSheet = ({ c }: { c: string }) => {
         })
         popSheet()
         if (srcNow !== 'manual') refreshRates(true).catch(() => {})
-      }}>Save</button>
+      }}>{tr('Save')}</button>
       <button className={'btn full ' + (armed ? 'ghost' : 'soft')} style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
-        if (!armed) { setArmed(true); toast(used ? 'Still used by some amounts — its rate stays updated. Tap again to remove it from the pickers' : 'Tap again to remove'); return }
+        if (!armed) { setArmed(true); toast(tr(used ? 'Still used by some amounts — its rate stays updated. Tap again to remove it from the pickers' : 'Tap again to remove')); return }
         update((d) => { d.settings.curs = d.settings.curs.filter((x) => x !== c) })
         popSheet()
-      }}>{armed ? 'Tap again to remove' : 'Remove from the pickers'}</button>
+      }}>{tr(armed ? 'Tap again to remove' : 'Remove from the pickers')}</button>
     </Sheet>
   )
 }
@@ -353,16 +367,16 @@ const CurPicker = ({ main }: { main?: boolean }) => {
       await refreshRates(true).catch(() => false)
     }
     setBusy(false)
-    if (!hasRate(useStore.getState().st.settings, c)) { toast(`Couldn’t get a rate for ${c} — try again when online`); return }
+    if (!hasRate(useStore.getState().st.settings, c)) { toast(tr('Couldn’t get a rate for {x} — try again when online', { x: c })); return }
     update((d) => switchMain(d, c))
     popSheet()
-    toast(`Main currency: ${curName(c)}`)
+    toast(tr('Main currency: {x}', { x: curName(c) }))
     refreshRates(true).catch(() => {})
   }
   return (
     <Sheet title={main ? 'Main currency' : 'Add currency'} full onBack={popSheet}>
-      <input className="input" value={q} placeholder="Search: euro, USD, hryvnia…" onChange={(e) => setQ(e.target.value)} />
-      {main && <span className="t13 muted">Amounts keep their own currency. Supply prices, project costs and “up to” prices switch over at today’s rate.</span>}
+      <input className="input" value={q} placeholder={tr('Search: euro, USD, hryvnia…')} onChange={(e) => setQ(e.target.value)} />
+      {main && <span className="t13 muted">{tr('Amounts keep their own currency. Supply prices, project costs and “up to” prices switch over at today’s rate.')}</span>}
       <List>
         {list.map((c) => <Row key={c} title={`${curSign(c)} · ${curName(c)}`} meta={c} onClick={() => !busy && pick(c)} />)}
       </List>

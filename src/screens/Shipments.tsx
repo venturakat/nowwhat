@@ -2,15 +2,16 @@ import { useState } from 'react'
 import { update, useSt } from '../store'
 import { addDays, diffDays, fmtDay, fmtWeekday, today, uid } from '../lib'
 import { C, Check, closeSheet, Field, List, openSheet, popSheet, Row, Sheet } from '../ui'
+import { tr } from '../i18n'
 
 export const COURIERS = ['InPost', 'DHL', 'DPD'] // anything else goes under Other
 
 // when it's due, in words
 const due = (eta: string | undefined, t: string) => {
-  if (!eta) return { text: 'no date yet', late: false }
+  if (!eta) return { text: tr('no date yet'), late: false }
   const n = diffDays(t, eta)
-  if (n < 0) return { text: `expected ${fmtDay(eta)}`, late: true }
-  return { text: n === 0 ? 'arrives today' : n === 1 ? 'arrives tomorrow' : n < 7 ? `arrives ${fmtWeekday(eta)}` : `arrives ${fmtDay(eta)}`, late: false }
+  if (n < 0) return { text: tr('expected {d}', { d: fmtDay(eta) }), late: true }
+  return { text: n === 0 ? tr('arrives today') : n === 1 ? tr('arrives tomorrow') : tr('arrives {d}', { d: n < 7 ? fmtWeekday(eta) : fmtDay(eta) }), late: false }
 }
 
 // courier picker: the usual four as chips, anything else typed in
@@ -20,9 +21,9 @@ export const CourierPick = ({ value, onChange }: { value: string; onChange: (v: 
     <div className="col" style={{ gap: 8 }}>
       <div className="seg">
         {COURIERS.map((c) => <button key={c} type="button" className={'chip' + (value === c ? ' on' : '')} onClick={() => onChange(c)}>{c}</button>)}
-        <button type="button" className={'chip' + (other ? ' on' : '')} onClick={() => onChange(other ? value : '')}>Other</button>
+        <button type="button" className={'chip' + (other ? ' on' : '')} onClick={() => onChange(other ? value : '')}>{tr('Other')}</button>
       </div>
-      {other && <input className="input" value={value} placeholder="Courier" onChange={(e) => onChange(e.target.value)} />}
+      {other && <input className="input" value={value} placeholder={tr('Courier')} onChange={(e) => onChange(e.target.value)} />}
     </div>
   )
 }
@@ -37,17 +38,17 @@ export const ShipmentLog = () => {
   const toggle = (id: string) => update((d) => { const x = d.shipments?.find((y) => y.id === id); if (x) x.deliveredAt = x.deliveredAt ? undefined : today() })
   return (
     <div className="list">
-      <div className="list-h"><span className="t17">Shipment log</span></div>
+      <div className="list-h"><span className="t17">{tr('Shipment log')}</span></div>
       {[...open, ...done].map((x) => {
         const w = due(x.eta, t)
         return (
           <Row key={x.id} done={!!x.deliveredAt} title={x.name} dot={w.late && !x.deliveredAt ? C.alert : C.supplies}
-            meta={x.deliveredAt ? `${x.courier || 'Courier'} · delivered` : `${x.courier || 'Courier'} · ${w.text}`}
+            meta={x.deliveredAt ? `${x.courier || tr('Courier')} · ${tr('delivered')}` : `${x.courier || tr('Courier')} · ${w.text}`}
             trail={<span onClick={(e) => { e.stopPropagation(); toggle(x.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!x.deliveredAt} /></span>}
             onClick={() => openSheet(<ShipmentSheet id={x.id} />)} />
         )
       })}
-      <Row title={<span className="muted">+ Add a shipment</span>} onClick={() => openSheet(<ShipmentSheet />)} />
+      <Row title={<span className="muted">+ {tr('Add a shipment')}</span>} onClick={() => openSheet(<ShipmentSheet />)} />
     </div>
   )
 }
@@ -73,12 +74,12 @@ export const ShipmentSheet = ({ id, eta: etaFor, back }: { id?: string; eta?: st
   }
   return (
     <Sheet title={x ? 'Shipment' : 'New shipment'} onBack={back ? popSheet : undefined}>
-      <Field label="What’s coming"><input className="input" autoFocus={!x} value={name} placeholder="Cat litter" onChange={(e) => setName(e.target.value)} /></Field>
+      <Field label="What’s coming"><input className="input" autoFocus={!x} value={name} placeholder={tr('Cat litter')} onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Courier"><CourierPick value={courier} onChange={setCourier} /></Field>
       <Field label="Delivery date"><input className="input" type="date" value={eta} onChange={(e) => setEta(e.target.value)} /></Field>
-      <button className="btn full" disabled={!name.trim()} onClick={save}>Save</button>
-      {x && !x.deliveredAt && <button className="btn full soft" onClick={() => { update((d) => { const y = d.shipments!.find((z) => z.id === id)!; y.deliveredAt = today() }); done() }}>Delivered</button>}
-      {x && <button className="btn full soft" onClick={() => { update((d) => { d.shipments = d.shipments!.filter((z) => z.id !== id) }); done() }}>Delete</button>}
+      <button className="btn full" disabled={!name.trim()} onClick={save}>{tr('Save')}</button>
+      {x && !x.deliveredAt && <button className="btn full soft" onClick={() => { update((d) => { const y = d.shipments!.find((z) => z.id === id)!; y.deliveredAt = today() }); done() }}>{tr('Delivered')}</button>}
+      {x && <button className="btn full soft" onClick={() => { update((d) => { d.shipments = d.shipments!.filter((z) => z.id !== id) }); done() }}>{tr('Delete')}</button>}
     </Sheet>
   )
 }

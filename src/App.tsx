@@ -11,6 +11,8 @@ import { Home } from './screens/Home'
 import { Closet } from './screens/Closet'
 import { fmtClock } from './lib'
 import { Splash } from './Splash'
+import { resolveLang, tr } from './i18n'
+import { Fragment } from 'react'
 
 registerSettings(() => <SettingsSheet />)
 
@@ -31,11 +33,11 @@ const TimerFab = () => {
     return (
       <button className="fab" style={{ background: 'var(--ink)', color: '#fff' }} onClick={() => useUi.getState().go('money', 'work')}>
         <span>● {c?.name} · {fmtClock(now - new Date(st.timer.startedAt).getTime())}</span>
-        <span onClick={(e) => { e.stopPropagation(); stopTimer(st) }} style={{ background: 'var(--work)', color: 'var(--ink)', borderRadius: 100, padding: '4px 10px', fontSize: 12.5 }}>Stop</span>
+        <span onClick={(e) => { e.stopPropagation(); stopTimer(st) }} style={{ background: 'var(--work)', color: 'var(--ink)', borderRadius: 100, padding: '4px 10px', fontSize: 12.5 }}>{tr('Stop')}</span>
       </button>
     )
   }
-  return <button className="fab" onClick={() => openSheet(<StartTimerSheet />)}><Icon.play /> Start work timer</button>
+  return <button className="fab" onClick={() => openSheet(<StartTimerSheet />)}><Icon.play /> {tr('Start work timer')}</button>
 }
 
 // the field you're typing in, inside a sheet: scroll the sheet so it sits above the keyboard.
@@ -90,9 +92,12 @@ export const App = () => {
   const { tab, sheet, under, pushed, toast, go, close, cal } = useUi()
   const area = useVisibleArea()
   const [splash, setSplash] = useState(true) // the loading animation, once per app start
+  // a new language redraws everything (open sheets included)
+  const lang = useStore((s) => resolveLang(s.st.settings.lang))
   return (
     <div className="app">
       {splash && <Splash onDone={() => setSplash(false)} />}
+      <Fragment key={lang}>
       {tab === 'today' && <Today />}
       {tab === 'money' && <Money />}
       {tab === 'supplies' && <Supplies />}
@@ -100,7 +105,7 @@ export const App = () => {
       {tab === 'closet' && <Closet />}
       {tab === 'today' && (
         <div className="fabs">
-          <button className="fab money" onClick={() => openSheet(<SpendSheet />)}><Icon.plus /> Log spending</button>
+          <button className="fab money" onClick={() => openSheet(<SpendSheet />)}><Icon.plus /> {tr('Log spending')}</button>
           <TimerFab />
         </div>
       )}
@@ -108,15 +113,15 @@ export const App = () => {
       <div className={'calpage' + (cal ? ' open' : '')} aria-hidden={!cal}>
         <div className="calscroll"><CalendarPage /></div>
         {/* back to whichever tab it was pulled over */}
-        <button className="cal-tab back" aria-label="Back" onClick={closeCal}>{(() => { const I = TABS.find((x) => x[0] === tab)![2]; return <I /> })()}</button>
+        <button className="cal-tab back" aria-label={tr('Back')} onClick={closeCal}>{(() => { const I = TABS.find((x) => x[0] === tab)![2]; return <I /> })()}</button>
       </div>
       {/* on every tab: tap or pull it to lay the calendar over the page (only Today also opens it with a swipe) */}
-      {!cal && <button className="cal-tab open" aria-label="Calendar" onClick={openCal}><Icon.calendar /></button>}
+      {!cal && <button className="cal-tab open" aria-label={tr('Calendar')} onClick={openCal}><Icon.calendar /></button>}
       <nav className="tabbar">
         {TABS.map(([k, label, I]) => (
           <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => go(k)}>
             <I />
-            {label}
+            {tr(label)}
           </button>
         ))}
       </nav>
@@ -133,7 +138,8 @@ export const App = () => {
       )}
       {/* the sheet's background carries on behind the keyboard, so the page underneath doesn't show through it */}
       {sheet && area && <div className="kb-fill" style={{ top: area.top + area.h }} />}
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="toast">{tr(toast)}</div>}
+      </Fragment>
     </div>
   )
 }

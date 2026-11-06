@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { addHours } from './lib'
 import type { ClosetCat } from './types'
+import { tr } from './i18n'
+// shared pieces translate the plain strings they're given (labels, titles, chips); text with data in it is translated where it's built
+const t = (x: ReactNode) => (typeof x === 'string' ? tr(x) : x)
 
 // ---------- navigation / sheets / toast ----------
 export type Tab = 'today' | 'money' | 'supplies' | 'home' | 'closet'
@@ -121,10 +124,10 @@ export const Garment = ({ cat, size = 40 }: { cat: ClosetCat; size?: number }) =
 export const Header = ({ sub, title, right }: { sub: string; title: ReactNode; right?: ReactNode }) => (
   <div className="between" style={{ alignItems: 'flex-end' }}>
     <div className="col" style={{ gap: 2 }}>
-      <div className="sub">{sub}</div>
-      <h1 className="h1">{title}</h1>
+      <div className="sub">{t(sub)}</div>
+      <h1 className="h1">{t(title)}</h1>
     </div>
-    {right ?? <button className="hdr-gear" aria-label="Settings" onClick={openSettings}><Icon.gear /></button>}
+    {right ?? <button className="hdr-gear" aria-label={tr('Settings')} onClick={openSettings}><Icon.gear /></button>}
   </div>
 )
 
@@ -163,7 +166,7 @@ export const Chips = <T extends string>({ items, value, onChange }: { items: [T,
     <div className="chips" ref={ref}>
       {items.map(([k, l]) => (
         <button key={k} className={'chip' + (k === value ? ' on' : '')} onClick={() => onChange(k)}>
-          {l}
+          {tr(l)}
         </button>
       ))}
     </div>
@@ -188,11 +191,11 @@ export const List = ({ title, right, children, empty, roomy }: { title?: ReactNo
     <div className="list">
       {title && (
         <div className="list-h" style={roomy ? { paddingBottom: 12 } : undefined}>
-          <span className="t17">{title}</span>
-          {right && <span className="t14 w5 muted">{right}</span>}
+          <span className="t17">{t(title)}</span>
+          {right && <span className="t14 w5 muted">{t(right)}</span>}
         </div>
       )}
-      {has ? children : empty ? <div className="list-empty">{empty}</div> : null}
+      {has ? children : empty ? <div className="list-empty">{tr(empty)}</div> : null}
     </div>
   )
 }
@@ -209,10 +212,10 @@ export const Sheet = ({ title, children, onBack, full, actions }: { title: React
     <div className="grab" />
     <div className="between">
       <div className="row" style={{ gap: 2, alignItems: 'center', flex: 1, minWidth: 0 }}>
-        {onBack && <button onClick={onBack} aria-label="Back" style={{ marginLeft: -6, display: 'flex' }}><Icon.chevL /></button>}
-        <div className="mid" style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{title}</div>
+        {onBack && <button onClick={onBack} aria-label={tr('Back')} style={{ marginLeft: -6, display: 'flex' }}><Icon.chevL /></button>}
+        <div className="mid" style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{t(title)}</div>
       </div>
-      {actions ?? <button onClick={closeSheet} aria-label="Close"><Icon.x /></button>}
+      {actions ?? <button onClick={closeSheet} aria-label={tr('Close')}><Icon.x /></button>}
     </div>
     {children}
   </>
@@ -221,7 +224,7 @@ export const Sheet = ({ title, children, onBack, full, actions }: { title: React
 
 export const Field = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="field">
-    <label>{label}</label>
+    <label>{tr(label)}</label>
     {children}
   </div>
 )
@@ -235,8 +238,8 @@ export const TimeRange = ({ start, end, hours = 1, onChange }: { start: string; 
   const [byHand, setByHand] = useState(!!end && !!start && end !== addHours(start, hours))
   return (
     <div className="row" style={{ gap: 8 }}>
-      <div style={{ flex: 1, minWidth: 0 }}><Field label="Starts"><input className="input" type="time" value={start} onChange={(e) => { const v = e.target.value; onChange(v, byHand && end ? end : v ? addHours(v, hours) : '') }} /></Field></div>
-      <div style={{ flex: 1, minWidth: 0 }}><Field label="Ends"><input className="input" type="time" value={end} onChange={(e) => { setByHand(!!e.target.value); onChange(start, e.target.value) }} /></Field></div>
+      <div style={{ flex: 1, minWidth: 0 }}><Field label={tr('Starts')}><input className="input" type="time" value={start} onChange={(e) => { const v = e.target.value; onChange(v, byHand && end ? end : v ? addHours(v, hours) : '') }} /></Field></div>
+      <div style={{ flex: 1, minWidth: 0 }}><Field label={tr('Ends')}><input className="input" type="time" value={end} onChange={(e) => { setByHand(!!e.target.value); onChange(start, e.target.value) }} /></Field></div>
     </div>
   )
 }

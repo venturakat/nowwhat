@@ -1,3 +1,4 @@
+import { getLang, monthNames, weekdayNames } from './i18n'
 import type { TaxEvery, TaxLine, TaxRule, BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, PayCur, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
@@ -23,21 +24,16 @@ export const addDays = (s: string, n: number) => {
 export const diffDays = (a: string, b: string) => Math.round((parse(b).getTime() - parse(a).getTime()) / 86400000)
 export const daysInMonth = (y: number, m: number) => new Date(y, m, 0).getDate() // m is 1-based
 export const monthKey = (s: string) => s.slice(0, 7)
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+// names follow the app's language (i18n)
 export const fmtDay = (s: string) => {
   const d = parse(s)
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`
+  return `${d.getDate()} ${monthNames()[d.getMonth()]}`
 }
 export const fmtWeekday = (s: string) => {
   const d = parse(s)
-  return `${WD[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`
+  return `${weekdayNames()[d.getDay()]}, ${d.getDate()} ${monthNames()[d.getMonth()]}`
 }
-export const monthName = (mk: string, long = false) => {
-  const m = Number(mk.slice(5, 7)) - 1
-  return long ? MONTHS_LONG[m] : MONTHS[m]
-}
+export const monthName = (mk: string, long = false) => monthNames(long)[Number(mk.slice(5, 7)) - 1]
 export const prevMonth = (mk: string) => {
   let [y, m] = mk.split('-').map(Number)
   m -= 1
@@ -519,9 +515,9 @@ const signOf = (c: Currency): [string, boolean] => {
 }
 export const curSign = (c: Currency) => signOf(c)[0]
 export const CUR_SIGN = new Proxy({} as Record<string, string>, { get: (_, k: string) => curSign(k) })
-// "Polish zloty" (from the phone's language)
+// "Polish zloty" (in the app's language)
 export const curName = (c: Currency) => {
-  try { return new Intl.DisplayNames(undefined, { type: 'currency' }).of(c) ?? c } catch { return c }
+  try { return new Intl.DisplayNames(getLang(), { type: 'currency' }).of(c) ?? c } catch { return c }
 }
 // currencies in use today (ISO 4217, 2026) — the phone's own list also has withdrawn ones (francs, marks, old roubles…),
 // funds and metals, so the picker offers only these
@@ -632,8 +628,7 @@ export const numText = (n?: number) => (n === undefined || n === null ? '' : Str
 // ---------- classes ----------
 export const fmtArs = (n: number) => fmtCur(n, 'ARS')
 export const fmtPay = (n: number, cur: PayCur, dec = false) => fmtCur(n, cur, dec)
-const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-export const weekdayName = (i: number) => WD_SHORT[i]
+export const weekdayName = (i: number) => weekdayNames()[i]
 export const classPayIn = (c: Course): PayCur => c.payIn ?? c.currency
 // how the price becomes what's sent (none when it's paid in the price currency)
 export const classRateKind = (c: Course): ClassRate | undefined => {
