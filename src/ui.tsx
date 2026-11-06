@@ -200,15 +200,15 @@ export const Check = ({ on }: { on: boolean }) => <span className={'check' + (on
 // onBack: a sub-page (e.g. a Settings category) gets a ‹ back arrow next to its title
 // (swiping right goes back too, see swipe.ts). full: the sheet takes the whole screen.
 // actions: buttons that take the place of the close cross (the sheet still closes by pulling down).
-export const Sheet = ({ title, children, onBack, full, actions }: { title: string; children: ReactNode; onBack?: () => void; full?: boolean; actions?: ReactNode }) => {
+export const Sheet = ({ title, children, onBack, full, actions }: { title: ReactNode; children: ReactNode; onBack?: () => void; full?: boolean; actions?: ReactNode }) => {
   return (
   <>
     {full && <span className="sheet-full" hidden />}
     <div className="grab" />
     <div className="between">
-      <div className="row" style={{ gap: 2, alignItems: 'center' }}>
+      <div className="row" style={{ gap: 2, alignItems: 'center', flex: 1, minWidth: 0 }}>
         {onBack && <button onClick={onBack} aria-label="Back" style={{ marginLeft: -6, display: 'flex' }}><Icon.chevL /></button>}
-        <div className="mid">{title}</div>
+        <div className="mid" style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{title}</div>
       </div>
       {actions ?? <button onClick={closeSheet} aria-label="Close"><Icon.x /></button>}
     </div>

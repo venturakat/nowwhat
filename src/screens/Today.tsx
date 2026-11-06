@@ -289,7 +289,10 @@ const NoteSheet = ({ id }: { id?: string }) => {
   }
   const round = (bg: string, on: boolean) => ({ width: 40, height: 40, borderRadius: '50%', background: bg, color: '#1d1d1f', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0.45 })
   return (
-    <Sheet title={n ? 'Note' : 'New note'} full={!!n} actions={
+    <Sheet full={!!n} title={editing
+      // the title is typed right into the header; empty = just "Note"
+      ? <input value={title} placeholder={n ? 'Note' : 'New note'} onChange={(e) => setTitle(e.target.value)} aria-label="Title" style={{ font: 'inherit', letterSpacing: 'inherit', color: 'inherit', background: 'none', border: 0, outline: 'none', padding: 0, width: '100%' }} />
+      : n?.title || 'Note'} actions={
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
         {n && <button aria-label="Edit" style={round('#E3D2FF', !editing)} onClick={() => setEditing(true)}><Icon.edit /></button>}
         <button aria-label="Save" style={round('#D6EE7A', editing && filled)} onClick={save}><Icon.check color="#1d1d1f" size={20} /></button>
@@ -297,12 +300,10 @@ const NoteSheet = ({ id }: { id?: string }) => {
     }>
       {editing
         ? <>
-            <input className="input" value={title} placeholder="Title" onChange={(e) => setTitle(e.target.value)} style={{ fontWeight: 600 }} />
             <textarea className="input" autoFocus={!n} rows={11} value={text} placeholder="Whatever’s on your mind" onChange={(e) => setText(e.target.value)} style={{ resize: 'none', minHeight: 'calc(min(52vh, 420px) - 3 * 1.35em)', lineHeight: 1.35 }} />
           </>
         : n && <div style={{ padding: '4px 0 12px' }}>
-            {n.title && <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{n.title}</div>}
-            <div className="t13 muted" style={{ marginTop: n.title ? 4 : 0 }}>{fmtWeekday(localDay(n.at))}</div>
+            <div className="t13 muted">{fmtWeekday(localDay(n.at))}</div>
             {n.text && <div style={{ fontSize: 16, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 14 }}>{n.text}</div>}
           </div>}
     </Sheet>
