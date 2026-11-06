@@ -564,7 +564,7 @@ const ClientSheet = ({ id }: { id: string }) => {
     toast(`${fmt(amount, true)} added to income`)
   }
   return (
-    <Sheet title={c.name}>
+    <Sheet title={c.name} full>
       <div className="t15 muted">{c.kind === 'job' ? 'Fixed fee per job' : c.kind === 'fixed' ? `${fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR')} a month, due on the ${ord(c.payDay ?? 1)}` : `${fmtCur(c.rateEur, c.cur ?? 'EUR', c.rateEur % 1 !== 0)} per hour`}</div>
       {unInv.length > 0 && (
         <div className="card work" style={{ gap: 6 }}>
