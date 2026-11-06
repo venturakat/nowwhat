@@ -55,6 +55,9 @@ export const relDays = (n: number) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' 
 // ---------- money ----------
 // amounts in the main currency (Settings › Currencies)
 export const fmt = (n: number, dec = false) => fmtCur(n, MAIN, dec)
+// font size for a hero amount: long ones (pesos, big sums) shrink so they still fit — `fit` = how many
+// characters fit at the full size
+export const fitSize = (text: string, size: number, fit: number) => (text.length <= fit ? size : Math.max(Math.round(size * 0.5), Math.floor((size * fit) / text.length)))
 export const fmtEur = (n: number) => fmtCur(n, 'EUR', n % 1 !== 0)
 export const r2 = (n: number) => Math.round(n * 100) / 100
 

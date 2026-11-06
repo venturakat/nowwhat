@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Settings } from '../types'
 import type { ClassRate, Course, Currency, PayCur } from '../types'
-import { addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName } from '../lib'
+import { fitSize, addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName } from '../lib'
 import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, TimeRange, toast } from '../ui'
 import { refreshRates } from '../rates'
 import { copyText } from './Money'
@@ -57,8 +57,8 @@ const ClassBlock = ({ c }: { c: Course }) => {
         <div className="card money" style={{ gap: 6 }}>
           <span className="t15 w5">{c.name} · next payment · {monthName(b.month, true)}</span>
           {b.paid !== undefined
-            ? <button className="big" style={{ fontSize: 52, textAlign: 'left' }} onClick={() => copyText(String(b.paid), `${fmtPay(b.paid!, payIn, payIn !== 'ARS')} copied`)}>{fmtPay(b.paid, payIn)}</button>
-            : <span className="big" style={{ fontSize: 52 }}>{fmtCur(b.total, c.currency, false)}</span>}
+            ? <button className="big" style={{ fontSize: fitSize(fmtPay(b.paid, payIn), 52, 10), textAlign: 'left' }} onClick={() => copyText(String(b.paid), `${fmtPay(b.paid!, payIn, payIn !== 'ARS')} copied`)}>{fmtPay(b.paid, payIn)}</button>
+            : <span className="big" style={{ fontSize: fitSize(fmtCur(b.total, c.currency, false), 52, 10) }}>{fmtCur(b.total, c.currency, false)}</span>}
           <span className="t14">
             {b.dates.length} {b.dates.length === 1 ? 'class' : 'classes'} × {cur0(c.price, c.currency)}
             {kind && b.rate !== undefined ? ` × ${numText(r2(b.rate))} ${RATE_NAME[kind]}` : kind ? ` · paid in ${payIn}, rate typed when you pay` : ''}

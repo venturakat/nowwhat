@@ -113,7 +113,7 @@ const doRefresh = async (force: boolean) => {
   const got: Got = {}
   for (const c of auto) {
     if (src(c) === 'official' && official[c]) got[c] = official[c]
-    else if (market[c]) got[c] = { v: market[c].v, src: src(c) === 'official' ? `${market[c].src} (${OFFICIAL[main] ?? 'official'} not reachable)` : market[c].src }
+    else if (market[c]) got[c] = { v: market[c].v, src: src(c) === 'official' ? `${market[c].src} (${Object.keys(official).length ? `${OFFICIAL[main] ?? 'official source'} has no rate for it` : `${OFFICIAL[main] ?? 'official source'} not reachable`})` : market[c].src }
   }
   const b = blue.status === 'fulfilled' ? blue.value : undefined
   const o = ofi.status === 'fulfilled' ? ofi.value : undefined

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { SelfCare } from '../types'
-import { curOptions, CUR_SIGN, timeSpan, addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
+import { fitSize, curOptions, CUR_SIGN, timeSpan, addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
 import { C, closeSheet, Field, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
 
@@ -29,7 +29,7 @@ export const Selfcare = () => {
       {active.length > 0 && (
         <div className="card closet" style={{ gap: 6 }}>
           <span className="t15 w5">Selfcare · {monthName(mk, true)} · {month.length} {month.length === 1 ? 'time' : 'times'}</span>
-          <span className="big" style={{ fontSize: 52 }}>{fmt(month.reduce((a, c) => a + c.pln, 0))}</span>
+          <span className="big" style={{ fontSize: fitSize(fmt(month.reduce((a, c) => a + c.pln, 0)), 52, 10) }}>{fmt(month.reduce((a, c) => a + c.pln, 0))}</span>
           <span className="t14">{half.length ? `${fmt(halfSum)} planned this fortnight · already in your budget` : 'Nothing planned this fortnight'}</span>
         </div>
       )}

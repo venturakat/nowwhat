@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
 import type { Currency, Session, State } from '../types'
-import {
+import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, curOptions, curSign, fmtTax
 } from '../lib'
@@ -97,11 +97,11 @@ const Budget = () => {
         <div className="between" style={{ alignItems: 'flex-end' }}>
           <div className="col">
             <span className="t15 w5">Left this fortnight</span>
-            <span className="big" style={{ fontSize: 52, color: s.left < 0 ? 'var(--alert)' : undefined }}>{fmt(s.left)}</span>
+            <span className="big" style={{ fontSize: fitSize(fmt(s.left), 52, 8), color: s.left < 0 ? 'var(--alert)' : undefined }}>{fmt(s.left)}</span>
           </div>
           <div className="col" style={{ alignItems: 'flex-end' }}>
             <span className="t14 w5">{isNow ? `per day · ${s.daysLeft} d left` : 'per day'}</span>
-            <span className="mid" style={{ fontSize: 26 }}>{fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1))}</span>
+            <span className="mid" style={{ fontSize: fitSize(fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1)), 26, 8) }}>{fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1))}</span>
           </div>
         </div>
         <div className="bar"><div style={{ width: `${pct * 100}%` }} /></div>
@@ -577,7 +577,7 @@ const ClientSheet = ({ id }: { id: string }) => {
       {unpaid.length > 0 && (
         <div className="card money" style={{ gap: 6 }}>
           <span className="t14 w5">Invoiced, waiting for payment</span>
-          <span className="mid">{fmt(pln(unpaid), true)}</span>
+          <span className="mid" style={{ fontSize: fitSize(fmt(pln(unpaid), true), 30, 14) }}>{fmt(pln(unpaid), true)}</span>
           <span className="t14">{eur(unpaid)} · {unpaid.length} entries{tables.length ? ` · NBP ${tables.join(', ')}` : ''}</span>
           {noRate.length > 0 && <button className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet(<InvoiceSheet ids={noRate.map((s) => s.id)} fix />)}>Set invoice date for the NBP rate</button>}
           <button className="btn" onClick={markPaid}>They paid → add to income</button>
@@ -643,7 +643,7 @@ const Taxes = () => {
           <span className="t15 w5">{monthName(due, true)} · {inDays < 0 ? `${-inDays} days late` : `you pay ${fmtDay(payDate)} · deadline ${fmtDay(dueDate)}`}</span>
           {(tx.zusPaid || tx.pitPaid) && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> {tx.paid ? 'paid' : tx.zusPaid ? 'ZUS paid' : 'PIT paid'}</span>}
         </div>
-        <div className="big" style={{ fontSize: 60 }}>{ft(tx.paid ? tx.total : tx.left)}</div>
+        <div className="big" style={{ fontSize: fitSize(ft(tx.paid ? tx.total : tx.left), 60, 9) }}>{ft(tx.paid ? tx.total : tx.left)}</div>
         <div className="parts" style={{ paddingTop: 6 }}>
           <Quota label="ZUS (DRA + RCA)" amount={zus} paid={tx.zusPaid} />
           <Quota label="PIT-28" amount={tx.pit} paid={tx.pitPaid} />
@@ -682,7 +682,7 @@ const Taxes = () => {
       </div>
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">Revenue {year} so far</span><span className="mid">{ft(ytd)}</span></button>
+          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">Revenue {year} so far</span><span className="mid" style={{ fontSize: fitSize(ft(ytd), 30, 9) }}>{ft(ytd)}</span></button>
           <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5 muted">avg / month</span><span className="t17" style={{ fontSize: 20 }}>{ft(ytd / nonZero)}</span></div>
         </div>
         <div className="chart">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt, useStore } from '../store'
 import type { Credit, Currency } from '../types'
-import { curOptions, CUR_SIGN, creditStatus, diffDays, fmt, fmtBoth, fmtCur, fmtDay, monthName, periodOf, toMain, today, uid } from '../lib'
+import { fitSize, curOptions, CUR_SIGN, creditStatus, diffDays, fmt, fmtBoth, fmtCur, fmtDay, monthName, periodOf, toMain, today, uid } from '../lib'
 import { C, closeSheet, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
 
@@ -27,7 +27,7 @@ export const Credits = () => {
       {open.length > 0 && (
         <div className="card dark" style={{ gap: 6 }}>
           <span className="t15 w5">Still to repay · {open.length} {open.length === 1 ? 'credit' : 'credits'}</span>
-          <span className="big" style={{ fontSize: 56 }}>{fmt(remaining)}</span>
+          <span className="big" style={{ fontSize: fitSize(fmt(remaining), 56, 9) }}>{fmt(remaining)}</span>
           <span className="t15">{fmt(thisMonth)} left to pay this month · all clear by {monthYear(lastEnd)}</span>
         </div>
       )}
