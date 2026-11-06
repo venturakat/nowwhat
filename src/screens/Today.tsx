@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { fitSize, addDays, taxLeftName, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
+import { fitSize, addDays, taxLeftName, timeSpan, creditStatus, classBatch, classWeekDue, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
@@ -78,8 +78,11 @@ const things = (st: State): Thing[] => {
     out.push({ id: 'tobuy-' + names.length, dot: C.home, title: `To buy · ${names.length} ${names.length === 1 ? 'thing' : 'things'}`, meta: `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''}`, trail: sum > 0 ? fmt(sum) : '→', go: () => go('supplies', onceBuys[0]?.cat ?? 'home') })
   }
   // classes: from 3 days before the payment day
+  // per class: no reminder; per week: the week's unpaid classes on the chosen weekday; per month: the month's batch
   for (const c of st.classes ?? []) {
-    const lb = classBatch(st, c)
+    const every = c.payEvery ?? 'month'
+    if (every === 'class') continue
+    const lb = every === 'week' ? classWeekDue(st, c, t) : classBatch(st, c)
     if (lb && t >= addDays(lb.due, -3))
       out.push({ id: `lessons-${c.id}-${lb.due}`, dot: C.money, title: `Pay for ${c.name}`, meta: [`${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'}`, lb.paid !== undefined && classPayIn(c) !== st.settings.mainCur ? fmtPay(lb.paid, classPayIn(c)) : '', `${lb.due < t ? 'since' : 'by'} ${fmtDay(lb.due)}`].filter(Boolean).join(' · '), trail: fmt(lb.pln), go: () => go('money', 'classes') })
   }

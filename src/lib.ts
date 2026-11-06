@@ -562,6 +562,21 @@ export const classDates = (l: Course, from: string, to: string) => {
 }
 // weekly payers: the Mon–Sun week a payment day belongs to
 export const weekOf = (d: string) => { const wd = (parse(d).getDay() + 6) % 7; const mon = addDays(d, -wd); return [mon, addDays(mon, 6)] as const }
+// weekly payers: the earliest unpaid weekly payment (last 8 weeks up to `ahead` days from now) — its day and that week's classes
+export const classWeekDue = (st: State, c: Course, t = today(), ahead = 3) => {
+  if (c.payWeekday === undefined || !c.price) return undefined
+  const paid = new Set(c.pays.flatMap((p) => p.dates))
+  for (let d = addDays(t, -56); d <= addDays(t, ahead); d = addDays(d, 1)) {
+    if (parse(d).getDay() !== c.payWeekday) continue
+    const [mon, sun] = weekOf(d)
+    const dates = classDates(c, mon, sun).filter((x) => !paid.has(x))
+    if (!dates.length) continue
+    const rate = classRate(st.settings, c)
+    const fee = c.fee ?? 0
+    return { due: d, dates, paid: rate === undefined ? undefined : perClassPaid(c, rate) * dates.length, pln: r2(toMain(st.settings, c.price * dates.length, c.currency) + toMain(st.settings, fee, c.feeCurrency ?? st.settings.mainCur)) }
+  }
+  return undefined
+}
 // a class's time on a day ('17:00–18:00'): its own time if it was changed, else the usual one
 export const classEnd = (c: Course) => c.endTime ?? (c.time ? addHours(c.time, 1) : undefined) // classes are an hour unless set
 export const classTime = (c: Course, d: string) => (c.times?.[d] ? timeSpan(c.times[d].start, c.times[d].end) : timeSpan(c.time, classEnd(c)))
