@@ -87,7 +87,7 @@ const Own = () => {
       {st.closet.length > 0 && (
         <div className="row" style={{ gap: 16, padding: '0 4px', overflowX: 'auto' }}>
           <button className="t15 w5" style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }} onClick={flipSort} aria-label="Sort">
-            <span style={{ display: 'flex', transform: 'rotate(90deg)' }}><Icon.arrow /></span>{sort === 'cat' ? 'By category' : 'Most worn'}
+            <Icon.arrowDown />{sort === 'cat' ? 'Category' : 'Most worn'}
           </button>
           <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)' }} />
           {[['all', 'All', st.closet.length] as const, ...counts, ...(away ? [['away', 'Out of season', away] as const] : [])].map(([k, l, n]) => (

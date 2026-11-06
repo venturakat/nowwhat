@@ -85,6 +85,7 @@ export const Icon = {
   closet: () => <S><path d="M12 6a2 2 0 1 1 2-2" /><path d="M12 6v2L3 16h18l-9-8" /></S>,
   play: (p: { size?: number }) => <S size={p.size ?? 18} fill><path d="M7 4l13 8-13 8z" /></S>,
   arrow: () => <S size={20}><path d="M5 12h14M13 6l6 6-6 6" /></S>,
+  arrowDown: () => <S size={14}><path d="M12 8v10M7 13l5 5 5-5" /></S>, // the reminders arrow, turned down, with a shorter tail
   check: (p: { color?: string; size?: number }) => <S size={p.size ?? 16} color={p.color ?? '#fff'}><path d="M5 12.5l4.5 4.5L19 7.5" /></S>,
   plus: () => <S size={20}><path d="M12 5v14M5 12h14" /></S>,
   x: () => <S size={20}><path d="M6 6l12 12M18 6L6 18" /></S>,
