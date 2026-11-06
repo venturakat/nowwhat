@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
-import type { Currency, SelfCare } from '../types'
-import { CUR_SIGN, timeSpan, addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
+import type { SelfCare } from '../types'
+import { curOptions, CUR_SIGN, timeSpan, addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
 import { C, closeSheet, Field, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
-import { CURRENCIES } from './Subscriptions'
 
 // quick starts for an empty tab (name, every N days)
 const IDEAS: [string, number][] = [['Manicure', 21], ['Pedicure', 42], ['Massage', 30], ['Haircut', 60], ['Gym', 30], ['Yoga class', 7]]
@@ -40,7 +39,7 @@ export const Selfcare = () => {
           return (
             <Row key={x.id} dot={x.paused ? C.line : late ? C.warn : C.closet} done={x.paused} title={x.name}
               meta={<>{x.details && <div className="details">{x.details}</div>}{x.paused ? 'Paused' : `${everyText(x.everyDays)} · ${whenText(x.next, t)}${x.time ? ` at ${timeSpan(x.time, x.endTime)}` : ''}${month.filter((c) => c.x.id === x.id).length > 1 ? ` · ${month.filter((c) => c.x.id === x.id).length}× in ${monthName(mk, true)}` : ''}`}</>}
-              trail={fmtBoth(st.settings, x.price, x.currency ?? 'PLN')} onClick={() => openSheet(<CareSheet id={x.id} />)} />
+              trail={fmtBoth(st.settings, x.price, x.currency)} onClick={() => openSheet(<CareSheet id={x.id} />)} />
           )
         })}
       </List>
@@ -63,7 +62,7 @@ const CareSheet = ({ id }: { id: string }) => {
   const [date, setDate] = useState(today())
   if (!x) return null
   const t = today()
-  const cur = x.currency ?? 'PLN'
+  const cur = x.currency ?? st.settings.mainCur
   const done = () => {
     const amount = parseNum(paid) ?? x.price
     update((d) => {
@@ -107,14 +106,14 @@ const CareSheet = ({ id }: { id: string }) => {
 const CareEdit = ({ id, preset }: { id?: string; preset?: Partial<SelfCare> }) => {
   const st = useSt()
   const x = st.selfcare?.find((y) => y.id === id)
-  const init = x ?? { currency: 'PLN', everyDays: 30, next: today(), ...preset }
+  const init = x ?? { currency: st.settings.mainCur, everyDays: 30, next: today(), ...preset }
   return (
     <FormSheet title={x ? x.name : 'New selfcare'} initial={init}
       fields={[
         { key: 'name', label: 'Name', type: 'text', placeholder: 'Manicure' },
         { key: 'details', label: 'Details', type: 'text', placeholder: 'Place, master, what exactly…' },
         { key: 'price', label: 'Price per time', type: 'number' },
-        { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES },
+        { key: 'currency', label: 'Currency', type: 'select', options: curOptions(st.settings, x?.currency) },
         { key: 'everyDays', label: 'Repeat every (days)', type: 'number', step: 1 },
         { key: 'next', label: 'Next time', type: 'date' },
         { key: 'time', label: 'Starts (when it’s booked)', type: 'time' },
@@ -123,7 +122,7 @@ const CareEdit = ({ id, preset }: { id?: string; preset?: Partial<SelfCare> }) =
       ]}
       onSave={(v) => update((d) => {
         d.selfcare ??= []
-        const data = { name: v.name.trim(), details: v.details?.trim() || undefined, price: v.price ?? 0, currency: (v.currency ?? 'PLN') as Currency, everyDays: Math.max(1, Math.round(v.everyDays || 30)), next: v.next || today(), time: v.time || undefined, endTime: (v.time && v.endTime) || undefined, paused: !!v.paused || undefined }
+        const data = { name: v.name.trim(), details: v.details?.trim() || undefined, price: v.price ?? 0, currency: v.currency ?? st.settings.mainCur, everyDays: Math.max(1, Math.round(v.everyDays || 30)), next: v.next || today(), time: v.time || undefined, endTime: (v.time && v.endTime) || undefined, paused: !!v.paused || undefined }
         if (x) Object.assign(d.selfcare.find((y) => y.id === x.id)!, data)
         else d.selfcare.push({ id: uid(), ...data })
       })}

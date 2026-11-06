@@ -3,7 +3,7 @@ import { update, useSt } from '../store'
 import type { Project } from '../types'
 import { Cleaning } from './Cleaning'
 import { Recipes } from './Recipes'
-import { fmt, numText, parseNum, splitList, uid } from '../lib'
+import { curSign, mainCur, fmt, numText, parseNum, splitList, uid } from '../lib'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 
 const SUBTABS: [string, string][] = [['cleaning', 'Cleaning'], ['projects', 'Projects'], ['recipes', 'Recipes']]
@@ -104,7 +104,7 @@ export const ProjectSheet = ({ id }: { id?: string }) => {
         <input className="input" value={p.toBuy ?? ''} placeholder="mounting glue, screws, hooks" onChange={(e) => set({ toBuy: e.target.value })} />
         {items.length > 0 && <span className="t13 muted">Goes to the Home shopping list as {items.length} {items.length === 1 ? 'item' : 'items'}</span>}
       </Field>
-      <Field label="Rough cost (zł)">
+      <Field label="{`Rough cost (${curSign(mainCur())})`}">
         <input className="input" type="text" inputMode="decimal" value={costText} onChange={(e) => { setCostText(e.target.value); set({ cost: parseNum(e.target.value) }) }} />
       </Field>
       <button className="btn full" disabled={!p.name.trim()} onClick={() => save()}>Save</button>

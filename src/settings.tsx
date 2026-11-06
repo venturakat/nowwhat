@@ -1,15 +1,16 @@
 import { exportJson, importJson, update, useSt, useStore } from './store'
 import { useState } from 'react'
-import { Icon, List, popSheet, pushSheet, Sheet, toast } from './ui'
+import { Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
-import { refreshRates } from './rates'
-import { autoProtein, dailyNeeds, fmtDay, parseNum, travelUsual } from './lib'
+import { OFFICIAL, refreshRates } from './rates'
+import { allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
+import type { RateSrc, State } from './types'
 
 export const SettingsSheet = () => {
   return (
     <Sheet title="Settings" full>
-      <RatesCard />
+      <CurrenciesCard />
       <TaxesCard />
       <DaysCard />
       <AboutCard />
@@ -42,8 +43,9 @@ const TaxesCard = () => {
   const st = useSt()
   return (
     <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(
-      <FormSheet title="Taxes & accounts" onBack={popSheet} initial={{ ...st.settings, pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
+      <FormSheet title="Taxes & accounts" onBack={popSheet} initial={{ ...st.settings, taxCur: st.settings.taxCur ?? 'PLN', pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
         fields={[
+          { key: 'taxCur', label: 'Taxes are in', type: 'select', options: curOptions(st.settings, st.settings.taxCur ?? 'PLN') },
           { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
           { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
           { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
@@ -154,38 +156,149 @@ const DaysCard = () => {
   )
 }
 
-const RatesCard = () => {
+// ---------- Currencies ----------
+// main currency (totals, budget), the others to pick from, and where each rate comes from
+const CurrenciesCard = () => {
   const s = useSt().settings
+  return (
+    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<CurrenciesSheet />)}>
+      <span className="t17">Currencies</span>
+      <span className="t14 muted">Main: {curName(s.mainCur)}{s.curs.length ? ` · also ${s.curs.map(curSign).join(', ')}` : ''}</span>
+    </button>
+  )
+}
+
+const fmtRate = (n?: number) => (n ? fmtNum(n, n < 0.1 ? 6 : 4, 2) : '—')
+
+const CurrenciesSheet = () => {
+  const st = useSt()
+  const s = st.settings
+  const [busy, setBusy] = useState(false)
   const at = s.ratesAt ? new Date(s.ratesAt) : null
   const when = at ? `${fmtDay(at.toISOString().slice(0, 10))}, ${at.toTimeString().slice(0, 5)}` : 'not yet'
+  const src = (c: string) => s.rateSrc?.[c] ?? 'market'
   return (
-    <div className="card" style={{ gap: 6 }}>
-      <span className="t17">Exchange rates</span>
-      <span className="t15">1 € = {s.eurPln.toFixed(4)} zł · 1 ₴ = {(s.uahPln ?? 0).toFixed(4)} zł <span className="muted">(100 ₴ = {((s.uahPln ?? 0) * 100).toFixed(2)} zł)</span></span>
-      <span className="t13 muted">{s.ratesAuto === false ? 'Set by hand' : `Updated ${when}${s.ratesNote ? ' · ' + s.ratesNote : ''}`}</span>
-      <div className="row" style={{ gap: 8, marginTop: 4 }}>
-        <button className="btn soft sm" onClick={async () => {
-          // back to automatic: NBP for €, monobank for ₴
-          update((d) => { d.settings.ratesAuto = true })
-          toast('Updating…')
-          const ok = await refreshRates(true).catch(() => false)
-          toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones')
-        }}>Update now</button>
-        <button className="btn soft sm" onClick={() => pushSheet(
-          <FormSheet title="Exchange rates" onBack={popSheet} initial={{ eurPln: s.eurPln, uahPln: s.uahPln }}
-            fields={[
-              { key: 'eurPln', label: '1 € in zł', type: 'number' },
-              { key: 'uahPln', label: '1 ₴ in zł', type: 'number' }
-            ]}
-            extra={<span className="t13 muted">Your rates stay until you tap Update now.</span>}
-            onSave={(v) => update((d) => {
-              if (v.eurPln) d.settings.eurPln = v.eurPln
-              if (v.uahPln) d.settings.uahPln = v.uahPln
-              d.settings.ratesAuto = false
-            })}
-          />
-        )}>Add manually</button>
-      </div>
-    </div>
+    <Sheet title="Currencies" full onBack={popSheet}>
+      <Field label="Main currency">
+        <button className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: '14px 16px' }} onClick={() => pushSheet(<CurPicker main />)}>
+          <span className="t17 grow" style={{ textAlign: 'left' }}>{curSign(s.mainCur)} · {curName(s.mainCur)}</span>
+          <span className="t14 muted">Change</span>
+        </button>
+        <span className="t13 muted">Totals, the budget and per-day money are shown in it. Everything keeps its own currency.</span>
+      </Field>
+      <List title="Other currencies">
+        {s.curs.map((c) => (
+          <Row key={c} title={`${curSign(c)} · ${curName(c)}`}
+            meta={src(c) === 'manual' ? 'typed in' : `${src(c) === 'official' ? OFFICIAL[s.mainCur] ?? 'official' : 'market'}${s.rateNote?.[c] && src(c) !== 'manual' && s.rateNote[c] !== 'market' ? ' · ' + s.rateNote[c] : ''}`}
+            trail={<span className="t15">{fmtRate(s.rates[c])} {curSign(s.mainCur)}</span>}
+            onClick={() => pushSheet(<CurSheet c={c} />)} />
+        ))}
+        <Row title={<span className="muted">+ Add currency</span>} onClick={() => pushSheet(<CurPicker />)} />
+      </List>
+      <span className="t13 muted" style={{ padding: '0 4px' }}>Rates: how much {curSign(s.mainCur)} one unit is worth. Updated {when}. Past amounts keep the rate of their day.</span>
+      <button className="btn soft" disabled={busy} onClick={async () => {
+        setBusy(true)
+        const ok = await refreshRates(true).catch(() => false)
+        setBusy(false)
+        toast(ok ? 'Rates updated' : 'Could not reach the rate sources — kept the last ones')
+      }}>{busy ? 'Updating…' : 'Update now'}</button>
+    </Sheet>
   )
+}
+
+// one currency: where its rate comes from, or the rate typed in
+const CurSheet = ({ c }: { c: string }) => {
+  const st = useSt()
+  const s = st.settings
+  const [srcNow, setSrc] = useState<RateSrc>(s.rateSrc?.[c] ?? 'market')
+  const [rate, setRate] = useState(numText(s.rates[c]))
+  const [armed, setArmed] = useState(false)
+  const off = OFFICIAL[s.mainCur]
+  const opts: [RateSrc, string][] = [['market', 'Market'], ...(off ? [['official', `Official · ${off}`] as [RateSrc, string]] : []), ['manual', 'Type it in']]
+  const used = usedCurs({ ...st, settings: { ...s, curs: [] } }).includes(c)
+  return (
+    <Sheet title={`${curSign(c)} · ${curName(c)}`} full onBack={popSheet}>
+      <Field label="Rate from">
+        <div className="seg">{opts.map(([k, l]) => <button key={k} type="button" className={'chip' + (srcNow === k ? ' on' : '')} onClick={() => setSrc(k)}>{l}</button>)}</div>
+      </Field>
+      {srcNow === 'manual'
+        ? <Field label={`1 ${curSign(c)} in ${curSign(s.mainCur)}`}><input className="input" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
+        : <span className="t14 muted">Now 1 {curSign(c)} = {fmtRate(s.rates[c])} {curSign(s.mainCur)}. {srcNow === 'official' ? `${off}’s rate, the one used in accounting.` : 'Mid-market, updated a few times a day.'}</span>}
+      <button className="btn full" disabled={srcNow === 'manual' && !parseNum(rate)} onClick={() => {
+        update((d) => {
+          d.settings.rateSrc = { ...(d.settings.rateSrc ?? {}), [c]: srcNow }
+          if (srcNow === 'manual') { d.settings.rates = { ...d.settings.rates, [c]: parseNum(rate)! }; d.settings.rateNote = { ...(d.settings.rateNote ?? {}), [c]: 'typed in' }; logRates(d.settings) }
+        })
+        popSheet()
+        if (srcNow !== 'manual') refreshRates(true).catch(() => {})
+      }}>Save</button>
+      <button className="btn full soft" onClick={() => {
+        if (!armed) { setArmed(true); toast(used ? 'Still used by some amounts — its rate stays updated. Tap again to remove it from the pickers' : 'Tap again to remove'); return }
+        update((d) => { d.settings.curs = d.settings.curs.filter((x) => x !== c) })
+        popSheet()
+      }}>{armed ? 'Tap again to remove' : 'Remove from the pickers'}</button>
+    </Sheet>
+  )
+}
+
+// pick a currency to add, or the new main one
+const CurPicker = ({ main }: { main?: boolean }) => {
+  const s = useSt().settings
+  const [q, setQ] = useState('')
+  const [busy, setBusy] = useState(false)
+  const skip = new Set([s.mainCur, ...(main ? [] : s.curs)])
+  const ql = q.trim().toLowerCase()
+  const list = allCurrencies().filter((c) => !skip.has(c) && (!ql || c.toLowerCase().includes(ql) || curName(c).toLowerCase().includes(ql)))
+  // the ones already in use first when changing the main one
+  if (main) list.sort((a, b) => Number(s.curs.includes(b)) - Number(s.curs.includes(a)))
+  const pick = async (c: string) => {
+    if (!main) {
+      update((d) => { d.settings.curs = [...d.settings.curs, c]; d.settings.rateSrc = { ...(d.settings.rateSrc ?? {}), [c]: OFFICIAL[d.settings.mainCur] ? 'official' : 'market' } })
+      popSheet()
+      refreshRates(true).catch(() => {})
+      return
+    }
+    setBusy(true)
+    if (!hasRate(useStore.getState().st.settings, c)) {
+      update((d) => { if (!d.settings.curs.includes(c)) d.settings.curs = [...d.settings.curs, c] })
+      await refreshRates(true).catch(() => false)
+    }
+    setBusy(false)
+    if (!hasRate(useStore.getState().st.settings, c)) { toast(`Couldn’t get a rate for ${c} — try again when online`); return }
+    update((d) => switchMain(d, c))
+    popSheet()
+    toast(`Main currency: ${curName(c)}`)
+    refreshRates(true).catch(() => {})
+  }
+  return (
+    <Sheet title={main ? 'Main currency' : 'Add currency'} full onBack={popSheet}>
+      <input className="input" value={q} placeholder="Search: euro, USD, hryvnia…" onChange={(e) => setQ(e.target.value)} />
+      {main && <span className="t13 muted">Amounts keep their own currency. Supply prices, project costs and “up to” prices switch over at today’s rate.</span>}
+      <List>
+        {list.slice(0, 80).map((c) => <Row key={c} title={`${curSign(c)} · ${curName(c)}`} meta={c} onClick={() => !busy && pick(c)} />)}
+      </List>
+    </Sheet>
+  )
+}
+
+// a new main currency: today's rates are turned around to it, the old main becomes one of the others,
+// and plain amounts that have no currency of their own (supply prices, project costs, "up to") are converted
+const switchMain = (d: State, c: string) => {
+  const s = d.settings, old = s.mainCur
+  if (c === old) return
+  const f = rateOf(s, c) // old main for 1 new
+  fillCurs(d, old)
+  const rates: Record<string, number> = {}
+  for (const [k, v] of Object.entries(s.rates)) if (k !== c) rates[k] = Math.round((v / f) * 1e6) / 1e6
+  rates[old] = Math.round((1 / f) * 1e6) / 1e6
+  const srcs = { ...(s.rateSrc ?? {}) }
+  for (const k of Object.keys(srcs)) if (srcs[k] === 'official' && !OFFICIAL[c]) srcs[k] = 'market'
+  if (!srcs[old]) srcs[old] = OFFICIAL[c] ? 'official' : 'market'
+  delete srcs[c]
+  const conv1 = (n: number) => Math.round((n / f) * 100) / 100
+  for (const x of d.supplies) if (x.pricePerUnit) x.pricePerUnit = conv1(x.pricePerUnit)
+  for (const x of d.projects) if (x.cost) x.cost = conv1(x.cost)
+  for (const x of d.needs) if (x.maxPrice) x.maxPrice = conv1(x.maxPrice)
+  d.settings = { ...s, mainCur: c, curs: [old, ...s.curs.filter((x) => x !== c && x !== old)], rates, rateSrc: srcs, ratesAt: undefined }
+  logRates(d.settings)
 }

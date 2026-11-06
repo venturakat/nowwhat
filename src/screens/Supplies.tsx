@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Supply, SupplyCat } from '../types'
-import { addDays, CAT_LABEL, editProjectBuy, fmt, fmtDay, nextBuy, periodOf, relDays, supplyStatus, today, uid } from '../lib'
+import { curSign, mainCur, addDays, CAT_LABEL, editProjectBuy, fmt, fmtDay, nextBuy, periodOf, relDays, supplyStatus, today, uid } from '../lib'
 import { C, Chips, Field, Header, List, openSheet, Row, Sheet, closeSheet, toast, registerSubs, useUi } from '../ui'
 import { addShipment, CourierPick } from './Shipments'
 import { FormSheet } from '../form'
@@ -151,7 +151,7 @@ const SupplyEdit = ({ id, cat }: { id?: string; cat: SupplyCat }) => {
       fields={[
         { key: 'name', label: 'Name', type: 'text' },
         { key: 'details', label: 'Details', type: 'text', placeholder: 'Dosage, pack size, amount, flavour…' },
-        { key: 'pricePerUnit', label: 'Price per item (zł)', type: 'number' },
+        { key: 'pricePerUnit', label: `Price per item (${curSign(mainCur())})`, type: 'number' },
         { key: 'once', label: 'One-time purchase', type: 'check' },
         { key: 'buyQty', label: 'Items per buy', type: 'number', step: 1, off: (v) => !!v.once },
         { key: 'lastsDays', label: 'One buy lasts (days)', type: 'number', step: 1, off: (v) => !!v.once },

@@ -3,7 +3,7 @@ import { get as idbGet, set as idbSet } from 'idb-keyval'
 import type { BudgetItem, State } from './types'
 import { seed } from './seed'
 import { defaultCleanPlan, defaultCleanTasks } from './cleaning'
-import { leftToDurations, periodItems, periodOf, syncProjectBuys, today, uid } from './lib'
+import { fillCurs, leftToDurations, logRates, periodItems, periodOf, setMainCur, syncProjectBuys, today, uid } from './lib'
 
 const KEY = 'now-what-state'
 
@@ -69,6 +69,25 @@ export const migrate = (s: State): State => {
     }
     out.version = 8
   }
+  if (out.version < 9) {
+    // v9: any currency. zł stays the main one; €, ₴, $ (and pesos, when a class uses them) are the others.
+    // Today's rates start the rate log, so everything before today keeps today's rates from now on.
+    const s0 = out.settings
+    const ars = (out.classes ?? []).some((c) => (c.payIn ?? c.currency) === 'ARS') || !!out.lessons
+    const curs = ['EUR', 'UAH', 'USD', ...(ars ? ['ARS'] : [])]
+    const rates: Record<string, number> = { EUR: s0.eurPln ?? 4.3, UAH: s0.uahPln ?? 0.0854, USD: s0.usdPln ?? 4 }
+    if (ars && s0.blueArs && s0.usdPln) rates.ARS = s0.usdPln / (s0.oficialArs ?? s0.blueArs)
+    const src = s0.ratesAuto === false ? 'manual' : undefined
+    out.settings = {
+      ...s0, mainCur: 'PLN', curs, rates, taxCur: 'PLN',
+      rateSrc: { EUR: src ?? 'official', USD: src ?? 'official', UAH: src ?? 'market', ...(ars ? { ARS: 'market' as const } : {}) }
+    }
+    delete out.settings.eurPln; delete out.settings.uahPln; delete out.settings.usdPln; delete out.settings.ratesAuto; delete out.settings.ratesNote
+    for (const c of out.clients) c.cur ??= 'EUR'
+    fillCurs(out, 'PLN')
+    logRates(out.settings)
+    out.version = 9
+  }
   // Spanish classes (USD price paid in pesos) became one of the Classes
   if (out.lessons && !out.classes) {
     const l = out.lessons
@@ -79,6 +98,7 @@ export const migrate = (s: State): State => {
     }]
   }
   delete out.lessons
+  fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
   // nutrition: earlier lookups only searched basic foods — forget the "not found" ones so they're tried again everywhere
   if ((out.nutritionV ?? 1) < 2) { for (const k of Object.keys(out.nutrition ?? {})) if (out.nutrition![k] === null) delete out.nutrition![k]; out.nutritionV = 2 }
@@ -113,6 +133,7 @@ export const useStore = create<Store>((set, get) => ({
   update: (recipe) => {
     const d = structuredClone(get().st)
     recipe(d)
+    fillCurs(d)
     syncProjectBuys(d)
     set({ st: d })
     persist(d)
@@ -136,6 +157,9 @@ export const hydrate = async () => {
     useStore.setState({ ready: true })
   }
 }
+
+// fmt() and friends show the main currency
+useStore.subscribe((s) => setMainCur(s.st.settings.mainCur))
 
 export const useSt = () => useStore((s) => s.st)
 export const update = (recipe: (d: State) => void) => useStore.getState().update(recipe)

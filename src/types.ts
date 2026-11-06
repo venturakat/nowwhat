@@ -3,8 +3,15 @@ export type Energy = 'low' | 'okay' | 'lots'
 export type CleanMode = 1 | 2 | 3 // 1 light, 2 regular, 3 extra
 export type SupplyCat = 'meds' | 'groceries' | 'pets' | 'home' | 'care'
 
-export type Currency = 'PLN' | 'EUR' | 'UAH' | 'USD' // USD: for classes (rates: NBP table A)
-export type PayCur = Currency | 'ARS' // what a class can be paid in
+// ISO 4217 code ('PLN', 'EUR', 'ARS'…). The app shows totals in the main currency (Settings › Currencies);
+// every amount keeps its own currency and is converted with the rate of its day (see lib: toMain).
+export type Currency = string
+export type PayCur = Currency // what a class can be paid in
+// where a currency's rate comes from: market (mid-market, any currency), official (the central bank of the
+// main currency's country: NBP for zł, NBU for ₴, Banco Nación / dólar oficial for pesos), manual (typed in)
+export type RateSrc = 'market' | 'official' | 'manual'
+// one day of rates: m = the main currency then, r = how much of it 1 unit of each currency was worth
+export interface RateDay { m: Currency; r: Record<Currency, number> }
 
 // Calendar: things from the tabs it can show (chosen in Settings) and your own appointments
 export type CalKey = 'taxes' | 'subs' | 'credits' | 'classes' | 'selfcare' | 'shopping' | 'deliveries' | 'cleaning'
@@ -19,10 +26,18 @@ export interface CalEvent {
 }
 
 export interface Settings {
-  eurPln: number // PLN for 1 EUR (live: mid-market via Frankfurter/ECB)
-  uahPln?: number // PLN for 1 UAH (live: monobank)
-  ratesAuto?: boolean // keep rates updated from the internet (default on)
+  mainCur: Currency // totals, budget and per-day money are shown in this
+  curs: Currency[] // other currencies offered in the currency pickers
+  rates: Record<Currency, number> // today: how much main currency 1 unit is worth
+  rateSrc?: Record<Currency, RateSrc> // default market
+  rateNote?: Record<Currency, string> // where today's rate came from ("NBP 215/A", "market", "kept")
+  rateLog?: Record<string, RateDay> // by YYYY-MM-DD: past amounts keep the rate of their day
   ratesAt?: string // when they were last updated
+  taxCur?: Currency // taxes are worked out and shown in this (default PLN)
+  // before v9 (moved into rates on load)
+  eurPln?: number
+  uahPln?: number
+  ratesAuto?: boolean
   ratesNote?: string
   subsFrom?: string // budget half from which subscriptions are added automatically
   pitRate: number // ryczałt, e.g. 0.14
@@ -33,7 +48,7 @@ export interface Settings {
   taxPayDay?: number // the day I actually pay — the budget puts ZUS + PIT on this day
   leadDays: number // meds, pets, care: shop this many days before running out
   leadDaysShort?: number // groceries, home: shop this many days before
-  usdPln?: number // PLN for 1 USD (NBP table A)
+  usdPln?: number // before v9
   blueArs?: number // dólar blue (sell): pesos for 1 USD
   blueAt?: string
   oficialArs?: number // dólar oficial (sell): pesos for 1 USD
@@ -58,7 +73,7 @@ export interface BudgetItem {
   kind: 'income' | 'expense'
   label: string
   amount: number // in `currency`
-  currency?: Currency // default PLN; converted to zł with the current rate
+  currency?: Currency // filled in on save (the main currency when not chosen)
   date?: string // YYYY-MM-DD
   taxable?: boolean // counts as revenue for PIT/ZUS
   fromClient?: ID
@@ -82,10 +97,11 @@ export interface Spend {
 export interface Client {
   id: ID
   name: string
-  rateEur: number // hourly clients
+  rateEur: number // hourly clients: per hour, in `cur`
+  cur?: Currency // the client's currency (hourly rate); default EUR
   kind?: 'hourly' | 'fixed' | 'job' // job = a fixed fee per piece of work, whenever it comes
   fixedEur?: number // fixed clients: monthly fee (in fixedCur)
-  fixedCur?: 'EUR' | 'PLN' // default EUR
+  fixedCur?: Currency // default EUR
   payDay?: number // fixed clients: day of the month the fee is due
   since?: string // fixed clients: first month (YYYY-MM)
   archived?: boolean
@@ -102,9 +118,9 @@ export interface Session {
   invoiceDate?: string
   paidDate?: string // when the money came in — the budget adds it to that half
   fee?: number // fixed fee (instead of hours × rate), in feeCur
-  feeCur?: 'EUR' | 'PLN' // default EUR
+  feeCur?: Currency // default EUR
   feeMonth?: string // YYYY-MM the fee is for
-  nbpRate?: number // NBP table A mid rate from the last working day before the invoice date
+  nbpRate?: number // NBP mid rate (1 unit = this many zł) from the last working day before the invoice date
   nbpTable?: string // e.g. 212/A/NBP/2026
 }
 
@@ -354,7 +370,8 @@ export interface CoursePay {
   rate?: number // 1 price currency = this much of payIn (when they differ)
   paid: number // what was sent, in payIn
   payIn: PayCur
-  pln: number // what it cost in zł, fee included (goes to the budget)
+  pln: number // what it cost, fee included, in `plnCur` (goes to the budget)
+  plnCur?: Currency // the main currency when it was paid (before v9: PLN)
   itemId: ID // the budget entry
 }
 // v1 Spanish classes (moved into Course on load)

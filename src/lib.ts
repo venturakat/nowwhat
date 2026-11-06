@@ -53,11 +53,9 @@ export const nextMonth = (mk: string) => {
 export const relDays = (n: number) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday' : n < 0 ? `${-n} days ago` : `in ${n} days`)
 
 // ---------- money ----------
-export const fmt = (n: number, dec = false) => {
-  const v = dec ? Math.round(n * 100) / 100 : Math.round(n)
-  return v.toLocaleString('en-US', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0 }) + ' zł'
-}
-export const fmtEur = (n: number) => '€' + (Math.round(n * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 })
+// amounts in the main currency (Settings › Currencies)
+export const fmt = (n: number, dec = false) => fmtCur(n, MAIN, dec)
+export const fmtEur = (n: number) => fmtCur(n, 'EUR', n % 1 !== 0)
 export const r2 = (n: number) => Math.round(n * 100) / 100
 
 // ---------- budget periods ----------
@@ -143,14 +141,14 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   if (due >= p.start && due <= p.end) {
     const forMonth = prevMonth(p.month)
     const tx = taxFor(st, forMonth)
-    if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: tx.total, date: due, meta: `for ${monthName(forMonth, true)} · ${tx.paid ? 'paid' : tx.zusPaid ? 'ZUS paid · PIT ' + fmtDay(due) : tx.pitPaid ? 'PIT paid · ZUS ' + fmtDay(due) : 'pay ' + fmtDay(due)}`, kind: 'tax' })
+    if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: toMain(st.settings, tx.total, taxCur(st.settings), due), date: due, meta: `for ${monthName(forMonth, true)} · ${tx.paid ? 'paid' : tx.zusPaid ? 'ZUS paid · PIT ' + fmtDay(due) : tx.pitPaid ? 'PIT paid · ZUS ' + fmtDay(due) : 'pay ' + fmtDay(due)}`, kind: 'tax' })
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
   const localDay = (iso: string) => { const x = new Date(iso); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}` }
   // still unpaid from an earlier half → shows in the current half, so nothing gets lost
   const inHalf = (d: string) => (d >= p.start && d <= p.end) || (d < p.start && t >= p.start && t <= p.end)
   // invoiced hours, one line per client and invoice
-  const hourly: Record<string, { c: string; d: string; h: number; eur: number; pln: number; approx: boolean }> = {}
+  const hourly: Record<string, { c: string; d: string; h: number; amt: number; cur: Currency; pln: number; approx: boolean }> = {}
   for (const s of st.sessions) {
     if (s.fee !== undefined || !s.invoiced || s.paid) continue
     const c = st.clients.find((x) => x.id === s.clientId)
@@ -158,19 +156,19 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const d = s.invoiceDate ?? localDay(s.start)
     if (!inHalf(d)) continue
     const k = `${c.id}@${s.invoiceDate ?? ''}`
-    const g = (hourly[k] ??= { c: c.name, d, h: 0, eur: 0, pln: 0, approx: false })
-    g.h += hours(s); g.eur += sessionEur(st, s); g.pln += sessionPln(st, s); g.approx ||= !s.nbpRate
+    const g = (hourly[k] ??= { c: c.name, d, h: 0, amt: 0, cur: sessionCur(st, s), pln: 0, approx: false })
+    g.h += hours(s); g.amt += sessionAmt(st, s); g.pln += sessionMain(st, s); g.approx ||= !s.nbpRate
     if (d > g.d) g.d = d
   }
   for (const [k, g] of Object.entries(hourly))
-    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtEur(g.eur)} · ${fmtDay(g.d)} · invoiced`, kind: 'fee', income: true, expected: true })
+    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtCur(g.amt, g.cur, g.amt % 1 !== 0)} · ${fmtDay(g.d)} · invoiced`, kind: 'fee', income: true, expected: true })
   for (const s of st.sessions) {
     if (s.fee === undefined || s.paid) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
     const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
     if (!inHalf(d)) continue
-    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionPln(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${s.feeCur === 'PLN' ? fmt(s.fee ?? 0, true) : fmtEur(s.fee ?? 0)} · ${fmtDay(d)} · ${s.invoiced ? (s.nbpRate || !needsRate(s) ? 'invoiced' : 'invoiced') : 'expected'}`, kind: 'fee', income: true, expected: true, counted: !!s.feeMonth })
+    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionMain(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${fmtCur(s.fee ?? 0, s.feeCur ?? 'EUR')} · ${fmtDay(d)} · ${s.invoiced ? 'invoiced' : 'expected'}`, kind: 'fee', income: true, expected: true, counted: !!s.feeMonth })
   }
   // future months of monthly clients (their entry is only created when the month comes)
   for (const c of st.clients) {
@@ -178,7 +176,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const d = feeDate(c, p.month)
     if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
     if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
-    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: c.fixedCur === 'PLN' ? c.fixedEur : c.fixedEur * st.settings.eurPln, date: d, meta: `monthly fee · ${c.fixedCur === 'PLN' ? fmt(c.fixedEur, true) : fmtEur(c.fixedEur)} · ${fmtDay(d)} · expected`, kind: 'fee', income: true, expected: true, counted: true })
+    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: toMain(st.settings, c.fixedEur, c.fixedCur ?? 'EUR'), date: d, meta: `monthly fee · ${fmtCur(c.fixedEur, c.fixedCur ?? 'EUR')} · ${fmtDay(d)} · expected`, kind: 'fee', income: true, expected: true, counted: true })
   }
   // the next batch of classes to pay for, on the day of its first class (until it's paid)
   for (const c of st.classes ?? []) {
@@ -188,12 +186,12 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
-    return { c, pln: inP.reduce((a, x) => a + toPln(st.settings, x.amount, c.currency ?? 'PLN'), 0), dates: inP.map((x) => x.date) }
+    return { c, pln: inP.reduce((a, x) => a + toMain(st.settings, x.amount, c.currency, x.date), 0), dates: inP.map((x) => x.date) }
   }).filter((x) => x.dates.length)
   if (cr.length) out.push({ id: 'credits', label: 'Credits', amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: creditMeta(cr.flatMap((x) => x.dates)), kind: 'credit' })
   // subscriptions charged in this half, as one line
   const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
-  if (subs.length) out.push({ id: 'subs', label: 'Subscriptions', amount: subs.reduce((a, { x }) => a + toPln(st.settings, x.amount, x.currency), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
+  if (subs.length) out.push({ id: 'subs', label: 'Subscriptions', amount: subs.reduce((a, { x, d }) => a + toMain(st.settings, x.amount, x.currency, d), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
   // selfcare planned in this half (from today on; done ones are logged as spending instead)
   const care = careInPeriod(st, p.start, p.end)
   if (care.length) out.push({ id: 'care', label: 'Selfcare', amount: care.reduce((a, c) => a + c.pln, 0), date: care[0].date, meta: [...new Set(care.map((c) => c.x.name))].join(', '), kind: 'care' })
@@ -252,7 +250,8 @@ export const summarize = (st: State, key: string): PeriodSummary => {
   const info = periodFromKey(key, st.settings)
   const { items, isTemplate } = periodItems(st, key)
   const auto = autoLines(st, info)
-  const pl = (x: { amount: number; currency?: Currency }) => toPln(st.settings, x.amount, x.currency ?? 'PLN')
+  // dated amounts at the rate of their day; undated ones at the rate of the half's last day
+  const pl = (x: { amount: number; currency?: Currency; date?: string }) => toMain(st.settings, x.amount, x.currency, x.date ?? info.end)
   const income = items.filter((i) => i.kind === 'income').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => a.income && (!a.expected || a.counted)).reduce((a, b) => a + b.amount, 0)
   const fixed = items.filter((i) => i.kind === 'expense').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => !a.income).reduce((a, b) => a + b.amount, 0)
   const spent = st.spends.filter((s) => s.date >= info.start && s.date <= info.end).reduce((a, b) => a + pl(b), 0)
@@ -265,14 +264,18 @@ export const summarize = (st: State, key: string): PeriodSummary => {
 }
 
 // ---------- taxes ----------
+// taxes are worked out in their own currency (zł unless set)
+export const taxCur = (s: Settings) => s.taxCur ?? 'PLN'
+export const fmtTax = (s: Settings, n: number, dec = false) => fmtCur(n, taxCur(s), dec)
 export const revenueFromIncome = (st: State, mk: string) => {
+  const tc = taxCur(st.settings)
   let sum = 0
   for (const [key, p] of Object.entries(st.periods)) {
     if (!key.startsWith(mk)) continue
-    for (const it of p.items) if (it.kind === 'income' && it.taxable) sum += toPln(st.settings, it.amount, it.currency ?? 'PLN')
+    for (const it of p.items) if (it.kind === 'income' && it.taxable) sum += conv(st.settings, it.amount, it.currency ?? st.settings.mainCur, tc, it.date ?? periodFromKey(key, st.settings).end)
   }
   // invoices count as revenue in the month of the invoice date, at their NBP rate — no need to wait for payment
-  for (const s of st.sessions) if (s.invoiced && s.invoiceDate && s.invoiceDate.startsWith(mk)) sum += sessionPln(st, s)
+  for (const s of st.sessions) if (s.invoiced && s.invoiceDate && s.invoiceDate.startsWith(mk)) sum += sessionTax(st, s)
   return sum
 }
 export const taxFor = (st: State, mk: string) => {
@@ -301,9 +304,10 @@ export const setTaxPaid = (d: State, mk: string, part: 'zus' | 'pit' | 'both', o
 
 // ---------- work ----------
 export const hours = (s: Session) => (new Date(s.end).getTime() - new Date(s.start).getTime()) / 3600000
-// the € part of an entry (0 for fees in zł)
-export const sessionEur = (st: State, s: Session) => {
-  if (s.fee !== undefined) return s.feeCur === 'PLN' ? 0 : s.fee
+// an entry's currency and amount in it (hours × the client's rate, or the fee)
+export const sessionCur = (st: State, s: Session): Currency => s.fee !== undefined ? s.feeCur ?? 'EUR' : st.clients.find((c) => c.id === s.clientId)?.cur ?? 'EUR'
+export const sessionAmt = (st: State, s: Session) => {
+  if (s.fee !== undefined) return s.fee
   const c = st.clients.find((c) => c.id === s.clientId)
   return hours(s) * (c?.rateEur ?? 0)
 }
@@ -330,15 +334,28 @@ export const ensureFees = (d: State) => {
     }
   }
 }
-// zł value of hours: invoiced ones use the NBP rate of their invoice, others today's rate (an estimate)
-export const sessionPln = (st: State, s: Session) => (s.fee !== undefined && s.feeCur === 'PLN' ? s.fee : sessionEur(st, s) * (s.nbpRate ?? st.settings.eurPln))
-// a list's total in its own currency: "€600", "1 200,00 zł" or "€600 + 1 200,00 zł"
-export const fmtSum = (st: State, l: Session[]) => {
-  const eur = l.reduce((a, s) => a + sessionEur(st, s), 0)
-  const pln = l.filter((s) => s.fee !== undefined && s.feeCur === 'PLN').reduce((a, s) => a + (s.fee ?? 0), 0)
-  return [eur || !pln ? fmtEur(eur) : '', pln ? fmt(pln, true) : ''].filter(Boolean).join(' + ')
+// in the tax currency: invoices in zł taxes use their NBP rate, the rest the rate of the invoice day
+export const sessionTax = (st: State, s: Session) => {
+  const cur = sessionCur(st, s), amt = sessionAmt(st, s), tc = taxCur(st.settings)
+  if (s.nbpRate && tc === 'PLN' && cur !== 'PLN') return amt * s.nbpRate
+  return conv(st.settings, amt, cur, tc, s.invoiceDate ?? s.paidDate)
 }
-export const needsRate = (s: Session) => !(s.fee !== undefined && s.feeCur === 'PLN')
+// in the main currency: invoiced ones via their NBP rate (exact when the main currency is zł),
+// paid ones at the rate of their day, the rest at today's rate (an estimate)
+export const sessionMain = (st: State, s: Session) => {
+  const cur = sessionCur(st, s), amt = sessionAmt(st, s), d = s.paidDate ?? s.invoiceDate
+  if (s.nbpRate && cur !== 'PLN') return toMain(st.settings, amt * s.nbpRate, 'PLN', d)
+  return toMain(st.settings, amt, cur, d)
+}
+// a list's total in its own currencies: "€600", "1 200,00 zł" or "€600 + 1 200,00 zł"
+export const fmtSum = (st: State, l: Session[]) => {
+  const by = new Map<Currency, number>()
+  for (const s of l) { const c = sessionCur(st, s); by.set(c, (by.get(c) ?? 0) + sessionAmt(st, s)) }
+  if (!by.size) return fmtCur(0, 'EUR', false)
+  return [...by].map(([c, n]) => fmtCur(n, c, n % 1 !== 0)).join(' + ')
+}
+// invoices outside zł need the NBP rate of the day before the invoice (Polish taxes)
+export const needsRate = (st: State, s: Session) => taxCur(st.settings) === 'PLN' && sessionCur(st, s) !== 'PLN'
 export const fmtHours = (h: number) => (Math.round(h * 10) / 10).toString().replace(/\.0$/, '') + ' h'
 export const fmtClock = (ms: number) => {
   const t = Math.max(0, Math.floor(ms / 1000))
@@ -376,15 +393,110 @@ export const editProjectBuy = (d: State, pid: string, name: string, to?: string)
 export const splitList = (s?: string) => (s ?? '').split(',').map((x) => x.trim()).filter(Boolean)
 
 // ---------- currencies ----------
-export const CUR_SIGN: Record<Currency, string> = { PLN: 'zł', EUR: '€', UAH: '₴', USD: '$' }
-export const toPln = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'EUR' ? amount * s.eurPln : cur === 'UAH' ? amount * (s.uahPln ?? 0.0854) : cur === 'USD' ? amount * (s.usdPln ?? 4) : amount)
-export const fmtCur = (amount: number, cur: Currency = 'PLN', dec = true) => {
-  if (cur === 'PLN') return fmt(amount, dec)
-  const v = (Math.round(amount * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: dec ? 2 : 0, maximumFractionDigits: dec ? 2 : 0 })
-  return cur === 'EUR' ? '€' + v : cur === 'USD' ? '$' + v : v + ' ₴'
+// The main currency is kept here too, so fmt() can be used anywhere (store.ts keeps it in step with Settings).
+let MAIN: Currency = 'PLN'
+export const setMainCur = (c: Currency) => { MAIN = c }
+export const mainCur = () => MAIN
+// sign and where it goes; others come from the phone (Intl), or the code itself
+const SIGNS: Record<string, [string, boolean]> = { PLN: ['zł', false], EUR: ['€', true], USD: ['$', true], GBP: ['£', true], UAH: ['₴', false], ARS: ['ARS', false], CHF: ['CHF', false], CZK: ['Kč', false], JPY: ['¥', true], CAD: ['CA$', true], AUD: ['A$', true] }
+const signCache: Record<string, [string, boolean]> = {}
+const signOf = (c: Currency): [string, boolean] => {
+  if (SIGNS[c]) return SIGNS[c]
+  if (signCache[c]) return signCache[c]
+  let out: [string, boolean] = [c, false]
+  try {
+    const parts = new Intl.NumberFormat('en', { style: 'currency', currency: c, currencyDisplay: 'narrowSymbol' }).formatToParts(1)
+    const sym = parts.find((x) => x.type === 'currency')?.value
+    if (sym && sym !== c && !/^[$]$/.test(sym)) out = [sym, parts[0].type === 'currency']
+  } catch { /* unknown code */ }
+  return (signCache[c] = out)
 }
-// "25 € · 110 zł" for foreign amounts, plain zł otherwise
-export const fmtBoth = (s: Settings, amount: number, cur: Currency = 'PLN') => (cur === 'PLN' ? fmt(amount, true) : `${fmtCur(amount, cur)} · ${fmt(toPln(s, amount, cur))}`)
+export const curSign = (c: Currency) => signOf(c)[0]
+export const CUR_SIGN = new Proxy({} as Record<string, string>, { get: (_, k: string) => curSign(k) })
+// "Polish zloty" (from the phone's language)
+export const curName = (c: Currency) => {
+  try { return new Intl.DisplayNames(undefined, { type: 'currency' }).of(c) ?? c } catch { return c }
+}
+// every currency code the phone knows (for adding one)
+export const allCurrencies = (): string[] => {
+  try { const l = (Intl as any).supportedValuesOf?.('currency') as string[] | undefined; if (l?.length) return l } catch { /* old phones */ }
+  return ['ARS', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'GEL', 'HUF', 'ILS', 'INR', 'JPY', 'KZT', 'MXN', 'NOK', 'PLN', 'RON', 'SEK', 'TRY', 'UAH', 'USD']
+}
+// numbers the way the phone writes them
+export const fmtNum = (n: number, dec = 2, minDec = dec) => n.toLocaleString(undefined, { minimumFractionDigits: minDec, maximumFractionDigits: dec })
+export const fmtCur = (amount: number, cur: Currency = MAIN, dec = true) => {
+  const whole = cur === 'ARS' // pesos: no cents
+  const v = fmtNum(whole ? Math.round(amount) : Math.round(amount * 100) / 100, whole || !dec ? 0 : 2)
+  const [sym, before] = signOf(cur)
+  return before ? (v.startsWith('-') ? '-' + sym + v.slice(1) : sym + v) : `${v} ${sym}`
+}
+// the currencies to pick from: main first, then the others (plus the one already chosen, if it was removed since)
+export const curOptions = (s: Settings, keep?: Currency): [Currency, string][] => {
+  const l = [s.mainCur, ...(s.curs ?? []).filter((c) => c !== s.mainCur)]
+  if (keep && !l.includes(keep)) l.push(keep)
+  return l.map((c) => [c, curSign(c)])
+}
+
+// the rate log, searched by day (cached per log object)
+const logKeys = new WeakMap<object, string[]>()
+const loggedRate = (s: Settings, cur: Currency, date: string): number | undefined => {
+  const log = s.rateLog
+  if (!log) return undefined
+  let keys = logKeys.get(log)
+  if (!keys) { keys = Object.keys(log).sort(); logKeys.set(log, keys) }
+  if (!keys.length) return undefined
+  // the last day on or before the date; before the log began, its first day (rates were frozen from then)
+  let k = keys[0]
+  for (const x of keys) { if (x <= date) k = x; else break }
+  const e = log[k]
+  const one = (c: Currency) => (c === e.m ? 1 : e.r[c])
+  const a = one(cur), b = one(s.mainCur)
+  return a && b ? a / b : undefined
+}
+// how much main currency 1 unit of `cur` is worth: on a past day from the log (so past amounts stay put),
+// otherwise today's rate
+export const rateOf = (s: Settings, cur: Currency = s.mainCur, date?: string): number => {
+  if (!cur || cur === s.mainCur) return 1
+  if (date && date < today()) { const r = loggedRate(s, cur, date); if (r) return r }
+  return s.rates?.[cur] ?? loggedRate(s, cur, today()) ?? 1
+}
+export const hasRate = (s: Settings, cur: Currency) => cur === s.mainCur || !!s.rates?.[cur]
+export const toMain = (s: Settings, amount: number, cur: Currency = s.mainCur, date?: string) => amount * rateOf(s, cur, date)
+export const conv = (s: Settings, amount: number, from: Currency, to: Currency, date?: string) => (from === to ? amount : (amount * rateOf(s, from, date)) / rateOf(s, to, date))
+// today's rates into the log (one entry a day, the latest wins)
+export const logRates = (s: Settings) => {
+  const t = today()
+  s.rateLog = { ...(s.rateLog ?? {}), [t]: { m: s.mainCur, r: { ...s.rates } } }
+}
+// "25 € · 110 zł" for foreign amounts, plain main currency otherwise
+export const fmtBoth = (s: Settings, amount: number, cur: Currency = s.mainCur, date?: string) => (cur === s.mainCur ? fmtCur(amount, cur) : `${fmtCur(amount, cur)} · ${fmtCur(toMain(s, amount, cur, date), s.mainCur, false)}`)
+// every currency the data uses (their rates are kept up to date even when not in the pickers)
+export const usedCurs = (st: State): Currency[] => {
+  const out = new Set<Currency>(st.settings.curs ?? [])
+  const add = (c?: Currency) => { if (c) out.add(c) }
+  for (const p of Object.values(st.periods)) for (const i of p.items) add(i.currency)
+  for (const x of st.spends) add(x.currency)
+  for (const x of st.subscriptions ?? []) add(x.currency)
+  for (const x of st.selfcare ?? []) add(x.currency)
+  for (const x of st.credits ?? []) add(x.currency)
+  for (const x of st.saved ?? []) add(x.currency)
+  for (const x of st.clients) { add(x.cur ?? 'EUR'); add(x.fixedCur) }
+  for (const x of st.sessions) add(x.feeCur)
+  for (const c of st.classes ?? []) { add(c.currency); add(c.payIn); add(c.feeCurrency); if ((c.payIn ?? c.currency) === 'ARS') add('USD') }
+  add(st.settings.taxCur)
+  out.delete(st.settings.mainCur)
+  return [...out]
+}
+// amounts saved without a currency get the main one, so changing it later doesn't change what they were
+export const fillCurs = (d: State, cur = d.settings.mainCur) => {
+  for (const p of Object.values(d.periods)) for (const i of p.items) i.currency ??= cur
+  for (const x of d.spends) x.currency ??= cur
+  for (const x of d.subscriptions ?? []) x.currency ??= cur
+  for (const x of d.selfcare ?? []) x.currency ??= cur
+  for (const x of d.credits ?? []) x.currency ??= cur
+  for (const x of d.saved ?? []) x.currency ??= cur
+  for (const c of d.classes ?? []) { c.currency ??= cur; if (c.fee) c.feeCurrency ??= cur; for (const p of c.pays) p.plnCur ??= cur }
+}
 
 // ---------- subscriptions ----------
 export const subDate = (sub: Subscription, mk: string) => {
@@ -409,8 +521,8 @@ export const parseNum = (x: unknown): number | undefined => {
 export const numText = (n?: number) => (n === undefined || n === null ? '' : String(n).replace('.', ','))
 
 // ---------- classes ----------
-export const fmtArs = (n: number) => Math.round(n).toLocaleString('en-US') + ' ARS'
-export const fmtPay = (n: number, cur: PayCur, dec = false) => (cur === 'ARS' ? fmtArs(n) : fmtCur(n, cur, dec))
+export const fmtArs = (n: number) => fmtCur(n, 'ARS')
+export const fmtPay = (n: number, cur: PayCur, dec = false) => fmtCur(n, cur, dec)
 const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export const weekdayName = (i: number) => WD_SHORT[i]
 export const classPayIn = (c: Course): PayCur => c.payIn ?? c.currency
@@ -428,9 +540,9 @@ export const classRate = (s: Settings, c: Course): number | undefined => {
   if (k === 'manual') return undefined
   if (p === 'ARS') {
     const ars = k === 'oficial' ? s.oficialArs : s.blueArs
-    return ars ? (toPln(s, 1, c.currency) / (s.usdPln ?? 4)) * ars : undefined
+    return ars ? (rateOf(s, c.currency) / rateOf(s, 'USD')) * ars : undefined
   }
-  return toPln(s, 1, c.currency) / toPln(s, 1, p)
+  return rateOf(s, c.currency) / rateOf(s, p)
 }
 // what one class comes to in the pay-in currency (pesos: whole pesos per class)
 export const perClassPaid = (c: Course, rate: number) => (classPayIn(c) === 'ARS' ? Math.round(c.price * rate) : r2(c.price * rate))
@@ -479,10 +591,10 @@ export const classBatch = (st: State, c: Course, t = today()) => {
   const dates = classDates(c, `${mk}-01`, `${mk}-${pad(dim)}`).filter((d) => !paid.has(d))
   const rate = classRate(st.settings, c)
   const fee = c.fee ?? 0
-  const feeCur = c.feeCurrency ?? 'PLN'
+  const feeCur = c.feeCurrency ?? st.settings.mainCur
   const due = `${mk}-${pad(Math.min(c.payDay ?? st.settings.splitDay, dim))}`
   const total = c.price * dates.length // in the price currency
-  return { month: mk, dates, first, due, total, rate, paid: rate === undefined ? undefined : perClassPaid(c, rate) * dates.length, fee, feeCur, pln: r2(toPln(st.settings, total, c.currency) + toPln(st.settings, fee, feeCur)) }
+  return { month: mk, dates, first, due, total, rate, paid: rate === undefined ? undefined : perClassPaid(c, rate) * dates.length, fee, feeCur, pln: r2(toMain(st.settings, total, c.currency) + toMain(st.settings, fee, feeCur)) }
 }
 
 // ---------- selfcare ----------
@@ -495,7 +607,7 @@ export const careInPeriod = (st: State, start: string, end: string, t = today())
     let d = careNext(x, t)
     let guard = 0
     while (d <= end && guard++ < 60) {
-      if (d >= start) out.push({ x, date: d, pln: toPln(st.settings, x.price, x.currency ?? 'PLN') })
+      if (d >= start) out.push({ x, date: d, pln: toMain(st.settings, x.price, x.currency, d) })
       d = addDays(d, Math.max(1, x.everyDays))
     }
   }
@@ -513,7 +625,7 @@ export const careInMonth = (st: State, mk: string) => {
     const back = Math.ceil(diffDays(start, d) / step) // jump to the first time on/after the 1st
     if (back > 0) d = addDays(d, -back * step)
     else if (d < start) d = addDays(d, Math.ceil(diffDays(d, start) / step) * step)
-    for (let g = 0; d <= end && g < 60; g++, d = addDays(d, step)) if (d >= start) out.push({ x, date: d, pln: toPln(st.settings, x.price, x.currency ?? 'PLN') })
+    for (let g = 0; d <= end && g < 60; g++, d = addDays(d, step)) if (d >= start) out.push({ x, date: d, pln: toMain(st.settings, x.price, x.currency, d) })
   }
   return out.sort((a, b) => a.date.localeCompare(b.date))
 }

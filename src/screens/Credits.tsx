@@ -1,16 +1,15 @@
 import { useState } from 'react'
-import { ensurePeriod, update, useSt } from '../store'
+import { ensurePeriod, update, useSt, useStore } from '../store'
 import type { Credit, Currency } from '../types'
-import { CUR_SIGN, creditStatus, diffDays, fmt, fmtBoth, fmtCur, fmtDay, monthName, periodOf, toPln, today, uid } from '../lib'
-import { CURRENCIES } from './Subscriptions'
+import { curOptions, CUR_SIGN, creditStatus, diffDays, fmt, fmtBoth, fmtCur, fmtDay, monthName, periodOf, toMain, today, uid } from '../lib'
 import { C, closeSheet, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
 
 const monthYear = (d?: string) => (d ? `${monthName(d.slice(0, 7))} ${d.slice(0, 4)}` : '—')
 
 // an extra or closing payment is real money leaving this half: log it in the budget
-const logPayment = (date: string, label: string, amount: number, cur: Currency = 'PLN') =>
-  update((d) => { ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: uid(), kind: 'expense', label, amount: Math.round(toPln(d.settings, amount, cur) * 100) / 100, date, oneOff: true }) })
+const logPayment = (date: string, label: string, amount: number, cur?: Currency) =>
+  update((d) => { ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: uid(), kind: 'expense', label, amount, currency: cur ?? d.settings.mainCur, date, oneOff: true }) })
 
 export const Credits = () => {
   const st = useSt()
@@ -18,7 +17,7 @@ export const Credits = () => {
   const all = (st.credits ?? []).map((c) => ({ c, s: creditStatus(c) }))
   const open = all.filter((x) => !x.s.closed).sort((a, b) => (a.s.next?.date ?? '').localeCompare(b.s.next?.date ?? ''))
   const closed = all.filter((x) => x.s.closed)
-  const pl = (c: Credit, n: number) => toPln(st.settings, n, c.currency ?? 'PLN')
+  const pl = (c: Credit, n: number) => toMain(st.settings, n, c.currency)
   const remaining = open.reduce((a, x) => a + pl(x.c, x.s.remaining), 0)
   const mk = t.slice(0, 7)
   const thisMonth = open.reduce((a, x) => a + pl(x.c, x.s.left.filter((p) => p.date.startsWith(mk)).reduce((b, p) => b + p.amount, 0)), 0)
@@ -38,7 +37,7 @@ export const Credits = () => {
           return (
             <Row key={c.id} dot={n <= 2 ? C.alert : C.money} title={c.name}
               meta={`Next ${s.next ? (n === 0 ? 'today' : n === 1 ? 'tomorrow' : fmtDay(s.next.date)) : '—'} · ${fmtCur(s.next?.amount ?? 0, c.currency)} · ${s.left.length} left`}
-              trail={(c.currency ?? 'PLN') === 'PLN' ? fmt(s.remaining) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(s.remaining, c.currency, false)}<br /><span className="t13 muted">{fmt(pl(c, s.remaining))}</span></span>} onClick={() => openSheet(<CreditSheet id={c.id} />)} />
+              trail={(c.currency ?? st.settings.mainCur) === st.settings.mainCur ? fmt(s.remaining) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(s.remaining, c.currency, false)}<br /><span className="t13 muted">{fmt(pl(c, s.remaining))}</span></span>} onClick={() => openSheet(<CreditSheet id={c.id} />)} />
           )
         })}
       </List>
@@ -59,14 +58,14 @@ const CreditSheet = ({ id }: { id: string }) => {
   const [all, setAll] = useState(false)
   if (!c) return null
   const s = creditStatus(c)
-  const cur = c.currency ?? 'PLN'
+  const cur = c.currency ?? st.settings.mainCur
   const paidPct = s.total > 0 ? Math.min(1, 1 - s.remaining / s.total) : 1
   const shown = all ? s.left : s.left.slice(0, 4)
   return (
     <Sheet title={c.name}>
       <div className="card money" style={{ gap: 8 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <div className="col"><span className="t14 w5">Left to repay</span><span className="mid">{fmtCur(s.remaining, cur)}</span>{cur !== 'PLN' && <span className="t14">{fmt(toPln(st.settings, s.remaining, cur))}</span>}</div>
+          <div className="col"><span className="t14 w5">Left to repay</span><span className="mid">{fmtCur(s.remaining, cur)}</span>{cur !== st.settings.mainCur && <span className="t14">{fmt(toMain(st.settings, s.remaining, cur))}</span>}</div>
           <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5">{s.closed ? 'Done' : 'Ends'}</span><span className="t17">{s.closed ? '✓' : monthYear(s.endsOn)}</span></div>
         </div>
         <div className="bar"><div style={{ width: `${paidPct * 100}%` }} /></div>
@@ -105,7 +104,7 @@ const ExtraSheet = ({ id }: { id: string }) => {
   const c = st.credits.find((x) => x.id === id)!
   return (
     <FormSheet title="Extra payment" initial={{ date: today() }} saveLabel="Add extra payment"
-      fields={[{ key: 'amount', label: `Amount (${CUR_SIGN[c.currency ?? 'PLN']})`, type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
+      fields={[{ key: 'amount', label: `Amount (${CUR_SIGN[c.currency ?? useStore.getState().st.settings.mainCur]})`, type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
       extra={<span className="t14 muted">Your bank takes it off the end, so the last payments shrink or disappear. It’s also added to that fortnight’s spending.</span>}
       onSave={(v) => {
         if (!v.amount) return
@@ -124,7 +123,7 @@ const CloseSheet = ({ id }: { id: string }) => {
   const s = creditStatus(c)
   return (
     <FormSheet title="Close it now" initial={{ date: today(), amount: s.remaining }} saveLabel="Close the credit"
-      fields={[{ key: 'amount', label: `Paid to close it (${CUR_SIGN[c.currency ?? 'PLN']}) — check the bank’s figure, early repayment is often less`, type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
+      fields={[{ key: 'amount', label: `Paid to close it (${CUR_SIGN[c.currency ?? useStore.getState().st.settings.mainCur]}) — check the bank’s figure, early repayment is often less`, type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
       onSave={(v) => {
         const date = v.date || today()
         update((d) => { d.credits.find((x) => x.id === id)!.closedOn = date })
@@ -139,11 +138,11 @@ const CreditEdit = ({ id }: { id?: string }) => {
   const st = useSt()
   const c = st.credits?.find((x) => x.id === id)
   return (
-    <FormSheet title={c ? 'Edit credit' : 'New credit'} initial={c ?? { takenOn: today(), count: 12, currency: 'PLN' }}
+    <FormSheet title={c ? 'Edit credit' : 'New credit'} initial={c ?? { takenOn: today(), count: 12, currency: useStore.getState().st.settings.mainCur }}
       fields={[
         { key: 'name', label: 'Name (lender / what for)', type: 'text', placeholder: 'Phone, bank X…' },
         { key: 'takenOn', label: 'Taken on', type: 'date' },
-        { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES },
+        { key: 'currency', label: 'Currency', type: 'select', options: curOptions(useStore.getState().st.settings, c?.currency) },
         { key: 'borrowed', label: 'Amount borrowed (optional)', type: 'number' },
         { key: 'installment', label: 'Monthly payment', type: 'number' },
         { key: 'count', label: 'Number of payments', type: 'number', step: 1 },
@@ -155,7 +154,7 @@ const CreditEdit = ({ id }: { id?: string }) => {
         if (!v.installment || !v.count || !v.firstPayment) { toast('Monthly payment, number of payments and first date are needed'); return }
         update((d) => {
           d.credits ??= []
-          const data: Omit<Credit, 'id' | 'extras'> = { name: v.name, currency: (v.currency ?? 'PLN') as Currency, takenOn: v.takenOn || today(), borrowed: v.borrowed, installment: v.installment, count: Math.round(v.count), firstPayment: v.firstPayment, lastAmount: v.lastAmount, note: v.note }
+          const data: Omit<Credit, 'id' | 'extras'> = { name: v.name, currency: v.currency ?? useStore.getState().st.settings.mainCur, takenOn: v.takenOn || today(), borrowed: v.borrowed, installment: v.installment, count: Math.round(v.count), firstPayment: v.firstPayment, lastAmount: v.lastAmount, note: v.note }
           if (c) Object.assign(d.credits.find((x) => x.id === c.id)!, data)
           else d.credits.push({ id: uid(), extras: [], ...data })
         })

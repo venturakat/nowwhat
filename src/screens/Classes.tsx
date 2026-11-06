@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
+import type { Settings } from '../types'
 import type { ClassRate, Course, Currency, PayCur } from '../types'
-import { addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, CUR_SIGN, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toPln, today, uid, weekdayName } from '../lib'
+import { addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName } from '../lib'
 import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, TimeRange, toast } from '../ui'
 import { refreshRates } from '../rates'
 import { copyText } from './Money'
 
 // Classes (Money › Classes): any regular paid classes. Each has a price per class in one currency and can be
 // paid in another (USD price sent as pesos at the dólar blue rate), plus a transfer fee in any currency.
-// Paid once a month for that month's classes; the cost in zł goes into the budget.
+// Paid once a month for that month's classes; the cost in the main currency goes into the budget.
 
-const CURS: Currency[] = ['PLN', 'EUR', 'USD', 'UAH']
-const PAY_CURS: PayCur[] = [...CURS, 'ARS']
-const sign = (c: PayCur) => (c === 'ARS' ? 'ARS' : CUR_SIGN[c])
+// the app's currencies (+ pesos to pay in: they have the dólar blue / oficial rates)
+const curs = (s: Settings, keep: Currency[]) => [...curOptions(s).map(([c]) => c), ...keep].filter((c, i, a) => a.indexOf(c) === i)
+const sign = (c: PayCur) => curSign(c)
 // whole amounts without the .00
 const cur0 = (n: number, c: Currency) => fmtCur(n, c, n % 1 !== 0)
 const RATE_NAME: Record<ClassRate, string> = { app: 'rate', blue: 'blue', oficial: 'oficial', manual: 'rate' }
@@ -136,13 +137,13 @@ const PaySheet = ({ id }: { id: string }) => {
       <Field label="Paid on"><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       {kind && <Field label={`${kind === 'blue' ? 'Dólar blue' : kind === 'oficial' ? 'Dólar oficial' : 'Rate'} that day: 1 ${c.currency} in ${payIn}`}><input className="input" inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} /></Field>}
       <div className="card money" style={{ gap: 2, padding: 16 }}><span className="t14 w5">Sent</span><span className="mid">{rate ? fmtPay(sent, payIn, payIn !== 'ARS') : '—'}</span></div>
-      <Field label={`It cost you in zł${b.fee ? `, with the ${cur0(b.fee, b.feeCur)} fee` : ''}`}><input className="input" inputMode="decimal" value={pln} placeholder={numText(est)} onChange={(e) => setPln(e.target.value)} /></Field>
+      <Field label={`It cost you in ${curSign(st.settings.mainCur)}${b.fee ? `, with the ${cur0(b.fee, b.feeCur)} fee` : ''}`}><input className="input" inputMode="decimal" value={pln} placeholder={numText(est)} onChange={(e) => setPln(e.target.value)} /></Field>
       <button className="btn full" disabled={!rate || !date} onClick={() => {
         update((d) => {
           const L = d.classes!.find((x) => x.id === id)!
           const itemId = uid()
-          ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: itemId, kind: 'expense', label: `${L.name} (paid)`, amount: zl, date, oneOff: true })
-          L.pays.push({ id: uid(), date, dates: b.dates, price: L.price, currency: L.currency, rate: kind ? rate : undefined, paid: sent, payIn, pln: zl, itemId })
+          ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: itemId, kind: 'expense', label: `${L.name} (paid)`, amount: zl, currency: d.settings.mainCur, date, oneOff: true })
+          L.pays.push({ id: uid(), date, dates: b.dates, price: L.price, currency: L.currency, rate: kind ? rate : undefined, paid: sent, payIn, pln: zl, plnCur: d.settings.mainCur, itemId })
         })
         closeSheet(); toast(`Paid · ${fmt(zl)} added to the budget`)
       }}>Save payment</button>
@@ -159,7 +160,7 @@ const PaysSheet = ({ id }: { id: string }) => {
     <Sheet title={`${c.name} · payments`}>
       <List empty="Nothing paid here yet">
         {pays.map((p) => (
-          <Row key={p.id} dot={C.ok} title={fmtDay(p.date)} meta={`${p.dates.length} ${p.dates.length === 1 ? 'class' : 'classes'}${p.rate ? ` · rate ${numText(r2(p.rate))}` : ''} · ${fmt(p.pln)}`} trail={fmtPay(p.paid, p.payIn)}
+          <Row key={p.id} dot={C.ok} title={fmtDay(p.date)} meta={`${p.dates.length} ${p.dates.length === 1 ? 'class' : 'classes'}${p.rate ? ` · rate ${numText(r2(p.rate))}` : ''} · ${fmtCur(p.pln, p.plnCur ?? 'PLN', false)}`} trail={fmtPay(p.paid, p.payIn)}
             onClick={() => openSheet(<PayView cid={c.id} id={p.id} />)} />
         ))}
       </List>
@@ -174,7 +175,7 @@ const PayView = ({ cid, id }: { cid: string; id: string }) => {
   if (!c || !p) return null
   return (
     <Sheet title={`${c.name} · paid ${fmtDay(p.date)}`}>
-      <span className="t15">{fmtPay(p.paid, p.payIn, p.payIn !== 'ARS')} · {fmt(p.pln)}</span>
+      <span className="t15">{fmtPay(p.paid, p.payIn, p.payIn !== 'ARS')} · {fmtCur(p.pln, p.plnCur ?? 'PLN', false)}</span>
       <span className="t15 muted">{p.dates.length} {p.dates.length === 1 ? 'class' : 'classes'} × {cur0(p.price, p.currency)}{p.rate ? ` × ${numText(r2(p.rate))}` : ''}</span>
       <span className="t14 muted">{p.dates.map(fmtDay).join(', ')}</span>
       <button className="btn full soft" onClick={() => {
@@ -198,11 +199,13 @@ export const ClassEdit = ({ id }: { id?: string }) => {
   const c = st.classes?.find((x) => x.id === id)
   const [name, setName] = useState(c?.name ?? '')
   const [price, setPrice] = useState(c ? numText(c.price) : '')
-  const [cur, setCur] = useState<Currency>(c?.currency ?? 'PLN')
-  const [payIn, setPayIn] = useState<PayCur>(c ? classPayIn(c) : 'PLN')
+  const [cur, setCur] = useState<Currency>(c?.currency ?? st.settings.mainCur)
+  const [payIn, setPayIn] = useState<PayCur>(c ? classPayIn(c) : st.settings.mainCur)
   const [rate, setRate] = useState<ClassRate>(c ? classRateKind(c) ?? 'app' : 'app')
   const [fee, setFee] = useState(numText(c?.fee))
-  const [feeCur, setFeeCur] = useState<Currency>(c?.feeCurrency ?? 'PLN')
+  const [feeCur, setFeeCur] = useState<Currency>(c?.feeCurrency ?? st.settings.mainCur)
+  const CURS = curs(st.settings, [cur, feeCur])
+  const PAY_CURS = curs(st.settings, [payIn, 'ARS'])
   const [days, setDays] = useState<number[]>(c?.days ?? [])
   const [time, setTime] = useState(c?.time ?? '')
   const [endTime, setEndTime] = useState(c ? classEnd(c) ?? '' : '')
@@ -246,7 +249,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
       <TimeRange start={time} end={endTime} onChange={(a, b) => { setTime(a); setEndTime(b) }} />
       <Field label="I pay on day of the month"><input className="input" inputMode="numeric" value={payDay} onChange={(e) => setPayDay(e.target.value.replace(/\D/g, ''))} /></Field>
       {!c?.pays.length && <Field label="First class you haven’t paid for yet"><input className="input" type="date" value={since} onChange={(e) => setSince(e.target.value)} /></Field>}
-      {p && !differs && cur !== 'PLN' ? <span className="t13 muted">About {fmt(toPln(st.settings, p, cur))} a class</span> : null}
+      {p && !differs && cur !== st.settings.mainCur ? <span className="t13 muted">About {fmt(toMain(st.settings, p, cur))} a class</span> : null}
       <button className="btn full" disabled={!name.trim() || !p || !days.length} onClick={() => {
         const needsArs = payIn === 'ARS'
         update((d) => {

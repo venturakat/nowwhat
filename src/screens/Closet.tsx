@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ensurePeriod, update, useSt } from '../store'
+import { ensurePeriod, update, useSt, useStore } from '../store'
 import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
-import { diffDays, fmt, fmtBoth, fmtCur, fmtDay, toPln, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
+import { curOptions, curSign, mainCur, diffDays, fmt, fmtBoth, fmtCur, fmtDay, toMain, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet } from '../form'
-import { CURRENCIES } from './Subscriptions'
 import { Travel } from './Travel'
 
 // the outfit formula: pieces are always shown in this order
@@ -231,18 +230,18 @@ const ToBuy = () => {
             <div style={{ width: 72, flex: 'none' }} onClick={() => openSheet(<SavedEdit id={s.id} />)}><Tile it={{ ...s, name: '' }} /></div>
             <div className="col grow" style={{ gap: 3 }} onClick={() => openSheet(<SavedEdit id={s.id} />)}>
               <span className="t17">{s.name}{s.size && <span className="t14 muted"> · size {s.size}</span>}</span>
-              <span className="t15 w5">{fmtBoth(st.settings, s.price, s.currency ?? 'PLN')}{fitsNote(st, toPln(st.settings, s.price, s.currency ?? 'PLN'))}</span>
+              <span className="t15 w5">{fmtBoth(st.settings, s.price, s.currency)}{fitsNote(st, toMain(st.settings, s.price, s.currency))}</span>
               <span className="t13 muted">{age === 0 ? 'Saved today' : age === 1 ? 'Saved yesterday' : `Saved ${age} days ago`}</span>
               <div className="row" style={{ paddingTop: 6, gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   <button className="btn sm" onClick={() => {
                     update((d) => {
                       d.saved = d.saved.filter((x) => x.id !== s.id)
                       d.closet.push({ id: uid(), name: s.name, cat: s.cat, photo: s.photo, size: s.size, worn: 0, pairs: [], added: today() })
-                      ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name} (closet)`, amount: s.price, currency: s.currency ?? 'PLN', date: today(), oneOff: true })
+                      ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name} (closet)`, amount: s.price, currency: s.currency ?? d.settings.mainCur, date: today(), oneOff: true })
                     })
                     toast('Enjoy it · in your wardrobe, with its photo, and in the budget')
                   }}>Bought it</button>
-                  <LetGo onGo={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency ?? 'PLN')} saved`) }} />
+                  <LetGo onGo={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency)} saved`) }} />
                   {s.link && <a className="btn ghost sm" style={{ textDecoration: 'none', color: 'inherit' }} href={s.link} target="_blank" rel="noreferrer">Link</a>}
                 </div>
             </div>
@@ -277,7 +276,7 @@ const NeedEdit = ({ id }: { id?: string }) => {
   const n = st.needs.find((x) => x.id === id)
   return (
     <FormSheet title={n ? 'Need' : 'Something I need'} initial={n ?? {}}
-      fields={[{ key: 'name', label: 'What', type: 'text', placeholder: 'Black ankle boots' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'note', label: 'Why / note', type: 'text', placeholder: 'Current pair is worn out' }, { key: 'maxPrice', label: 'Up to (zł)', type: 'number' }, { key: 'urgent', label: 'Soon?', type: 'toggle' }]}
+      fields={[{ key: 'name', label: 'What', type: 'text', placeholder: 'Black ankle boots' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'note', label: 'Why / note', type: 'text', placeholder: 'Current pair is worn out' }, { key: 'maxPrice', label: `Up to (${curSign(mainCur())})`, type: 'number' }, { key: 'urgent', label: 'Soon?', type: 'toggle' }]}
       extra={n && <button className="btn full closet" onClick={() => pushSheet(<GotNeed id={n.id} />)}>Got it → budget and wardrobe</button>}
       onSave={(v) => update((d) => {
         const data = { name: v.name, size: v.size?.trim() || undefined, note: v.note, maxPrice: v.maxPrice, urgent: !!v.urgent }
@@ -294,7 +293,7 @@ const GotNeed = ({ id }: { id: string }) => {
   const st = useSt()
   const n = st.needs.find((x) => x.id === id)
   const [price, setPrice] = useState(n?.maxPrice ? String(n.maxPrice).replace('.', ',') : '')
-  const [cur, setCur] = useState<Currency>('PLN')
+  const [cur, setCur] = useState<Currency>(useStore.getState().st.settings.mainCur)
   if (!n) return null
   const paid = Number(price.replace(/\s/g, '').replace(',', '.'))
   const done = (log: boolean) => {
@@ -310,7 +309,7 @@ const GotNeed = ({ id }: { id: string }) => {
       <Field label="Paid">
         <div className="col" style={{ gap: 8 }}>
           <input className="input" inputMode="decimal" autoFocus value={price} placeholder="0" onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,\s]/g, ''))} />
-          <div className="seg">{CURRENCIES.map(([k, l]) => <button key={k} type="button" className={'chip' + (cur === k ? ' on' : '')} onClick={() => setCur(k)}>{l}</button>)}</div>
+          <div className="seg">{curOptions(useStore.getState().st.settings).map(([k, l]) => <button key={k} type="button" className={'chip' + (cur === k ? ' on' : '')} onClick={() => setCur(k)}>{l}</button>)}</div>
         </div>
       </Field>
       <button className="btn full" disabled={!(paid > 0)} onClick={() => done(true)}>Add to spending · then to wardrobe</button>
@@ -324,11 +323,11 @@ const SavedEdit = ({ id }: { id?: string }) => {
   const s = st.saved.find((x) => x.id === id)
   const [photo, setPhoto] = useState(s?.photo)
   return (
-    <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ? { currency: 'PLN', ...s } : { cat: 'base', currency: 'PLN' }}
-      fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'price', label: 'Price', type: 'number' }, { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
+    <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ? { currency: useStore.getState().st.settings.mainCur, ...s } : { cat: 'base', currency: useStore.getState().st.settings.mainCur }}
+      fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'price', label: 'Price', type: 'number' }, { key: 'currency', label: 'Currency', type: 'select', options: curOptions(useStore.getState().st.settings, s?.currency) }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
       extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">Saved {fmtDay(s.savedAt)}</span>}</>}
       onSave={(v) => update((d) => {
-        const data = { name: v.name, size: v.size?.trim() || undefined, price: v.price ?? 0, currency: (v.currency ?? 'PLN') as Currency, link: v.link, cat: v.cat ?? 'base', photo }
+        const data = { name: v.name, size: v.size?.trim() || undefined, price: v.price ?? 0, currency: v.currency ?? useStore.getState().st.settings.mainCur, link: v.link, cat: v.cat ?? 'base', photo }
         if (s) Object.assign(d.saved.find((x) => x.id === s.id)!, data)
         else d.saved.push({ id: uid(), savedAt: today(), ...data })
       })}

@@ -4,7 +4,7 @@ import { update, useSt } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
-  prevMonth, subDate, taxFor, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
+  prevMonth, subDate, taxFor, fmtTax, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
@@ -77,7 +77,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     const tx = taxFor(st, forMonth)
     const pay = dayIn(mk, st.settings.taxPayDay ?? st.settings.taxDueDay)
     const paid = tx.paid
-    if (tx.total > 0 && pay >= from && pay <= to) out.push({ id: 'tax-' + mk, date: pay, title: paid ? 'ZUS + PIT' : taxLeftName(tx), meta: `for ${monthName(forMonth, true)} · ${fmtCur(paid ? tx.total : tx.left)}${paid ? ' · paid' : tx.zusPaid ? ' · ZUS paid' : tx.pitPaid ? ' · PIT paid' : ''}`, dot: C.money, done: paid, go: ['money', 'taxes'] })
+    if (tx.total > 0 && pay >= from && pay <= to) out.push({ id: 'tax-' + mk, date: pay, title: paid ? 'ZUS + PIT' : taxLeftName(tx), meta: `for ${monthName(forMonth, true)} · ${fmtTax(st.settings, paid ? tx.total : tx.left, true)}${paid ? ' · paid' : tx.zusPaid ? ' · ZUS paid' : tx.pitPaid ? ' · PIT paid' : ''}`, dot: C.money, done: paid, go: ['money', 'taxes'] })
     const dl = dayIn(mk, st.settings.taxDueDay)
     if (tx.total > 0 && !paid && dl !== pay && dl >= from && dl <= to) out.push({ id: 'taxdl-' + mk, date: dl, title: 'Tax deadline', meta: `${taxLeftName(tx)} for ${monthName(forMonth, true)}`, dot: C.alert, go: ['money', 'taxes'] })
   }
@@ -86,7 +86,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     if (d >= from && d <= to) out.push({ id: `sub-${s.id}-${d}`, date: d, title: s.name, meta: `Subscription · ${fmtCur(s.amount, s.currency)}`, dot: C.money, go: ['money', 'subs'] })
   }
   if (on.credits) for (const c of st.credits ?? []) for (const x of creditSchedule(c)) {
-    if (x.date >= from && x.date <= to) out.push({ id: `cr-${c.id}-${x.n}`, date: x.date, title: c.name, meta: `Credit · payment ${x.n} of ${c.count} · ${fmtCur(x.amount, c.currency ?? 'PLN')}`, dot: C.money, done: x.date < t, go: ['money', 'credits'] })
+    if (x.date >= from && x.date <= to) out.push({ id: `cr-${c.id}-${x.n}`, date: x.date, title: c.name, meta: `Credit · payment ${x.n} of ${c.count} · ${fmtCur(x.amount, c.currency)}`, dot: C.money, done: x.date < t, go: ['money', 'credits'] })
   }
   if (on.classes) for (const c of st.classes ?? []) {
     const paid = new Set(c.pays.flatMap((p) => p.dates))

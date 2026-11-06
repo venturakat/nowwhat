@@ -1,10 +1,11 @@
 import { update, useStore } from './store'
+import { logRates, usedCurs } from './lib'
+import type { Currency } from './types'
 
-// EUR: NBP table A mid rate (what Polish accounting — e.g. inFakt — uses); Frankfurter (ECB) as a fallback.
-// UAH: monobank's public rates (rateCross for PLN = hryvnias per 1 zł).
-const EUR_URL = 'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN'
-const MONO_URL = 'https://api.monobank.ua/bank/currency'
-const UAH_FALLBACK_URL = 'https://api.frankfurter.dev/v2/rate/pln/uah'
+// Rates are kept as "how much main currency 1 unit is worth", per currency, from its own source:
+// market — mid-market for any currency (open.er-api.com, Frankfurter/ECB as a fallback)
+// official — the central bank of the main currency's country (NBP for zł, NBU for ₴, Banco Nación for pesos)
+// manual — typed in, never touched
 const MAX_AGE_H = 6
 
 const getJson = async (url: string) => {
@@ -19,43 +20,62 @@ const getJson = async (url: string) => {
   }
 }
 
-const NBP = 'https://api.nbp.pl/api/exchangerates/rates/a/eur'
-const fetchEur = async (): Promise<{ v: number; src: string } | undefined> => {
+type Got = Record<Currency, { v: number; src: string }>
+
+// mid-market: everything against the main currency in one request
+const fetchMarket = async (main: Currency): Promise<Got> => {
+  const out: Got = {}
   try {
-    const j = await getJson(`${NBP}/?format=json`)
-    const r = j?.rates?.[0]
-    if (r?.mid) return { v: r.mid, src: `NBP ${r.no}` }
+    const j = await getJson(`https://open.er-api.com/v6/latest/${main}`)
+    if (j?.result === 'success') for (const [c, x] of Object.entries(j.rates as Record<string, number>)) if (x > 0) out[c] = { v: 1 / x, src: 'market' }
+    if (Object.keys(out).length) return out
   } catch { /* fall back */ }
-  const j = await getJson(EUR_URL)
-  if (j?.rates?.PLN) return { v: j.rates.PLN, src: 'ECB' }
+  const j = await getJson(`https://api.frankfurter.dev/v1/latest?base=${main}`)
+  for (const [c, x] of Object.entries((j?.rates ?? {}) as Record<string, number>)) if (x > 0) out[c] = { v: 1 / x, src: 'ECB' }
+  return out
+}
+
+// which main currencies have an official source, and its name
+export const OFFICIAL: Record<string, string> = { PLN: 'NBP', UAH: 'NBU', ARS: 'Banco Nación' }
+
+const NBP = 'https://api.nbp.pl/api/exchangerates'
+const fetchOfficial = async (main: Currency, want: Currency[]): Promise<Got> => {
+  const out: Got = {}
+  if (!want.length) return out
+  if (main === 'PLN') {
+    // table A (daily, main currencies), table B (weekly, the rest)
+    for (const t of ['a', 'b']) {
+      if (want.every((c) => out[c])) break
+      try {
+        const [tab] = await getJson(`${NBP}/tables/${t}/?format=json`)
+        for (const r of tab?.rates ?? []) if (r.mid && !out[r.code]) out[r.code] = { v: r.mid, src: `NBP ${tab.no}` }
+      } catch { /* the other table may still work */ }
+    }
+  } else if (main === 'UAH') {
+    const j = (await getJson('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json')) as { cc: string; rate: number; exchangedate: string }[]
+    for (const r of j) if (r.rate) out[r.cc] = { v: r.rate, src: `NBU ${r.exchangedate}` }
+  } else if (main === 'ARS') {
+    const [usd, rest] = await Promise.allSettled([getJson('https://dolarapi.com/v1/dolares/oficial'), getJson('https://dolarapi.com/v1/cotizaciones')])
+    if (rest.status === 'fulfilled') for (const r of rest.value as { moneda: string; venta: number }[]) if (r.venta) out[r.moneda] = { v: r.venta, src: 'Banco Nación' }
+    if (usd.status === 'fulfilled' && usd.value?.venta) out.USD = { v: usd.value.venta, src: 'dólar oficial' }
+  }
+  return out
 }
 
 const shift = (d: string, n: number) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10) }
-// rate for an invoice: NBP table A from the last working day before the invoice date
-export const nbpRateForInvoice = async (invoiceDate: string): Promise<{ rate: number; table: string; date: string }> => {
-  const j = await getJson(`${NBP}/${shift(invoiceDate, -12)}/${shift(invoiceDate, -1)}/?format=json`)
-  const r = j?.rates?.[j.rates.length - 1]
-  if (!r?.mid) throw new Error('no rate')
-  return { rate: r.mid, table: r.no, date: r.effectiveDate }
+// rate for an invoice: NBP mid rate (zł for 1 unit) from the last working day before the invoice date
+export const nbpRateForInvoice = async (invoiceDate: string, cur: Currency = 'EUR'): Promise<{ rate: number; table: string; date: string }> => {
+  for (const t of ['a', 'b']) {
+    try {
+      const j = await getJson(`${NBP}/rates/${t}/${cur.toLowerCase()}/${shift(invoiceDate, t === 'a' ? -12 : -20)}/${shift(invoiceDate, -1)}/?format=json`)
+      const r = j?.rates?.[j.rates.length - 1]
+      if (r?.mid) return { rate: r.mid, table: r.no, date: r.effectiveDate }
+    } catch { /* try table B */ }
+  }
+  throw new Error('no rate')
 }
 
-const fetchUah = async (): Promise<{ v: number; src: string } | undefined> => {
-  try {
-    const j = (await getJson(MONO_URL)) as { currencyCodeA: number; currencyCodeB: number; rateCross?: number; rateBuy?: number; rateSell?: number }[]
-    const pln = j.find((x) => x.currencyCodeA === 985 && x.currencyCodeB === 980)
-    const uahPerPln = pln?.rateCross ?? (pln?.rateBuy && pln?.rateSell ? (pln.rateBuy + pln.rateSell) / 2 : undefined)
-    if (uahPerPln) return { v: 1 / uahPerPln, src: 'monobank' }
-  } catch { /* monobank limits requests; fall back below */ }
-  const j = await getJson(UAH_FALLBACK_URL)
-  if (j?.rate) return { v: 1 / j.rate, src: 'mid-market' }
-}
-
-// USD: NBP table A; dólar blue (sell) from DolarApi, Bluelytics as a fallback
-const fetchUsd = async () => {
-  const j = await getJson('https://api.nbp.pl/api/exchangerates/rates/a/usd/?format=json')
-  const r = j?.rates?.[0]
-  if (r?.mid) return r.mid as number
-}
+// dólar blue (sell) from DolarApi, Bluelytics as a fallback; dólar oficial — for classes paid in pesos
 export const fetchBlue = async (): Promise<number | undefined> => {
   try {
     const j = await getJson('https://dolarapi.com/v1/dolares/blue')
@@ -64,34 +84,53 @@ export const fetchBlue = async (): Promise<number | undefined> => {
   const j = await getJson('https://api.bluelytics.com.ar/v2/latest')
   if (j?.blue?.value_sell) return j.blue.value_sell
 }
-
 export const fetchOficial = async (): Promise<number | undefined> => {
   const j = await getJson('https://dolarapi.com/v1/dolares/oficial')
   if (j?.venta) return j.venta
 }
 
-export const refreshRates = async (force = false) => {
-  const s = useStore.getState().st.settings
-  if (s.ratesAuto === false && !force) return false
-  // pesos only when a class is paid in them (USD from NBP always: classes and amounts can be in dollars)
-  const ars = (useStore.getState().st.classes ?? []).some((c) => (c.payIn ?? c.currency) === 'ARS')
-  const missing = (ars && !s.blueArs) || !s.usdPln // a class just started needing them
+let running: Promise<boolean> | undefined
+export const refreshRates = (force = false): Promise<boolean> => (force ? doRefresh(true) : (running ??= doRefresh(false).finally(() => { running = undefined })))
+
+const doRefresh = async (force: boolean) => {
+  const st = useStore.getState().st
+  const s = st.settings
+  const main = s.mainCur
+  const src = (c: Currency) => s.rateSrc?.[c] ?? 'market'
+  const auto = usedCurs(st).filter((c) => src(c) !== 'manual')
+  const ars = (st.classes ?? []).some((c) => (c.payIn ?? c.currency) === 'ARS')
+  const missing = auto.some((c) => !s.rates?.[c]) || (ars && !s.blueArs)
   if (!force && !missing && s.ratesAt && Date.now() - new Date(s.ratesAt).getTime() < MAX_AGE_H * 3600000) return false
-  const [eur, uah, usd, blue, ofi] = await Promise.allSettled([fetchEur(), fetchUah(), fetchUsd(), ars ? fetchBlue() : Promise.resolve(undefined), ars ? fetchOficial() : Promise.resolve(undefined)])
-  const e = eur.status === 'fulfilled' ? eur.value : undefined
-  const u = uah.status === 'fulfilled' ? uah.value : undefined
-  if (!e && !u) return false
-  // rates added manually stay put until "Update now" switches back to automatic
-  const manual = useStore.getState().st.settings.ratesAuto === false
+  const off = OFFICIAL[main] ? auto.filter((c) => src(c) === 'official') : []
+  const [mk, of, blue, ofi] = await Promise.allSettled([
+    auto.length ? fetchMarket(main) : Promise.resolve({} as Got),
+    fetchOfficial(main, off),
+    ars ? fetchBlue() : Promise.resolve(undefined),
+    ars ? fetchOficial() : Promise.resolve(undefined)
+  ])
+  const market = mk.status === 'fulfilled' ? mk.value : {}
+  const official = of.status === 'fulfilled' ? of.value : {}
+  const got: Got = {}
+  for (const c of auto) {
+    if (src(c) === 'official' && official[c]) got[c] = official[c]
+    else if (market[c]) got[c] = { v: market[c].v, src: src(c) === 'official' ? `${market[c].src} (${OFFICIAL[main] ?? 'official'} not reachable)` : market[c].src }
+  }
+  const b = blue.status === 'fulfilled' ? blue.value : undefined
+  const o = ofi.status === 'fulfilled' ? ofi.value : undefined
+  if (!Object.keys(got).length && !b && !o) return false
   update((d) => {
-    if (e && !manual) d.settings.eurPln = Math.round(e.v * 10000) / 10000
-    if (u && !manual) d.settings.uahPln = Math.round(u.v * 1000000) / 1000000
-    if (usd.status === 'fulfilled' && usd.value) d.settings.usdPln = usd.value
-    if (blue.status === 'fulfilled' && blue.value) { d.settings.blueArs = blue.value; d.settings.blueAt = new Date().toISOString() }
-    if (ofi.status === 'fulfilled' && ofi.value) d.settings.oficialArs = ofi.value
-    if (manual) return
-    d.settings.ratesAt = new Date().toISOString()
-    d.settings.ratesNote = [e ? `EUR ${e.src}` : 'EUR kept', u ? `UAH ${u.src}` : 'UAH kept'].join(' · ')
+    if (d.settings.mainCur !== main) return // the main currency changed meanwhile: the next refresh fetches for it
+    const rates = { ...d.settings.rates }, note = { ...(d.settings.rateNote ?? {}) }
+    for (const c of auto) {
+      if (got[c]) { rates[c] = Math.round(got[c].v * 1e6) / 1e6; note[c] = got[c].src }
+      else note[c] = 'kept the last one'
+    }
+    d.settings.rates = rates
+    d.settings.rateNote = note
+    if (b) { d.settings.blueArs = b; d.settings.blueAt = new Date().toISOString() }
+    if (o) d.settings.oficialArs = o
+    if (Object.keys(got).length) d.settings.ratesAt = new Date().toISOString()
+    logRates(d.settings)
   })
   return true
 }
