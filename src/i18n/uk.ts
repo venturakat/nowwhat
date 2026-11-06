@@ -13,7 +13,7 @@ export const uk: Record<string, string> = {
   'Budget': 'Бюджет', 'Work': 'Робота', 'Taxes': 'Податки', 'Selfcare': 'Догляд', 'Classes': 'Заняття', 'Subscriptions': 'Підписки', 'Credits': 'Кредити',
   'Meds': 'Ліки', 'Groceries': 'Продукти', 'Pets': 'Тварини', 'Care': 'Гігієна',
   'Cleaning': 'Прибирання', 'Projects': 'Проєкти', 'Recipes': 'Рецепти',
-  'I own': 'Моє', 'To buy': 'Купити', 'Outfits': 'Образи', 'Travel': 'Подорожі',
+  'I own': 'Моє', 'To buy': 'Купити', 'Outfits': 'Аутфіти', 'Travel': 'Подорожі',
   // cleaning kinds
   'Light': 'Легке', 'Regular': 'Звичайне', 'Extra': 'Генеральне',
   'Light clean': 'Легке прибирання', 'Regular clean': 'Звичайне прибирання', 'Extra clean': 'Генеральне прибирання',
@@ -42,7 +42,7 @@ export const uk: Record<string, string> = {
   'Reminders': 'Нагадування', 'Nothing urgent. Rest counts too.': 'Нічого термінового. Відпочинок теж рахується.',
   'Not today': 'Не сьогодні', 'Moved off today': 'Прибрано з сьогодні',
   'Coming up: {x} on {d}': 'Далі: {x} {d}', 'already in your budget': 'уже в бюджеті',
-  'Parking lot': 'Відкладене', 'Add a task': 'Додати справу', 'Task': 'Справа', 'New task': 'Нова справа',
+  'Parking lot': 'Парковка справ', 'Add a task': 'Додати справу', 'Task': 'Справа', 'New task': 'Нова справа',
   'What needs doing': 'Що треба зробити', 'Put it in the calendar': 'Додати в календар',
   'What to cook today': 'Що приготувати сьогодні', 'Nothing has everything at home right now.': 'Зараз немає рецепта, для якого все є вдома.',
   '{n} min': '{n} хв', 'all at home': 'усе є вдома', 'cooked {d}': 'востаннє {d}',
