@@ -5,7 +5,7 @@ import { bankAmount, fillTransfer, lineFormula } from '../taxes'
 import { tr } from '../i18n'
 import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
-  setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, taxPeriodName, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
+  setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
@@ -611,14 +611,20 @@ const Taxes = () => {
   const lines = taxLinesOf(s)
   const [details, setDetails] = useState(false) // transfer details, closed until it's time to pay
   const editMonth = (m: string) => openSheet(<TaxMonthSheet m={m} />)
-  // the payment to show: the earliest unpaid period before the current month
+  // the payment to show: the earliest unpaid one up to this month
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
   // only months since taxes were first tracked here (fixed amounts are due every period, so older ones would all look unpaid)
-  const since = Object.keys(st.taxMonths).sort()[0] ?? prevMonth(curM)
-  const candidates = [...months, ...Object.keys(st.taxMonths)].filter((m, i, a) => a.indexOf(m) === i && m < curM && m >= since).sort()
-  // earliest unpaid past period; if everything is paid, the one that is accruing now
-  let due = candidates.find((m) => { const x = taxFor(st, m); return !x.paid && x.total > 0 })
-  if (!due) { due = curM; for (let i = 0, m = curM; i < 12; i++, m = nextMonth(m)) if (lines.some((l) => lineEndsIn(l, m))) { due = m; break } }
+  // periods before the first one tracked here don't count (fixed amounts would all look unpaid); nothing tracked yet → start from this month's payments
+  const first = Object.keys(st.taxMonths).sort()[0]
+  const candidates: string[] = []
+  for (let m = first ?? curM, i = 0; m <= curM && i < 60; m = nextMonth(m), i++) candidates.push(m)
+  const open = (pm: string) => taxFor(st, pm).parts.some((p) => !p.paid && p.amount > 0 && (!first || p.end >= first))
+  // earliest pay month with something unpaid; if everything is paid, the next payment coming up (one with an amount, if there is one)
+  let due = candidates.find(open)
+  if (!due) {
+    const ahead = Array.from({ length: 14 }, (_, i) => addMonths(curM, i + 1))
+    due = ahead.find(open) ?? ahead.find((m) => taxFor(st, m).parts.length) ?? nextMonth(curM)
+  }
   const tx = taxFor(st, due)
   const pays = taxPays(st, due, tx)
   const next = pays.find((x) => !x.paid) ?? pays[0]
@@ -630,7 +636,7 @@ const Taxes = () => {
   const max = Math.max(...revs, 1)
   // the footer speaks about the periods running now (paid after they end)
   const pctLines = lines.filter((l) => l.kind !== 'fixed')
-  const transfer = (s.transfer ?? []).map((r) => [r.label, fillTransfer(r.text, due!).trim() || undefined] as [string, string | undefined])
+  const transfer = (s.transfer ?? []).map((r) => [r.label, fillTransfer(r.text, tx.month).trim() || undefined] as [string, string | undefined])
   const paidNames = tx.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
   const formulas = pctLines.map((l) => lineFormula(l, lines)).join('. ')
   return (
@@ -641,7 +647,7 @@ const Taxes = () => {
         ) : (
           <>
             <div className="between">
-              <span className="t15 w5">{taxPeriodName(st, due)} · {!next ? '' : inDays < 0 && !tx.paid ? tr('{n} days late', { n: -inDays }) : tr('you pay {pay} · deadline {due}', { pay: fmtDay(next.pay), due: fmtDay(next.due) })}</span>
+              <span className="t15 w5">{partsName(tx.parts) || monthName(tx.month, true)} · {!next ? '' : inDays < 0 && !tx.paid ? tr('{n} days late', { n: -inDays }) : tr('you pay {pay} · deadline {due}', { pay: fmtDay(next.pay), due: fmtDay(next.due) })}</span>
               {paidNames && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> {tx.paid ? tr('paid') : tr('{x} paid', { x: paidNames })}</span>}
             </div>
             <div className="big" style={{ fontSize: fitSize(ft(tx.paid ? tx.total : tx.left), 60, 9) }}>{ft(tx.paid ? tx.total : tx.left)}</div>
@@ -655,7 +661,7 @@ const Taxes = () => {
                 <button key={g.key} className={'btn ' + (g.paid ? 'ghost' : 'money')} onClick={() => update((d) => setTaxPaid(d, due!, g.key, !g.paid))}>{g.paid ? tr('Undo {x} paid', { x: g.name }) : tr('Mark {x} paid', { x: g.name })}</button>
               ))}
             </div>
-            <span className="t13" style={{ opacity: 0.7 }}>{next ? tr('Already in your budget for {d}.', { d: fmtDay(next.pay) }) + ' ' : ''}{tr('Revenue')} {ft(tx.revenue, true)} · <u onClick={() => editMonth(due!)}>{tr('edit')}</u></span>
+            <span className="t13" style={{ opacity: 0.7 }}>{next ? tr('Already in your budget for {d}.', { d: fmtDay(next.pay) }) + ' ' : ''}{tr('Revenue')} {ft(tx.revenue, true)} · <u onClick={() => editMonth(tx.month)}>{tr('edit')}</u></span>
           </>
         )}
       </div>
@@ -687,8 +693,8 @@ const Taxes = () => {
         <div className="chart">
           {months.map((m, i) => (
             <button key={m} className="c" onClick={() => editMonth(m)}>
-              <div className={'b' + (m === due ? ' cur' : revs[i] ? '' : ' zero')} data-future={m > curM ? '1' : undefined} style={{ height: Math.max(4, Math.round((revs[i] / max) * 64)) }} />
-              <span className="t13" style={{ fontWeight: m === due ? 600 : 400, color: m === due ? 'var(--ink)' : 'var(--ink2)' }}>{monthName(m)[0]}</span>
+              <div className={'b' + (m === tx.month ? ' cur' : revs[i] ? '' : ' zero')} data-future={m > curM ? '1' : undefined} style={{ height: Math.max(4, Math.round((revs[i] / max) * 64)) }} />
+              <span className="t13" style={{ fontWeight: m === tx.month ? 600 : 400, color: m === tx.month ? 'var(--ink)' : 'var(--ink2)' }}>{monthName(m)[0]}</span>
             </button>
           ))}
         </div>
@@ -698,11 +704,11 @@ const Taxes = () => {
         {/* what the % taxes of the running period will roughly be, from the revenue counted so far */}
         {pctLines.map((l) => {
           const end = periodEnd(l, curM)
-          const part = taxFor(st, end).parts.find((p) => p.line.id === l.id)
-          return <Row key={'e' + l.id} dot={C.money} title={tr('Estimated {x} for {p}', { x: l.name, p: taxPeriodName(st, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(nextMonth(end), l.dueDay)) })} trail={ft(part?.amount ?? 0)} onClick={() => editMonth(end)} />
+          const part = taxPeriod(st, end).parts.find((p) => p.line.id === l.id)
+          return <Row key={'e' + l.id} dot={C.money} title={tr('Estimated {x} for {p}', { x: l.name, p: periodLabel(l, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(addMonths(end, lagOf(l)), l.dueDay)) })} trail={ft(part?.amount ?? 0)} onClick={() => editMonth(end)} />
         })}
         {pctLines.map((l) => {
-          const sum = months.filter((m) => lineEndsIn(l, m)).reduce((a, m) => a + (taxFor(st, m).parts.find((p) => p.line.id === l.id)?.amount ?? 0), 0)
+          const sum = months.filter((m) => lineEndsIn(l, m)).reduce((a, m) => a + (taxPeriod(st, m).parts.find((p) => p.line.id === l.id)?.amount ?? 0), 0)
           return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('So far this year')} trail={ft(sum)} onClick={() => editMonth(curM)} />
         })}
       </List>
@@ -714,8 +720,7 @@ const Taxes = () => {
 const TaxMonthSheet = ({ m }: { m: string }) => {
   const st = useSt()
   const ft = (n: number, dec = false) => fmtTax(st.settings, n, dec) // taxes are in their own currency
-  const tm = st.taxMonths[m]
-  const tx = taxFor(st, m)
+  const tx = taxPeriod(st, m)
   const fromIncome = revenueFromIncome(st, m)
   const lines = tx.parts.map((p) => p.line)
   // amounts follow the revenue until you type your own number

@@ -139,12 +139,11 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   for (const [cat, v] of Object.entries(byCat)) {
     out.push({ id: 'sup-' + cat, label: CAT_LABEL[cat as SupplyCat], amount: v.amount, date: p.start, meta: `${v.n} planned ${v.n === 1 ? 'buy' : 'buys'} · from Supplies`, kind: 'supplies' })
   }
-  // taxes for the periods that ended last month, on the days I pay them (official deadlines are later)
+  // taxes paid this month, on the days I pay them (official deadlines are later)
   {
-    const forMonth = prevMonth(p.month)
-    for (const x of taxPays(st, forMonth)) if (x.amount > 0 && x.pay >= p.start && x.pay <= p.end) {
+    for (const x of taxPays(st, p.month)) if (x.amount > 0 && x.pay >= p.start && x.pay <= p.end) {
       const paidPart = x.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
-      out.push({ id: `tax-${forMonth}-${x.pay}`, label: x.name, amount: toMain(st.settings, x.amount, taxCur(st.settings), x.pay), date: x.pay, meta: `for ${taxPeriodName(st, forMonth)} · ${x.paid ? 'paid' : paidPart ? `${paidPart} paid · ${x.leftName} ${fmtDay(x.pay)}` : 'pay ' + fmtDay(x.pay)}`, kind: 'tax' })
+      out.push({ id: `tax-${x.pay}`, label: x.name, amount: toMain(st.settings, x.amount, taxCur(st.settings), x.pay), date: x.pay, meta: `for ${x.forName} · ${x.paid ? 'paid' : paidPart ? `${paidPart} paid · ${x.leftName} ${fmtDay(x.pay)}` : 'pay ' + fmtDay(x.pay)}`, kind: 'tax' })
     }
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
@@ -330,18 +329,12 @@ export const lineAmounts = (lines: TaxLine[], revOf: (l: TaxLine) => number, own
   for (const l of lines) if (calc[l.id] === undefined) calc[l.id] = out[l.id]
   return { amounts: out, calc }
 }
-export interface TaxPart { line: TaxLine; amount: number; calc: number; own: boolean; paid: boolean; revenue: number }
+export interface TaxPart { line: TaxLine; end: string /* the period's last month (its state lives there) */; amount: number; calc: number; own: boolean; paid: boolean; revenue: number }
 export interface TaxGroup { key: string; name: string; parts: TaxPart[]; amount: number; left: number; paid: boolean; payDay: number; dueDay: number }
-// everything for the periods ending in month mk (paid next month)
-export const taxFor = (st: State, mk: string) => {
-  const tm = st.taxMonths[mk]
-  const revenue = monthRevenue(st, mk)
-  const lines = taxLinesOf(st.settings).filter((l) => lineEndsIn(l, mk))
-  const revOf = (l: TaxLine) => periodMonths(l, mk).reduce((a, m) => a + (m === mk ? revenue : monthRevenue(st, m)), 0)
-  const own: Record<string, number | undefined> = {}
-  for (const l of lines) own[l.id] = tm?.lines?.[l.id]?.amount
-  const { amounts, calc } = lineAmounts(lines, revOf, own)
-  const parts: TaxPart[] = lines.map((l) => ({ line: l, amount: amounts[l.id], calc: calc[l.id], own: own[l.id] !== undefined, paid: !!tm?.lines?.[l.id]?.paid, revenue: revOf(l) }))
+// how many months after its period ends a line is paid (0 = the same month)
+export const lagOf = (l: TaxLine) => l.lag ?? 1
+export const addMonths = (mk: string, n: number) => { let m = mk; for (let i = 0; i < Math.abs(n); i++) m = n > 0 ? nextMonth(m) : prevMonth(m); return m }
+const groupParts = (parts: TaxPart[]) => {
   const groups: TaxGroup[] = []
   for (const p of parts) {
     const key = p.line.group?.trim() || p.line.id
@@ -351,33 +344,56 @@ export const taxFor = (st: State, mk: string) => {
     g.amount = r2(g.amount + p.amount)
     if (!p.paid) { g.left = r2(g.left + p.amount); g.paid = false }
   }
-  const total = r2(parts.reduce((a, p) => a + p.amount, 0))
-  const left = r2(groups.reduce((a, g) => a + g.left, 0))
-  return { revenue, parts, groups, total, left, paid: parts.length > 0 && groups.every((g) => g.paid), override: tm?.revenueOverride !== undefined }
+  return groups
+}
+const sumUp = (parts: TaxPart[]) => {
+  const groups = groupParts(parts)
+  return { parts, groups, total: r2(parts.reduce((a, p) => a + p.amount, 0)), left: r2(groups.reduce((a, g) => a + g.left, 0)), paid: parts.length > 0 && groups.every((g) => g.paid) }
+}
+// the maths for the periods ending in month mk (whenever they're paid)
+export const taxPeriod = (st: State, mk: string) => {
+  const tm = st.taxMonths[mk]
+  const revenue = monthRevenue(st, mk)
+  const lines = taxLinesOf(st.settings).filter((l) => lineEndsIn(l, mk))
+  const revOf = (l: TaxLine) => periodMonths(l, mk).reduce((a, m) => a + (m === mk ? revenue : monthRevenue(st, m)), 0)
+  const own: Record<string, number | undefined> = {}
+  for (const l of lines) own[l.id] = tm?.lines?.[l.id]?.amount
+  const { amounts, calc } = lineAmounts(lines, revOf, own)
+  const parts: TaxPart[] = lines.map((l) => ({ line: l, end: mk, amount: amounts[l.id], calc: calc[l.id], own: own[l.id] !== undefined, paid: !!tm?.lines?.[l.id]?.paid, revenue: revOf(l) }))
+  return { revenue, ...sumUp(parts), override: tm?.revenueOverride !== undefined }
+}
+// everything paid in month pm (each line from the period that ended `lag` months before)
+export const taxFor = (st: State, pm: string) => {
+  const parts: TaxPart[] = []
+  for (const lag of [0, 1, 2]) for (const p of taxPeriod(st, addMonths(pm, -lag)).parts) if (lagOf(p.line) === lag) parts.push(p)
+  // the month the revenue / edit link speaks about: the period most of it is for
+  const month = parts.find((p) => p.line.every === 'month')?.end ?? parts[0]?.end ?? prevMonth(pm)
+  return { pm, month, revenue: monthRevenue(st, month), ...sumUp(parts) }
 }
 export type TaxInfo = ReturnType<typeof taxFor>
+// "October", "Q3 2026", "2026" — or several, joined
+export const periodLabel = (l: TaxLine, end: string) => (l.every === 'month' ? monthName(end, true) : l.every === 'quarter' ? `Q${+end.slice(5, 7) / 3} ${end.slice(0, 4)}` : end.slice(0, 4))
+export const partsName = (parts: TaxPart[]) => [...new Set(parts.map((p) => periodLabel(p.line, p.end)))].join(' + ')
 // "ZUS + PIT-28": what's still to pay (everything, once all is paid)
-export const taxLeftName = (tx: TaxInfo) => (tx.groups.some((g) => !g.paid) ? tx.groups.filter((g) => !g.paid) : tx.groups).map((g) => g.name).join(' + ')
-export const taxAllName = (tx: TaxInfo) => tx.groups.map((g) => g.name).join(' + ')
-// mark a group (or everything) paid / not paid for the periods ending in mk
-export const setTaxPaid = (d: State, mk: string, group: string | 'all', on: boolean) => {
-  const tm = (d.taxMonths[mk] ??= {})
-  const ls = (tm.lines ??= {})
-  for (const g of taxFor(d, mk).groups) if (group === 'all' || g.key === group) for (const p of g.parts) {
+export const taxLeftName = (tx: { groups: TaxGroup[] }) => (tx.groups.some((g) => !g.paid) ? tx.groups.filter((g) => !g.paid) : tx.groups).map((g) => g.name).join(' + ')
+export const taxAllName = (tx: { groups: TaxGroup[] }) => tx.groups.map((g) => g.name).join(' + ')
+// mark a group (or everything) paid / not paid among the taxes paid in month pm
+export const setTaxPaid = (d: State, pm: string, group: string | 'all', on: boolean) => {
+  for (const g of taxFor(d, pm).groups) if (group === 'all' || g.key === group) for (const p of g.parts) {
+    const ls = ((d.taxMonths[p.end] ??= {}).lines ??= {})
     const x = (ls[p.line.id] ??= {})
     if (on) x.paid = true; else delete x.paid
   }
 }
 // a day of a month, never past its end
 export const dayOf = (mk: string, day: number) => { const [y, m] = mk.split('-').map(Number); return `${mk}-${pad(Math.min(Math.max(1, day || 1), daysInMonth(y, m)))}` }
-// the payments for the periods ending in mk, one per pay day (in the next month): names, amounts, paid
-export const taxPays = (st: State, mk: string, tx = taxFor(st, mk)) => {
-  const pm = nextMonth(mk)
-  const out: { pay: string; due: string; groups: TaxGroup[]; name: string; leftName: string; amount: number; left: number; paid: boolean }[] = []
+// the payments made in month pm, one per pay day: names, amounts, paid
+export const taxPays = (st: State, pm: string, tx = taxFor(st, pm)) => {
+  const out: { pay: string; due: string; groups: TaxGroup[]; name: string; leftName: string; forName: string; amount: number; left: number; paid: boolean }[] = []
   for (const g of tx.groups) {
     const pay = dayOf(pm, g.payDay), due = dayOf(pm, g.dueDay)
     let x = out.find((o) => o.pay === pay)
-    if (!x) out.push((x = { pay, due, groups: [], name: '', leftName: '', amount: 0, left: 0, paid: true }))
+    if (!x) out.push((x = { pay, due, groups: [], name: '', leftName: '', forName: '', amount: 0, left: 0, paid: true }))
     x.groups.push(g)
     if (due > x.due) x.due = due
   }
@@ -386,15 +402,9 @@ export const taxPays = (st: State, mk: string, tx = taxFor(st, mk)) => {
     x.paid = x.groups.every((g) => g.paid)
     x.name = x.groups.map((g) => g.name).join(' + ')
     x.leftName = (x.paid ? x.groups : x.groups.filter((g) => !g.paid)).map((g) => g.name).join(' + ')
+    x.forName = partsName(x.groups.flatMap((g) => g.parts))
   }
   return out.sort((a, b) => a.pay.localeCompare(b.pay))
-}
-// "November" for monthly taxes, "Q4 2026" when only quarterly ones are due, "2026" for yearly
-export const taxPeriodName = (st: State, mk: string) => {
-  const ls = taxLinesOf(st.settings).filter((l) => lineEndsIn(l, mk))
-  if (!ls.length || ls.some((l) => l.every === 'month')) return monthName(mk, true)
-  if (ls.some((l) => l.every === 'quarter')) return `Q${+mk.slice(5, 7) / 3} ${mk.slice(0, 4)}`
-  return mk.slice(0, 4)
 }
 
 // ---------- work ----------

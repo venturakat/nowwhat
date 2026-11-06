@@ -26,14 +26,14 @@ export const PRESETS: Preset[] = [
   {
     key: 'ua', name: 'Ukraine', cur: 'UAH', rule: 'paid',
     lines: () => [
-      { id: 'ua-tax', name: 'Single tax', kind: 'pct', pct: 5, every: 'quarter', payDay: defaultPayDay(20), dueDay: 20 },
+      { id: 'ua-tax', name: 'Single tax', kind: 'pct', pct: 5, every: 'quarter', lag: 2, payDay: defaultPayDay(19), dueDay: 19 }, // ~50 days after the quarter
       { id: 'ua-esv', name: 'ЄСВ', kind: 'fixed', amount: 0, every: 'quarter', payDay: defaultPayDay(20), dueDay: 20 }
     ],
     transfer: () => [row('IBAN'), row('РНОКПП'), row('Призначення', '{місяць} {yyyy}')]
   },
   {
     key: 'ar', name: 'Argentina', cur: 'ARS', rule: 'invoice',
-    lines: () => [{ id: 'ar-mono', name: 'Monotributo', kind: 'fixed', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }],
+    lines: () => [{ id: 'ar-mono', name: 'Monotributo', kind: 'fixed', amount: 0, every: 'month', lag: 0, payDay: defaultPayDay(20), dueDay: 20 }], // paid for the month itself,
     transfer: () => [row('CUIT'), row('Periodo', '{mes} {yyyy}')]
   },
   { key: 'custom', name: 'Custom', cur: '', rule: 'invoice', lines: () => [], transfer: () => [] }
@@ -63,6 +63,7 @@ export const fillTransfer = (text: string, mk: string) => {
 // ---------- words ----------
 export const KIND_NAME = () => ({ fixed: tr('Fixed amount'), pct: tr('% of revenue'), pctLess: tr('% of revenue minus part of another line') })
 export const EVERY_NAME = () => ({ month: tr('Monthly'), quarter: tr('Quarterly'), year: tr('Yearly') })
+export const LAG_NAME = () => [tr('The same month'), tr('The month after'), tr('Two months after')]
 export const RULE_NAME = () => ({
   nbp: tr('Invoice month · NBP rate of the day before'),
   invoice: tr('Invoice month · rate of that day'),

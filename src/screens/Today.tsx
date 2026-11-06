@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { fitSize, addDays, taxPays, taxPeriodName, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
+import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
 import { SpendSheet } from './Money'
@@ -23,14 +23,13 @@ const things = (st: State): Thing[] => {
   for (const { s, daysLeft } of sup.filter((x) => x.daysLeft <= 2 && x.s.cat !== 'meds'))
     out.push({ id: 'sup-' + s.id, dot: daysLeft <= 0 ? C.alert : C.warn, title: `Buy ${s.name}`, meta: `${daysLeft <= 0 ? 'Ran out' : daysLeft === 1 ? 'Runs out tomorrow' : 'Runs out in 2 days'} · ${fmt(s.pricePerUnit * s.buyQty)}`, trail: '→', go: () => go('supplies', s.cat) })
   // taxes: a reminder from 2 days before the pay day until the deadline, then "late!" for 10 days
-  const pm = prevMonth(monthKey(t))
-  for (const x of taxPays(st, pm)) {
+  for (const x of [...taxPays(st, prevMonth(monthKey(t))), ...taxPays(st, monthKey(t))]) {
     if (x.paid || x.left <= 0) continue
     const dd = diffDays(t, x.pay)
     if (dd <= 2 && t <= x.due)
-      out.push({ id: `tax-${pm}-${x.pay}`, dot: C.money, title: `Pay ${x.leftName}`, meta: `For ${taxPeriodName(st, pm)} · ${dd > 0 ? (dd === 1 ? 'tomorrow' : `in ${dd} days`) : dd === 0 ? 'today' : `deadline ${fmtDay(x.due)}`}`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
+      out.push({ id: `tax-${x.pay}`, dot: C.money, title: `Pay ${x.leftName}`, meta: `For ${x.forName} · ${dd > 0 ? (dd === 1 ? 'tomorrow' : `in ${dd} days`) : dd === 0 ? 'today' : `deadline ${fmtDay(x.due)}`}`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
     else if (t > x.due && diffDays(x.due, t) <= 10)
-      out.push({ id: `tax-${pm}-${x.pay}`, dot: C.alert, title: `Pay ${x.leftName}`, meta: `For ${taxPeriodName(st, pm)} · late!`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
+      out.push({ id: `tax-${x.pay}`, dot: C.alert, title: `Pay ${x.leftName}`, meta: `For ${x.forName} · late!`, trail: fmtTax(st.settings, x.left), go: () => go('money', 'taxes') })
   }
   // credit payments due today / tomorrow
   for (const c of st.credits ?? []) {
@@ -104,7 +103,7 @@ export const Today = () => {
   const top = list
   const nextP = summarize(st, shiftPeriod(s.info.key, 1))
   const nextIncome = nextP.items.filter((i) => i.kind === 'income').sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))[0]
-  const nextTax = taxPays(st, prevMonth(monthKey(t))).find((x) => !x.paid && x.left > 0 && diffDays(t, x.pay) > 5)
+  const nextTax = taxPays(st, monthKey(t)).find((x) => !x.paid && x.left > 0 && diffDays(t, x.pay) > 5)
   return (
     <div className="screen withfab">
       <Header sub={fmtWeekday(t)} title={<Logo />} />

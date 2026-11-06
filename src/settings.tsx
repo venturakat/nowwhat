@@ -6,7 +6,7 @@ import { seed } from './seed'
 import { blueFits, OFFICIAL, refreshRates } from './rates'
 import { uid, fmtCur, allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
 import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule } from './types'
-import { defaultPayDay, applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
+import { LAG_NAME, defaultPayDay, applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
 import { tr } from './i18n'
 
 export const SettingsSheet = () => {
@@ -60,7 +60,7 @@ const TaxesSheet = () => {
   const rule = s.taxRule ?? (tc === 'PLN' ? 'nbp' : 'invoice')
   const [armed, setArmed] = useState<PresetKey | null>(null) // a preset replaces the lines: first tap arms it (3 s), second applies
   const RN = RULE_NAME(), EN = EVERY_NAME()
-  const lineMeta = (l: TaxLine) => [l.kind === 'fixed' ? fmtCur(l.amount ?? 0, tc, true) : l.kind === 'pct' ? `${l.pct ?? 0}%` : `${l.pct ?? 0}% − ${l.lessPct ?? 0}% ${tr('of')} ${lines.find((x) => x.id === l.less)?.name ?? '—'}`, EN[l.every], tr('pay day {d}', { d: l.payDay }), l.group && tr('with {g}', { g: l.group })].filter(Boolean).join(' · ')
+  const lineMeta = (l: TaxLine) => [l.kind === 'fixed' ? fmtCur(l.amount ?? 0, tc, true) : l.kind === 'pct' ? `${l.pct ?? 0}%` : `${l.pct ?? 0}% − ${l.lessPct ?? 0}% ${tr('of')} ${lines.find((x) => x.id === l.less)?.name ?? '—'}`, EN[l.every], (l.lag ?? 1) !== 1 && LAG_NAME()[l.lag ?? 1].toLowerCase(), tr('pay day {d}', { d: l.payDay }), l.group && tr('with {g}', { g: l.group })].filter(Boolean).join(' · ')
   return (
     <Sheet title={tr('Taxes')} full onBack={popSheet}>
       <Field label={tr('Start from')}>
@@ -90,7 +90,6 @@ const TaxesSheet = () => {
         </List>
       )}
       <button className="btn soft" onClick={() => pushSheet(<TaxLineSheet />)}>{tr('Add tax line')}</button>
-      <span className="t13 muted" style={{ padding: '0 4px' }}>{tr('Each line is paid in the month after its period ends.')}</span>
       <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Transfer details')}</span>
       {(s.transfer ?? []).length > 0 && (
         <List>
@@ -112,7 +111,7 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
   const KN = KIND_NAME(), EN = EVERY_NAME()
   return (
     <FormSheet title={l ? l.name : tr('New tax line')} onBack={popSheet} twoTap
-      initial={l ? { ...l } : { kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? defaultPayDay(lines[0]?.dueDay ?? 20), dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }}
+      initial={l ? { ...l, lag: String(l.lag ?? 1) } : { lag: '1', kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? defaultPayDay(lines[0]?.dueDay ?? 20), dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }}
       fields={[
         { key: 'name', label: tr('Name'), type: 'text', placeholder: 'ZUS, ЄСВ, Monotributo…' },
         { key: 'kind', label: tr('How it’s worked out'), type: 'select', options: (Object.keys(KN) as TaxKind[]).filter((k) => k !== 'pctLess' || others.length).map((k) => [k, KN[k]]) },
@@ -121,6 +120,7 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
         { key: 'less', label: tr('Minus part of'), type: 'select', options: others.map((x) => [x.id, x.name]), hide: (v) => v.kind !== 'pctLess' },
         { key: 'lessPct', label: tr('How much of it, %'), type: 'number', hide: (v) => v.kind !== 'pctLess' },
         { key: 'every', label: tr('Period'), type: 'select', options: (Object.keys(EN) as TaxEvery[]).map((k) => [k, EN[k]]) },
+        { key: 'lag', label: tr('Paid in'), type: 'select', options: LAG_NAME().map((n, i) => [String(i), n]) },
         { key: 'payDay', label: tr('I pay on day (puts it in the budget)'), type: 'number', step: 1, placeholder: (v) => String(defaultPayDay(parseNum(String(v.dueDay ?? '')) ?? 20)) },
         { key: 'dueDay', label: tr('Official deadline, day'), type: 'number', step: 1 },
         { key: 'group', label: tr('Paid together as (optional)'), type: 'text', suggest: groups }
@@ -128,7 +128,7 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
       onSave={(v) => update((d) => {
         const day = (n: number | undefined, dflt: number) => Math.min(31, Math.max(1, Math.round(n ?? dflt)))
         const x: TaxLine = {
-          id: l?.id ?? uid(), name: String(v.name).trim(), kind: v.kind, every: v.every,
+          id: l?.id ?? uid(), name: String(v.name).trim(), kind: v.kind, every: v.every, lag: Number(v.lag ?? 1),
           dueDay: day(v.dueDay, 20), payDay: day(v.payDay, defaultPayDay(day(v.dueDay, 20))), group: String(v.group ?? '').trim() || undefined,
           ...(v.kind === 'fixed' ? { amount: v.amount ?? 0 } : { pct: v.pct ?? 0 }),
           ...(v.kind === 'pctLess' ? { less: v.less ?? others[0]?.id, lessPct: v.lessPct ?? 0 } : {})

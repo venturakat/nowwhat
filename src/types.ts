@@ -160,7 +160,8 @@ export interface TaxLine {
   pct?: number // % of revenue (14 = 14%)
   less?: ID // pctLess: the other line
   lessPct?: number // pctLess: this % of the other line is taken off the revenue first
-  every: TaxEvery // its period; paid in the month after the period ends
+  every: TaxEvery // its period
+  lag?: number // paid this many months after the period ends: 0 = the same month, 1 (default) = the month after, 2
   payDay: number // the day I pay (the budget puts it here)
   dueDay: number // official deadline
   group?: string // lines with the same group are paid together (one tile, one Paid button)
