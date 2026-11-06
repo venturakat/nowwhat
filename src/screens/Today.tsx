@@ -115,7 +115,7 @@ export const Today = () => {
       )}
       <button className="card dark" style={{ gap: 6, paddingTop: 22, paddingBottom: 22 }} onClick={() => useUi.getState().go('money', 'budget')}>
         <span className="t15 w5">You can spend today</span>
-        <span className="big" style={{ fontSize: fitSize(fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0)), 72, 8), color: s.perDay < 0 ? 'var(--alert)' : undefined }}>{fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0))}</span>
+        <span className="big" style={{ fontSize: fitSize(fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0)), 63.5, 8), color: s.perDay < 0 ? 'var(--alert)' : undefined }}>{fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0))}</span>
         <span className="t15">
           {s.daysLeft <= 1
             ? `Last day of this fortnight${nextIncome ? ` · ${nextIncome.label.toLowerCase()} lands ${nextIncome.date === shiftDay(t) ? 'tomorrow' : fmtDay(nextIncome.date ?? nextP.info.start)}` : ''}`
@@ -303,7 +303,7 @@ const NoteSheet = ({ id }: { id?: string }) => {
           </>
         : n && <div style={{ padding: '4px 0 12px' }}>
             <div className="t13 muted">{fmtWeekday(localDay(n.at))}</div>
-            {n.text && <div style={{ fontSize: 16, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 14 }}>{n.text}</div>}
+            {n.text && <div style={{ fontSize: 14, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 14 }}>{n.text}</div>}
           </div>}
     </Sheet>
   )

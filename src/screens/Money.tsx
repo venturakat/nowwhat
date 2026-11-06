@@ -99,11 +99,11 @@ const Budget = () => {
         <div className="between" style={{ alignItems: 'flex-end' }}>
           <div className="col">
             <span className="t15 w5">Left this fortnight</span>
-            <span className="big" style={{ fontSize: fitSize(fmt(s.left), 52, 8), color: s.left < 0 ? 'var(--alert)' : undefined }}>{fmt(s.left)}</span>
+            <span className="big" style={{ fontSize: fitSize(fmt(s.left), 46, 8), color: s.left < 0 ? 'var(--alert)' : undefined }}>{fmt(s.left)}</span>
           </div>
           <div className="col" style={{ alignItems: 'flex-end' }}>
             <span className="t14 w5">{isNow ? `per day · ${s.daysLeft} d left` : 'per day'}</span>
-            <span className="mid" style={{ fontSize: fitSize(fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1)), 26, 8) }}>{fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1))}</span>
+            <span className="mid" style={{ fontSize: fitSize(fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1)), 23, 8) }}>{fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1))}</span>
           </div>
         </div>
         <div className="bar"><div style={{ width: `${pct * 100}%` }} /></div>
@@ -579,7 +579,7 @@ const ClientSheet = ({ id }: { id: string }) => {
       {unpaid.length > 0 && (
         <div className="card money" style={{ gap: 6 }}>
           <span className="t14 w5">Invoiced, waiting for payment</span>
-          <span className="mid" style={{ fontSize: fitSize(fmt(pln(unpaid), true), 30, 14) }}>{fmt(pln(unpaid), true)}</span>
+          <span className="mid" style={{ fontSize: fitSize(fmt(pln(unpaid), true), 26.5, 14) }}>{fmt(pln(unpaid), true)}</span>
           <span className="t14">{eur(unpaid)} · {unpaid.length} entries{tables.length ? ` · NBP ${tables.join(', ')}` : ''}</span>
           {noRate.length > 0 && <button className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet(<InvoiceSheet ids={noRate.map((s) => s.id)} fix />)}>Set invoice date for the NBP rate</button>}
           <button className="btn" onClick={markPaid}>They paid → add to income</button>
@@ -652,7 +652,7 @@ const Taxes = () => {
               <span className="t15 w5">{partsName(tx.parts) || monthName(tx.month, true)} · {!next ? '' : inDays < 0 && !tx.paid ? tr('{n} days late', { n: -inDays }) : tr('you pay {pay} · deadline {due}', { pay: fmtDay(next.pay), due: fmtDay(next.due) })}</span>
               {paidNames && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> {tx.paid ? tr('paid') : tr('{x} paid', { x: paidNames })}</span>}
             </div>
-            <div className="big" style={{ fontSize: fitSize(ft(tx.paid ? tx.total : tx.left), 60, 9) }}>{ft(tx.paid ? tx.total : tx.left)}</div>
+            <div className="big" style={{ fontSize: fitSize(ft(tx.paid ? tx.total : tx.left), 53, 9) }}>{ft(tx.paid ? tx.total : tx.left)}</div>
             <div className="parts" style={{ paddingTop: 6, flexWrap: 'wrap' }}>
               {tx.groups.map((g) => <Quota key={g.key} label={g.name} amount={g.amount} paid={g.paid} />)}
             </div>
@@ -689,8 +689,8 @@ const Taxes = () => {
       )}
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">{tr('Revenue {y} so far', { y: year })}</span><span className="mid" style={{ fontSize: fitSize(ft(ytd), 30, 9) }}>{ft(ytd)}</span></button>
-          <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5 muted">{tr('avg / month')}</span><span className="t17" style={{ fontSize: 20 }}>{ft(ytd / nonZero)}</span></div>
+          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">{tr('Revenue {y} so far', { y: year })}</span><span className="mid" style={{ fontSize: fitSize(ft(ytd), 26.5, 9) }}>{ft(ytd)}</span></button>
+          <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5 muted">{tr('avg / month')}</span><span className="t17" style={{ fontSize: 17.5 }}>{ft(ytd / nonZero)}</span></div>
         </div>
         <div className="chart">
           {months.map((m, i) => (

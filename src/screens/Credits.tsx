@@ -27,7 +27,7 @@ export const Credits = () => {
       {open.length > 0 && (
         <div className="card dark" style={{ gap: 6 }}>
           <span className="t15 w5">Still to repay · {open.length} {open.length === 1 ? 'credit' : 'credits'}</span>
-          <span className="big" style={{ fontSize: fitSize(fmt(remaining), 56, 9) }}>{fmt(remaining)}</span>
+          <span className="big" style={{ fontSize: fitSize(fmt(remaining), 49.5, 9) }}>{fmt(remaining)}</span>
           <span className="t15">{fmt(thisMonth)} left to pay this month · all clear by {monthYear(lastEnd)}</span>
         </div>
       )}

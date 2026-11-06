@@ -87,7 +87,7 @@ export const ProjectSheet = ({ id }: { id?: string }) => {
             <div key={x.id} className="row" style={{ padding: '9px 0', gap: 10 }}>
               <button onClick={() => set({ steps: p.steps.map((y) => (y.id === x.id ? { ...y, done: !y.done } : y)) })}><Check on={!!x.done} /></button>
               <input className="grow" value={x.text} onChange={(e) => set({ steps: p.steps.map((y) => (y.id === x.id ? { ...y, text: e.target.value } : y)) })}
-                style={{ border: 0, outline: 'none', background: 'transparent', fontSize: 17, fontWeight: 500, textDecoration: x.done ? 'line-through' : undefined, color: x.done ? 'var(--ink2)' : undefined }} />
+                style={{ border: 0, outline: 'none', background: 'transparent', fontSize: 16, fontWeight: 500, textDecoration: x.done ? 'line-through' : undefined, color: x.done ? 'var(--ink2)' : undefined }} />
               {i > 0 && <button className="link" aria-label="Move up" style={{ padding: 4 }} onClick={() => { const s2 = [...p.steps]; [s2[i - 1], s2[i]] = [s2[i], s2[i - 1]]; set({ steps: s2 }) }}>↑</button>}
               <button aria-label="Remove step" style={{ padding: 4, color: 'var(--ink2)' }} onClick={() => set({ steps: p.steps.filter((y) => y.id !== x.id) })}><Icon.x /></button>
             </div>
@@ -95,7 +95,7 @@ export const ProjectSheet = ({ id }: { id?: string }) => {
           <div className="row" style={{ padding: '9px 0', gap: 10 }}>
             <span className="check" style={{ borderStyle: 'dashed' }} />
             <input className="grow" value={newStep} placeholder={p.steps.length ? 'Add a step' : 'First step, e.g. measure the wall'} onChange={(e) => setNewStep(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStep()}
-              style={{ border: 0, outline: 'none', background: 'transparent', fontSize: 17 }} />
+              style={{ border: 0, outline: 'none', background: 'transparent', fontSize: 16 }} />
             {newStep.trim() && <button className="btn sm" onClick={addStep}>Add</button>}
           </div>
         </div>

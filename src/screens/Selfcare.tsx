@@ -29,7 +29,7 @@ export const Selfcare = () => {
       {active.length > 0 && (
         <div className="card closet" style={{ gap: 6 }}>
           <span className="t15 w5">Selfcare · {monthName(mk, true)} · {month.length} {month.length === 1 ? 'time' : 'times'}</span>
-          <span className="big" style={{ fontSize: fitSize(fmt(month.reduce((a, c) => a + c.pln, 0)), 52, 10) }}>{fmt(month.reduce((a, c) => a + c.pln, 0))}</span>
+          <span className="big" style={{ fontSize: fitSize(fmt(month.reduce((a, c) => a + c.pln, 0)), 46, 10) }}>{fmt(month.reduce((a, c) => a + c.pln, 0))}</span>
           <span className="t14">{half.length ? `${fmt(halfSum)} planned this fortnight · already in your budget` : 'Nothing planned this fortnight'}</span>
         </div>
       )}

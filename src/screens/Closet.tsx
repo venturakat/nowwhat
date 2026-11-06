@@ -64,7 +64,7 @@ export const compress = (file: File, max = 480): Promise<string> =>
 export const Tile = ({ it, meta, size, onClick, sel }: { it: { name: string; cat: ClosetCat; photo?: string; offSeason?: boolean }; meta?: string; size?: number; onClick?: () => void; sel?: boolean }) => (
   <button className={'tile' + (it.offSeason ? ' away' : '')} style={size ? { width: size, flex: 'none' } : undefined} onClick={onClick}>
     <div className={'sw' + (sel ? ' sel' : '')}>{it.photo ? <img src={it.photo} alt="" /> : <Garment cat={it.cat} size={size && size < 80 ? 30 : 40} />}</div>
-    {it.name && <div className="nm" style={size && size < 80 ? { fontSize: 14 } : undefined}>{it.name}</div>}
+    {it.name && <div className="nm" style={size && size < 80 ? { fontSize: 12.5 } : undefined}>{it.name}</div>}
     {meta && <div className="mt">{meta}</div>}
   </button>
 )
@@ -397,7 +397,7 @@ const Outfits = () => {
       <div className="card" style={{ gap: 12, paddingTop: 16, paddingBottom: 16 }}>
         <div className="row" style={{ gap: 14 }}>
           {start && <div style={{ width: 64 }}><Tile it={{ ...start, name: '' }} /></div>}
-          <div className="col grow"><span className="t13 w5 muted">Start from · {start ? CAT1[start.cat] : ''}</span><span className="mid" style={{ fontSize: 22 }}>{start?.name}</span></div>
+          <div className="col grow"><span className="t13 w5 muted">Start from · {start ? CAT1[start.cat] : ''}</span><span className="mid" style={{ fontSize: 19.5 }}>{start?.name}</span></div>
           <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { choose(id); closeSheet() }} />)}>Change</button>
         </div>
         <div className="between">

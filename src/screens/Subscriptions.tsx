@@ -18,7 +18,7 @@ export const Subscriptions = () => {
       {active.length > 0 && (
         <div className="card money" style={{ gap: 6 }}>
           <span className="t15 w5">Every month · {active.length} subscriptions</span>
-          <span className="big" style={{ fontSize: fitSize(fmt(monthly), 52, 10) }}>{fmt(monthly)}</span>
+          <span className="big" style={{ fontSize: fitSize(fmt(monthly), 46, 10) }}>{fmt(monthly)}</span>
           <span className="t14">{fmt(firstHalf)} in the 1st fortnight · {fmt(monthly - firstHalf)} in the 2nd · already in your budget</span>
         </div>
       )}

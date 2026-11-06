@@ -31,7 +31,7 @@ const TimerFab = () => {
     return (
       <button className="fab" style={{ background: 'var(--ink)', color: '#fff' }} onClick={() => useUi.getState().go('money', 'work')}>
         <span>● {c?.name} · {fmtClock(now - new Date(st.timer.startedAt).getTime())}</span>
-        <span onClick={(e) => { e.stopPropagation(); stopTimer(st) }} style={{ background: 'var(--work)', color: 'var(--ink)', borderRadius: 100, padding: '4px 10px', fontSize: 14 }}>Stop</span>
+        <span onClick={(e) => { e.stopPropagation(); stopTimer(st) }} style={{ background: 'var(--work)', color: 'var(--ink)', borderRadius: 100, padding: '4px 10px', fontSize: 12.5 }}>Stop</span>
       </button>
     )
   }
