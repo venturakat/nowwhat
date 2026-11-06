@@ -623,7 +623,9 @@ const Taxes = () => {
   let due = candidates.find(open)
   if (!due) {
     const ahead = Array.from({ length: 14 }, (_, i) => addMonths(curM, i + 1))
-    due = ahead.find(open) ?? ahead.find((m) => taxFor(st, m).parts.length) ?? nextMonth(curM)
+    // amounts not filled in yet (0): still show this month's payment first, not a later one
+    const unpaid = (m: string) => { const x = taxFor(st, m); return x.parts.length > 0 && !x.paid }
+    due = ahead.find(open) ?? [curM, ...ahead].find(unpaid) ?? ahead.find((m) => taxFor(st, m).parts.length) ?? nextMonth(curM)
   }
   const tx = taxFor(st, due)
   const pays = taxPays(st, due, tx)
