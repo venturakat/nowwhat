@@ -89,6 +89,7 @@ export const Icon = {
   check: (p: { color?: string; size?: number }) => <S size={p.size ?? 16} color={p.color ?? '#fff'}><path d="M5 12.5l4.5 4.5L19 7.5" /></S>,
   plus: () => <S size={20}><path d="M12 5v14M5 12h14" /></S>,
   x: () => <S size={20}><path d="M6 6l12 12M18 6L6 18" /></S>,
+  edit: () => <S size={18}><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></S>,
   trash: () => <S size={20}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></S>,
   gear: () => <S size={20}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></S>,
   copy: () => <S size={18}><rect x="8" y="8" width="12" height="12" rx="2.5" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></S>,
@@ -198,7 +199,8 @@ export const Check = ({ on }: { on: boolean }) => <span className={'check' + (on
 
 // onBack: a sub-page (e.g. a Settings category) gets a ‹ back arrow next to its title
 // (swiping right goes back too, see swipe.ts). full: the sheet takes the whole screen.
-export const Sheet = ({ title, children, onBack, full }: { title: string; children: ReactNode; onBack?: () => void; full?: boolean }) => {
+// actions: buttons that take the place of the close cross (the sheet still closes by pulling down).
+export const Sheet = ({ title, children, onBack, full, actions }: { title: string; children: ReactNode; onBack?: () => void; full?: boolean; actions?: ReactNode }) => {
   return (
   <>
     {full && <span className="sheet-full" hidden />}
@@ -208,7 +210,7 @@ export const Sheet = ({ title, children, onBack, full }: { title: string; childr
         {onBack && <button onClick={onBack} aria-label="Back" style={{ marginLeft: -6, display: 'flex' }}><Icon.chevL /></button>}
         <div className="mid">{title}</div>
       </div>
-      <button onClick={closeSheet} aria-label="Close"><Icon.x /></button>
+      {actions ?? <button onClick={closeSheet} aria-label="Close"><Icon.x /></button>}
     </div>
     {children}
   </>

@@ -264,21 +264,34 @@ const BrainDump = () => {
 
 const NoteSheet = ({ id }: { id?: string }) => {
   const st = useSt()
-  const n = st.notes?.find((x) => x.id === id)
+  const [nid, setNid] = useState(id)
+  const n = st.notes?.find((x) => x.id === nid)
+  // an existing note opens to read; a new one opens to write
+  const [editing, setEditing] = useState(!n)
   const [text, setText] = useState(n?.text ?? '')
+  const save = () => {
+    if (!editing || !text.trim()) return
+    const t = text.trim()
+    let newId = nid
+    update((d) => {
+      d.notes ??= []
+      const x = d.notes.find((y) => y.id === nid)
+      if (x) { if (x.text !== t) Object.assign(x, { text: t, at: new Date().toISOString() }) }
+      else { newId = uid(); d.notes.push({ id: newId, text: t, at: new Date().toISOString() }) }
+    })
+    setNid(newId); setText(t); setEditing(false)
+  }
+  const round = (bg: string, on: boolean) => ({ width: 40, height: 40, borderRadius: '50%', background: bg, color: '#1d1d1f', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0.45 })
   return (
-    <Sheet title={n ? 'Note' : 'New note'}>
-      <textarea className="input" autoFocus rows={7} value={text} placeholder="Whatever’s on your mind" onChange={(e) => setText(e.target.value)} style={{ resize: 'vertical', minHeight: 150, lineHeight: 1.35 }} />
-      <button className="btn full" disabled={!text.trim()} onClick={() => {
-        update((d) => {
-          d.notes ??= []
-          const x = d.notes.find((y) => y.id === id)
-          if (x) { if (x.text !== text.trim()) Object.assign(x, { text: text.trim(), at: new Date().toISOString() }) }
-          else d.notes.push({ id: uid(), text: text.trim(), at: new Date().toISOString() })
-        })
-        closeSheet()
-      }}>Save</button>
-      {n && <button className="btn full soft" onClick={() => { update((d) => { d.notes = d.notes!.filter((y) => y.id !== id) }); closeSheet() }}>Delete</button>}
+    <Sheet title={n ? 'Note' : 'New note'} actions={
+      <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+        {n && <button aria-label="Edit" style={round('#E3D2FF', !editing)} onClick={() => setEditing(true)}><Icon.edit /></button>}
+        <button aria-label="Save" style={round('#D6EE7A', editing && !!text.trim())} onClick={save}><Icon.check color="#1d1d1f" size={20} /></button>
+      </div>
+    }>
+      {editing
+        ? <textarea className="input" autoFocus rows={7} value={text} placeholder="Whatever’s on your mind" onChange={(e) => setText(e.target.value)} style={{ resize: 'vertical', minHeight: 150, lineHeight: 1.35 }} />
+        : <div style={{ fontSize: 16, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', padding: '4px 0 12px' }}>{n?.text}</div>}
     </Sheet>
   )
 }
