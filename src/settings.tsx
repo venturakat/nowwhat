@@ -232,7 +232,7 @@ const CurSheet = ({ c }: { c: string }) => {
         popSheet()
         if (srcNow !== 'manual') refreshRates(true).catch(() => {})
       }}>Save</button>
-      <button className="btn full soft" onClick={() => {
+      <button className="btn full soft" style={armed ? { background: 'var(--alert)', color: '#fff' } : undefined} onClick={() => {
         if (!armed) { setArmed(true); toast(used ? 'Still used by some amounts — its rate stays updated. Tap again to remove it from the pickers' : 'Tap again to remove'); return }
         update((d) => { d.settings.curs = d.settings.curs.filter((x) => x !== c) })
         popSheet()
