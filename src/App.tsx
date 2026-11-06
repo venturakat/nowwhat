@@ -104,12 +104,14 @@ export const App = () => {
           <TimerFab />
         </div>
       )}
-      {/* the calendar page, waiting to the left of Today; a little tab on the edge shows it's there */}
+      {/* the calendar page, waiting off the left edge; a little tab on the edge shows it's there */}
       <div className={'calpage' + (cal ? ' open' : '')} aria-hidden={!cal}>
         <div className="calscroll"><CalendarPage /></div>
-        <button className="cal-tab back" aria-label="Back to Today" onClick={closeCal}><Icon.today /></button>
+        {/* back to whichever tab it was pulled over */}
+        <button className="cal-tab back" aria-label="Back" onClick={closeCal}>{(() => { const I = TABS.find((x) => x[0] === tab)![2]; return <I /> })()}</button>
       </div>
-      {tab === 'today' && !cal && <button className="cal-tab open" aria-label="Calendar" onClick={openCal}><Icon.calendar /></button>}
+      {/* on every tab: tap or pull it to lay the calendar over the page (only Today also opens it with a swipe) */}
+      {!cal && <button className="cal-tab open" aria-label="Calendar" onClick={openCal}><Icon.calendar /></button>}
       <nav className="tabbar">
         {TABS.map(([k, label, I]) => (
           <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => go(k)}>

@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { update, useSt } from './store'
 import type { CalEvent, CalKey, State } from './types'
+import { DayWeather, PlaceSheet } from './weather'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
   prevMonth, subDate, taxFor, fmtTax, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
@@ -71,6 +72,11 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     edit: () => <TaskSheet id={x.id} back={1} />,
     toggle: { on: !!x.doneAt, run: () => update((s) => { const y = s.tasks?.find((z) => z.id === x.id); if (y) y.doneAt = y.doneAt ? undefined : today() }) }
   })
+  // birthdays: every year on their day (29 Feb falls on the 28th in other years)
+  for (const b of st.birthdays ?? []) for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) {
+    const d = dayIn(`${y}-${b.md.slice(0, 2)}`, +b.md.slice(3))
+    if (d >= from && d <= to) out.push({ id: `bd-${b.id}-${y}`, date: d, title: `${b.name}’s birthday`, meta: b.year && y > b.year ? `Turns ${y - b.year}` : 'Birthday', dot: C.warn, edit: () => <BirthdayEdit id={b.id} /> })
+  }
   for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.note, dot: C.ink, event: e })
   if (on.taxes) for (const mk of monthsIn(from, to)) {
     const forMonth = prevMonth(mk)
@@ -259,6 +265,7 @@ export const CalendarPage = () => {
         ))}
         <Row title={<span className="muted">+ Add on {fmtDay(sel)}</span>} onClick={() => pushSheet(<AddSheet date={sel} />)} />
       </List>
+      <DayWeather date={sel} />
       {!anyOn && <span className="t13 muted" style={{ padding: '0 4px' }}>Want taxes, classes, deliveries and more here too? Choose them with the gear above.</span>}
     </div>
   )
@@ -268,18 +275,77 @@ export const CalendarPage = () => {
 const AddSheet = ({ date }: { date: string }) => {
   const st = useSt()
   const classes = st.classes ?? []
+  const open = (st.tasks ?? []).filter((x) => !x.doneAt && x.date !== date)
   const opt = (title: ReactNode, meta: string, run: () => void) => <Row title={title} meta={meta} trail={<Icon.chevR />} onClick={run} />
   return (
     <Sheet title={`Add on ${fmtDay(date)}`} onBack={popSheet}>
       <List>
         {opt('Appointment', 'Your own — not tied to any tab', () => pushSheet(<EventEdit date={date} />))}
-        {opt('Parking lot task', 'On the Parking lot, and here on that day', () => pushSheet(<TaskSheet date={date} back={2} />))}
+        {opt('Parking lot task', 'New, or one already on the Parking lot', () => pushSheet(open.length ? <TaskPick date={date} /> : <TaskSheet date={date} back={2} />))}
+        {opt('Birthday', 'Here every year on that day', () => pushSheet(<BirthdayEdit date={date} />))}
         {opt('Delivery', 'Goes on the Shipment log', () => pushSheet(<ShipmentSheet eta={date} back={2} />))}
         {classes.map((c) => opt(`Extra ${c.name} class`, c.time ? `At ${timeSpan(c.time, classEnd(c))}` : 'One extra class that day', () => {
           update((d) => { const L = d.classes?.find((y) => y.id === c.id); if (!L) return; L.skips = L.skips.filter((y) => y !== date); if (!L.extra.includes(date)) L.extra.push(date) })
           popSheet(); toast(`Extra ${c.name} class on ${fmtDay(date)}`)
         }))}
       </List>
+    </Sheet>
+  )
+}
+
+// Parking lot task on a day: one that's already there, or a new one
+const TaskPick = ({ date }: { date: string }) => {
+  const st = useSt()
+  const open = (st.tasks ?? []).filter((x) => !x.doneAt && x.date !== date)
+  const put = (id: string) => {
+    update((s) => { const y = s.tasks?.find((z) => z.id === id); if (y) y.date = date })
+    popSheet(false); popSheet(false)
+    toast(`On ${fmtDay(date)}`)
+  }
+  return (
+    <Sheet title="Parking lot task" onBack={popSheet}>
+      <List>
+        {open.map((x) => <Row key={x.id} dot={dotOf(x.color)} title={x.text} meta={x.date ? `On ${fmtDay(x.date)}` : undefined} onClick={() => put(x.id)} />)}
+        <Row title={<span className="muted">+ New task</span>} onClick={() => pushSheet(<TaskSheet date={date} back={3} />)} />
+      </List>
+    </Sheet>
+  )
+}
+
+// a birthday: there every year; with the year it shows how old they turn
+const BirthdayEdit = ({ id, date }: { id?: string; date?: string }) => {
+  const st = useSt()
+  const b = st.birthdays?.find((x) => x.id === id)
+  const [name, setName] = useState(b?.name ?? '')
+  const [d, setD] = useState(b ? `${b.year ?? today().slice(0, 4)}-${b.md}` : date ?? today())
+  const [age, setAge] = useState(!!b?.year)
+  const [armed, setArmed] = useState(false)
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(t) }, [armed])
+  const save = () => {
+    if (!name.trim() || !d) return
+    update((s) => {
+      s.birthdays ??= []
+      const data = { name: name.trim(), md: d.slice(5), year: age ? +d.slice(0, 4) : undefined }
+      const x = s.birthdays.find((y) => y.id === id)
+      if (x) Object.assign(x, data)
+      else s.birthdays.push({ id: uid(), ...data })
+    })
+    if (b) popSheet()
+    else { popSheet(false); popSheet(false) }
+  }
+  return (
+    <Sheet title={b ? 'Birthday' : 'New birthday'} onBack={popSheet}>
+      <Field label="Whose"><input className="input" autoFocus={!b} value={name} placeholder="Name" onChange={(x) => setName(x.target.value)} /></Field>
+      <Field label="Date"><input className="input" type="date" value={d} onChange={(x) => setD(x.target.value)} /></Field>
+      <button className="row" style={{ gap: 12, padding: '4px 0' }} onClick={() => setAge(!age)}>
+        <span className="t15 grow" style={{ textAlign: 'left' }}>Show their age (the year above is the year they were born)</span>
+        <span className={'switch' + (age ? ' on' : '')} role="switch" aria-checked={age} aria-label="Show their age"><i /></span>
+      </button>
+      <button className="btn full" disabled={!name.trim() || !d} onClick={save}>Save</button>
+      {b && <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
+        if (!armed) { setArmed(true); return }
+        update((s) => { s.birthdays = (s.birthdays ?? []).filter((y) => y.id !== id) }); popSheet()
+      }}>Delete</button>}
     </Sheet>
   )
 }
@@ -430,7 +496,7 @@ export const CalendarSettings = () => {
   const flip = (k: CalKey) => update((d) => { d.settings = { ...d.settings, calendar: { ...(d.settings.calendar ?? {}), [k]: !on[k] || undefined } } })
   return (
     <Sheet title="Calendar settings">
-      <span className="t15 muted">Your own appointments are always there. Choose what else the calendar shows from the tabs.</span>
+      <span className="t15 muted">Your own appointments and birthdays are always there. Choose what else the calendar shows from the tabs.</span>
       <div className="list">
         {CAL_OPTIONS.map(([k, label]) => (
           <button key={k} className="lrow" onClick={() => flip(k)}>
@@ -438,6 +504,13 @@ export const CalendarSettings = () => {
             <span className={'switch' + (on[k] ? ' on' : '')} role="switch" aria-checked={!!on[k]} aria-label={label}><i /></span>
           </button>
         ))}
+      </div>
+      <div className="list">
+        <button className="lrow" onClick={() => update((d) => { d.settings = { ...d.settings, weatherOff: d.settings.weatherOff ? undefined : true } })}>
+          <span className="grow" style={{ textAlign: 'left' }}><div className="title">Weather</div>{st.settings.weather && <div className="meta">{st.settings.weather.name}</div>}</span>
+          <span className={'switch' + (!st.settings.weatherOff ? ' on' : '')} role="switch" aria-checked={!st.settings.weatherOff} aria-label="Weather"><i /></span>
+        </button>
+        {!st.settings.weatherOff && <Row title={st.settings.weather ? 'Change city' : 'Choose your city'} trail={<Icon.chevR />} onClick={() => pushSheet(<PlaceSheet />)} />}
       </div>
     </Sheet>
   )

@@ -25,6 +25,15 @@ export interface CalEvent {
   repeat?: 'week' | 'month' | 'year'
 }
 
+export interface Place { name: string; lat: number; lon: number }
+
+export interface Birthday {
+  id: ID
+  name: string
+  md: string // MM-DD
+  year?: number // birth year, when their age should show
+}
+
 export interface Settings {
   mainCur: Currency // totals, budget and per-day money are shown in this
   curs: Currency[] // other currencies offered in the currency pickers
@@ -65,6 +74,8 @@ export interface Settings {
   activity?: 'low' | 'light' | 'active' | 'very'
   proteinGoal?: number // g a day, set by hand; empty = from weight and activity
   calendar?: Partial<Record<CalKey, boolean>> // what the calendar shows from the tabs (all off until chosen)
+  weather?: Place // the calendar's forecast is for here
+  weatherOff?: boolean // no weather block in the calendar
   travelUsual?: string[] // travel necessities offered under a packing list's Other field (not set = the starter list)
 }
 
@@ -433,6 +444,7 @@ export interface State {
   planned: { date: string; itemIds: ID[] } | null
   trips?: Trip[]
   events?: CalEvent[] // own appointments in the calendar
+  birthdays?: Birthday[] // in the calendar every year
   shopPlans?: Record<string, { date: string; time?: string; end?: string }> // calendar-only: a shopping run moved / timed for planning the day (key: planned date|category)
   dismissed: { date: string; ids: string[] }
 }
