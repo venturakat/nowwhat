@@ -182,7 +182,16 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: toMain(st.settings, c.fixedEur, c.fixedCur ?? 'EUR'), date: d, meta: `monthly fee · ${fmtCur(c.fixedEur, c.fixedCur ?? 'EUR')} · ${fmtDay(d)} · expected`, kind: 'fee', income: true, expected: true, counted: true })
   }
   // the next batch of classes to pay for, on the day of its first class (until it's paid)
+  // per-class payers: like any regular expense — the classes held in this half, fee each time
   for (const c of st.classes ?? []) {
+    if (!paysPerClass(c) || !c.price) continue
+    const ds = classDates(c, p.start, p.end)
+    if (!ds.length) continue
+    const fee = c.fee ?? 0, feeCur = c.feeCurrency ?? st.settings.mainCur
+    out.push({ id: 'lessons-' + c.id, label: c.name, amount: r2(ds.reduce((a, d) => a + toMain(st.settings, c.price, c.currency, d) + toMain(st.settings, fee, feeCur, d), 0)), date: ds[0], meta: `${ds.length} ${ds.length === 1 ? 'class' : 'classes'} · ${ds.length === 1 ? fmtDay(ds[0]) : `${fmtDay(ds[0])} – ${fmtDay(ds[ds.length - 1])}`}`, kind: 'lessons' })
+  }
+  for (const c of st.classes ?? []) {
+    if (paysPerClass(c)) continue
     const lb = classBatch(st, c)
     if (lb && inHalf(lb.due)) out.push({ id: 'lessons-' + c.id, label: c.name, amount: lb.pln, date: lb.due, meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtDay(lb.due)}`, kind: 'lessons' })
   }
@@ -561,22 +570,18 @@ export const classDates = (l: Course, from: string, to: string) => {
   for (const x of l.extra) if (x >= from && x <= to) out.add(x)
   return [...out].filter((d) => !l.skips.includes(d)).sort()
 }
-// weekly payers: the Mon–Sun week a payment day belongs to
-export const weekOf = (d: string) => { const wd = (parse(d).getDay() + 6) % 7; const mon = addDays(d, -wd); return [mon, addDays(mon, 6)] as const }
-// weekly payers: the earliest unpaid weekly payment (last 8 weeks up to `ahead` days from now) — its day and that week's classes
-export const classWeekDue = (st: State, c: Course, t = today(), ahead = 3) => {
-  if (c.payWeekday === undefined || !c.price) return undefined
-  const paid = new Set(c.pays.flatMap((p) => p.dates))
-  for (let d = addDays(t, -56); d <= addDays(t, ahead); d = addDays(d, 1)) {
-    if (parse(d).getDay() !== c.payWeekday) continue
-    const [mon, sun] = weekOf(d)
-    const dates = classDates(c, mon, sun).filter((x) => !paid.has(x))
-    if (!dates.length) continue
-    const rate = classRate(st.settings, c)
-    const fee = c.fee ?? 0
-    return { due: d, dates, paid: rate === undefined ? undefined : perClassPaid(c, rate) * dates.length, pln: r2(toMain(st.settings, c.price * dates.length, c.currency) + toMain(st.settings, fee, c.feeCurrency ?? st.settings.mainCur)) }
-  }
-  return undefined
+export const paysPerClass = (c: Course) => c.payEvery === 'class'
+// per-class payers: what a month's classes cost (same shape as classBatch; the fee is paid each time)
+export const classMonthCost = (st: State, c: Course, mk = today().slice(0, 7)) => {
+  if (!c.price) return undefined
+  const dim = daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7))
+  const dates = classDates(c, `${mk}-01`, `${mk}-${pad(dim)}`)
+  if (!dates.length) return undefined
+  const rate = classRate(st.settings, c)
+  const fee = c.fee ?? 0
+  const feeCur = c.feeCurrency ?? st.settings.mainCur
+  const total = c.price * dates.length
+  return { month: mk, dates, first: dates[0], due: dates[0], total, rate, paid: rate === undefined ? undefined : perClassPaid(c, rate) * dates.length, fee, feeCur, pln: r2(toMain(st.settings, total, c.currency) + toMain(st.settings, fee * dates.length, feeCur)) }
 }
 // a class's time on a day ('17:00–18:00'): its own time if it was changed, else the usual one
 export const classEnd = (c: Course) => c.endTime ?? (c.time ? addHours(c.time, 1) : undefined) // classes are an hour unless set

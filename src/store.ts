@@ -98,6 +98,7 @@ export const migrate = (s: State): State => {
     }]
   }
   delete out.lessons
+  for (const c of out.classes ?? []) { if ((c.payEvery as string) === 'week') c.payEvery = 'month'; delete (c as { payWeekday?: number }).payWeekday }
   fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
   // nutrition: earlier lookups only searched basic foods — forget the "not found" ones so they're tried again everywhere

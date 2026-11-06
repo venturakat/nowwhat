@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Settings } from '../types'
 import type { ClassRate, Course, Currency, PayCur } from '../types'
-import { fitSize, addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName, pad, daysInMonth } from '../lib'
+import { fitSize, addDays, classBatch, classMonthCost, paysPerClass, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName, pad, daysInMonth } from '../lib'
 import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, TimeRange, toast } from '../ui'
 import { refreshRates } from '../rates'
 import { copyText } from './Money'
@@ -38,7 +38,8 @@ export const Classes = () => {
 const ClassBlock = ({ c }: { c: Course }) => {
   const st = useSt()
   const [busy, setBusy] = useState(false)
-  const b = classBatch(st, c)
+  const per = paysPerClass(c)
+  const b = per ? classMonthCost(st, c) : classBatch(st, c)
   const s = st.settings
   const payIn = classPayIn(c)
   const kind = classRateKind(c)
@@ -55,31 +56,33 @@ const ClassBlock = ({ c }: { c: Course }) => {
     <>
       {b ? (
         <div className="card money" style={{ gap: 6 }}>
-          <span className="t15 w5">{c.name} · next payment · {monthName(b.month, true)}</span>
-          {b.paid !== undefined
+          <span className="t15 w5">{c.name} · {per ? 'cost this month' : `next payment · ${monthName(b.month, true)}`}</span>
+          {per && b.paid !== undefined
+            ? <span className="big" style={{ fontSize: fitSize(fmtPay(b.paid, payIn), 52, 10) }}>{fmtPay(b.paid, payIn)}</span>
+            : b.paid !== undefined
             ? <button className="big" style={{ fontSize: fitSize(fmtPay(b.paid, payIn), 52, 10), textAlign: 'left' }} onClick={() => copyText(String(b.paid), `${fmtPay(b.paid!, payIn, payIn !== 'ARS')} copied`)}>{fmtPay(b.paid, payIn)}</button>
             : <span className="big" style={{ fontSize: fitSize(fmtCur(b.total, c.currency, false), 52, 10) }}>{fmtCur(b.total, c.currency, false)}</span>}
           <span className="t14">
             {b.dates.length} {b.dates.length === 1 ? 'class' : 'classes'} × {cur0(c.price, c.currency)}
             {kind && b.rate !== undefined ? ` × ${numText(r2(b.rate))} ${RATE_NAME[kind]}` : kind ? ` · paid in ${payIn}, rate typed when you pay` : ''}
-            {` · ${fmt(b.pln)}${b.fee ? ` with the ${cur0(b.fee, b.feeCur)} fee` : ''}${(c.payEvery ?? 'month') === 'month' ? ` · pay ${fmtDay(b.due)}` : ''}`}
+            {` · ${fmt(b.pln)}${b.fee ? ` with the ${cur0(b.fee, b.feeCur)} fee${per ? ' each time' : ''}` : ''}${per ? '' : ` · pay ${fmtDay(b.due)}`}`}
           </span>
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn grow" onClick={() => openSheet(<PaySheet id={c.id} />)}>Paid…</button>
-            {kind && kind !== 'manual' && <button className="btn soft" disabled={busy} onClick={refresh}>{busy ? 'Updating…' : 'Update rate'}</button>}
-          </div>
-          {b.paid !== undefined && <span className="t13">Tap the amount to copy it{rateLine ? ` · ${rateLine}` : ''}</span>}
+          {(!per || (kind && kind !== 'manual')) && <div className="row" style={{ gap: 8 }}>
+            {!per && <button className="btn grow" onClick={() => openSheet(<PaySheet id={c.id} />)}>Paid</button>}
+            {kind && kind !== 'manual' && <button className={'btn soft' + (per ? ' grow' : '')} disabled={busy} onClick={refresh}>{busy ? 'Updating…' : 'Update rate'}</button>}
+          </div>}
+          {!per && b.paid !== undefined && <span className="t13">Tap the amount to copy it{rateLine ? ` · ${rateLine}` : ''}</span>}
         </div>
       ) : (
         <div className="card money" style={{ gap: 4 }}>
           <span className="t15 w5">{c.name}</span>
-          <span className="t14">{c.days.length ? 'Nothing to pay right now' : 'No class days set yet'}</span>
+          <span className="t14">{!c.days.length ? 'No class days set yet' : per ? 'No classes this month' : 'Nothing to pay right now'}</span>
         </div>
       )}
       <List title={b ? `${c.name} in ${monthName(b.month, true)}` : c.name} right={b ? 'tap to cancel' : undefined}>
         {b && <MonthClasses c={c} month={b.month} />}
         <Row title={<span className="muted">+ Extra class</span>} onClick={() => openSheet(<ExtraClass id={c.id} />)} />
-        <Row title="Payments" meta={c.pays.length ? `${c.pays.length} so far · last ${fmtDay([...c.pays].sort((a, x) => x.date.localeCompare(a.date))[0].date)}` : 'Nothing paid here yet'} trail={<Icon.chevR />} onClick={() => openSheet(<PaysSheet id={c.id} />)} />
+        {(!per || c.pays.length > 0) && <Row title="Payments" meta={c.pays.length ? `${c.pays.length} so far · last ${fmtDay([...c.pays].sort((a, x) => x.date.localeCompare(a.date))[0].date)}` : 'Nothing paid here yet'} trail={<Icon.chevR />} onClick={() => openSheet(<PaysSheet id={c.id} />)} />}
         <Row title="Class settings" trail={<Icon.chevR />} onClick={() => openSheet(<ClassEdit id={c.id} />)} />
       </List>
     </>
@@ -209,8 +212,8 @@ export const ClassEdit = ({ id }: { id?: string }) => {
   const [days, setDays] = useState<number[]>(c?.days ?? [])
   const [time, setTime] = useState(c?.time ?? '')
   const [endTime, setEndTime] = useState(c ? classEnd(c) ?? '' : '')
-  const [every, setEvery] = useState<'class' | 'week' | 'month'>(c?.payEvery ?? 'month')
-  const [payWd, setPayWd] = useState<number | undefined>(c?.payWeekday)
+  const [every, setEvery] = useState<'class' | 'month'>(c?.payEvery === 'class' ? 'class' : 'month')
+  const [armed, setArmed] = useState(false)
   const [payDay, setPayDay] = useState(() => { const t = today(); return `${t.slice(0, 8)}${pad(Math.min(c?.payDay ?? st.settings.splitDay, daysInMonth(+t.slice(0, 4), +t.slice(5, 7))))}` })
   const [since, setSince] = useState(c?.since ?? today())
   const p = parseNum(price)
@@ -251,31 +254,22 @@ export const ClassEdit = ({ id }: { id?: string }) => {
       <TimeRange start={time} end={endTime} onChange={(a, b) => { setTime(a); setEndTime(b) }} />
       <Field label="I pay">
         <div className="seg">
-          {(['class', 'week', 'month'] as const).map((k) => (
-            <button key={k} type="button" className={'chip' + (every === k ? ' on' : '')} onClick={() => setEvery(k)}>{k === 'class' ? 'Per class' : k === 'week' ? 'Per week' : 'Per month'}</button>
+          {(['class', 'month'] as const).map((k) => (
+            <button key={k} type="button" className={'chip' + (every === k ? ' on' : '')} onClick={() => setEvery(k)}>{k === 'class' ? 'Per class' : 'Per month'}</button>
           ))}
         </div>
       </Field>
-      {every === 'week' && (
-        <Field label="Payment day">
-          <div className="seg" style={{ flexWrap: 'wrap' }}>
-            {[1, 2, 3, 4, 5, 6, 0].map((i) => (
-              <button key={i} type="button" className={'chip' + (payWd === i ? ' on' : '')} onClick={() => setPayWd(i)}>{weekdayName(i)}</button>
-            ))}
-          </div>
-        </Field>
-      )}
       {every === 'month' && <Field label="Payment day"><input className="input" type="date" value={payDay} onChange={(e) => setPayDay(e.target.value)} /></Field>}
       {!c?.pays.length && <Field label="First class you haven’t paid for yet"><input className="input" type="date" value={since} onChange={(e) => setSince(e.target.value)} /></Field>}
       {p && !differs && cur !== st.settings.mainCur ? <span className="t13 muted">About {fmt(toMain(st.settings, p, cur))} a class</span> : null}
-      <button className="btn full" disabled={!name.trim() || !p || !days.length || (every === 'week' && payWd === undefined)} onClick={() => {
+      <button className="btn full" disabled={!name.trim() || !p || !days.length} onClick={() => {
         const needsArs = payIn === 'ARS'
         update((d) => {
           d.classes ??= []
           const data = {
             name: name.trim(), price: p!, currency: cur, payIn: payIn === cur ? undefined : payIn, rate: payIn === cur ? undefined : rateNow,
             fee: parseNum(fee) || undefined, feeCurrency: parseNum(fee) ? feeCur : undefined,
-            days: [...days].sort(), time: time || undefined, endTime: (time && endTime) || undefined, payEvery: every, payWeekday: every === 'week' ? payWd : undefined,
+            days: [...days].sort(), time: time || undefined, endTime: (time && endTime) || undefined, payEvery: every,
             payDay: Math.min(31, Math.max(1, Number(payDay.slice(8, 10)) || d.settings.splitDay))
           }
           const x = d.classes.find((y) => y.id === id)
@@ -285,14 +279,10 @@ export const ClassEdit = ({ id }: { id?: string }) => {
         closeSheet()
         if (needsArs) refreshRates(true).catch(() => {})
       }}>Save</button>
-      {c && <button className="btn full soft" onClick={() => { if (confirmTwice()) { update((d) => { d.classes = (d.classes ?? []).filter((x) => x.id !== id) }); closeSheet() } }}>Remove this class</button>}
+      {c && <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
+        if (!armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return }
+        update((d) => { d.classes = (d.classes ?? []).filter((x) => x.id !== id) }); closeSheet()
+      }}>{armed ? 'Delete' : 'Remove this class'}</button>}
     </Sheet>
   )
-}
-// a plain second tap instead of a browser dialog
-let armed = 0
-const confirmTwice = () => {
-  if (Date.now() - armed < 3000) return true
-  armed = Date.now(); toast('Tap again to remove')
-  return false
 }

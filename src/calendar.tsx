@@ -4,7 +4,7 @@ import { update, useSt } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
-  prevMonth, subDate, taxFor, fmtTax, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass, classDates, weekOf
+  prevMonth, subDate, taxFor, fmtTax, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
@@ -104,20 +104,9 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
         toggle: paid.has(d) ? undefined : { on: !off, label: ['Cancel', 'Bring back'], run: () => update((s) => { const L = s.classes?.find((y) => y.id === c.id); if (L) toggleClass(L, d) }) }
       })
     }
-    const every = c.payEvery ?? 'month'
-    if (every === 'month') {
+    if (c.payEvery !== 'class') {
       const b = classBatch(st, c)
       if (b && b.due >= from && b.due <= to) out.push({ id: `clpay-${c.id}`, date: b.due, title: `Pay for ${c.name}`, meta: `${b.dates.length} ${b.dates.length === 1 ? 'class' : 'classes'} · ${monthName(b.month, true)}`, dot: C.money, go: ['money', 'classes'] })
-    } else if (every === 'week' && c.payWeekday !== undefined) {
-      // every week on the chosen day, for that week's classes (none that week → no payment)
-      for (let d = from; d <= to; d = addDays(d, 1)) {
-        if (parse(d).getDay() !== c.payWeekday) continue
-        const [mon, sun] = weekOf(d)
-        const wk = classDates(c, mon, sun)
-        if (!wk.length) continue
-        const all = wk.every((x) => paid.has(x))
-        out.push({ id: `clpay-${c.id}-${d}`, date: d, title: `Pay for ${c.name}`, meta: [`${wk.length} ${wk.length === 1 ? 'class' : 'classes'} this week`, all ? 'paid' : ''].filter(Boolean).join(' · '), dot: C.money, done: all, go: ['money', 'classes'] })
-      }
     }
   }
   if (on.selfcare) {
