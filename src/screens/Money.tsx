@@ -144,10 +144,33 @@ const Budget = () => {
         {spends.length ? spends.map((x) => (
           <Row key={x.id} title={x.note || 'Spending'} meta={fmtDay(x.date)} trail={amt(x)} onClick={() => editSpend(x.id)} />
         )) : <div className="list-empty">Nothing logged yet.</div>}
+        <MergeSpends spends={spends} date={isNow ? today() : s.info.end} />
       </Fold>
       <button className="btn full soft" onClick={() => editSpend()}>+ Log spending</button>
     </>
   )
+}
+
+// footer of Day-to-day spending: spends with the same "what for" and currency become one, dated the day they're merged (two taps)
+const spendKey = (x: { note: string; currency?: Currency }) => (x.note || 'Spending').trim().toLowerCase() + '|' + (x.currency ?? 'PLN')
+const MergeSpends = ({ spends, date }: { spends: State['spends']; date: string }) => {
+  const [sure, setSure] = useState(false)
+  const counts = new Map<string, number>()
+  for (const x of spends) counts.set(spendKey(x), (counts.get(spendKey(x)) ?? 0) + 1)
+  if (![...counts.values()].some((n) => n > 1)) return null
+  const merge = () => {
+    const ids = new Set(spends.map((x) => x.id))
+    update((d) => {
+      const groups = new Map<string, typeof d.spends>()
+      for (const x of d.spends) if (ids.has(x.id) && counts.get(spendKey(x))! > 1) groups.set(spendKey(x), [...(groups.get(spendKey(x)) ?? []), x])
+      const gone = new Set([...groups.values()].flat().map((x) => x.id))
+      d.spends = d.spends.filter((x) => !gone.has(x.id))
+      for (const g of groups.values()) d.spends.push({ id: uid(), amount: Math.round(g.reduce((a, x) => a + x.amount, 0) * 100) / 100, currency: g[0].currency ?? 'PLN', note: g[0].note, date })
+    })
+    setSure(false)
+    toast('Merged')
+  }
+  return <Row title={<span className={sure ? undefined : 'muted'}>{sure ? 'Tap again to merge' : 'Merge identical spends'}</span>} onClick={() => sure ? merge() : setSure(true)} />
 }
 
 // a list that opens on tap — closed by default
@@ -171,7 +194,7 @@ export const SpendSheet = ({ id, initial }: { id?: string; initial?: any }) => (
     fields={[
       { key: 'amount', label: 'How much', type: 'number' },
       { key: 'currency', label: 'Currency', type: 'select', options: CURRENCIES },
-      { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…' },
+      { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…', suggest: ['Eat out', 'Taxi', 'Coffee', 'Movies', 'Books', 'Gifts', 'Travel'] },
       { key: 'date', label: 'Date', type: 'date' }
     ]}
     onSave={(v) => {

@@ -3,7 +3,7 @@ import { Check, closeSheet, Field, Sheet } from './ui'
 import { addDays, numText, parseNum, today } from './lib'
 
 export type FieldDef =
-  | { key: string; label: string; type: 'text' | 'date' | 'time' | 'datetime' | 'url'; placeholder?: string; clearable?: boolean }
+  | { key: string; label: string; type: 'text' | 'date' | 'time' | 'datetime' | 'url'; placeholder?: string; clearable?: boolean; suggest?: string[] } // suggest: pill buttons under a text field that fill it in
   | { key: string; label: string; type: 'number'; step?: number; placeholder?: string | ((v: Record<string, any>) => string) } // a function: placeholder follows the other fields
   | { key: string; label: string; type: 'select'; options: [string, string][] }
   | { key: string; label: string; type: 'toggle' }
@@ -79,6 +79,15 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
                 <button type="button" className="chip" onClick={() => set(f.key, addDays(today(), -1))}>Other day…</button>
               </div>
             )
+          ) : 'suggest' in f && f.suggest ? (
+            <>
+              <input className="input" type="text" placeholder={f.placeholder} value={v[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} />
+              <div className="seg" style={{ marginTop: 8 }}>
+                {f.suggest.map((o) => (
+                  <button key={o} type="button" className={'chip' + (v[f.key] === o ? ' on' : '')} onClick={() => set(f.key, v[f.key] === o ? '' : o)}>{o}</button>
+                ))}
+              </div>
+            </>
           ) : (
             <input
               className="input"
