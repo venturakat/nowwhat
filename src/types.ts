@@ -375,6 +375,7 @@ export interface Task {
 
 export interface Note {
   id: ID
+  title?: string
   text: string
   at: string // last edited (ISO)
 }

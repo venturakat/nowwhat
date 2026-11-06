@@ -251,8 +251,9 @@ const BrainDump = () => {
       {notes.map((n) => (
         <div key={n.id} className="row" style={{ alignItems: 'flex-start', paddingRight: 8 }}>
           <button className="note grow" onClick={() => openSheet(<NoteSheet id={n.id} />)}>
-            <span className="note-text">{n.text}</span>
-            <span className="t13 muted">{fmtDay(n.at.slice(0, 10))}</span>
+            {n.title && <span className="t17">{n.title}</span>}
+            {n.text && <span className="note-text">{n.text}</span>}
+            <span className="t13 muted">{fmtDay(localDay(n.at))}</span>
           </button>
           <button aria-label="Delete note" onClick={() => { update((d) => { d.notes = d.notes!.filter((y) => y.id !== n.id) }); toast('Note deleted') }} style={{ padding: 6, marginTop: 6, color: 'var(--ink2)' }}><Icon.trash /></button>
         </div>
@@ -262,36 +263,48 @@ const BrainDump = () => {
   )
 }
 
+// a timestamp's date on the phone's own clock
+const localDay = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+
 const NoteSheet = ({ id }: { id?: string }) => {
   const st = useSt()
   const [nid, setNid] = useState(id)
   const n = st.notes?.find((x) => x.id === nid)
   // an existing note opens to read; a new one opens to write
   const [editing, setEditing] = useState(!n)
+  const [title, setTitle] = useState(n?.title ?? '')
   const [text, setText] = useState(n?.text ?? '')
+  const filled = !!(title.trim() || text.trim())
   const save = () => {
-    if (!editing || !text.trim()) return
-    const t = text.trim()
+    if (!editing || !filled) return
+    const t = text.trim(), h = title.trim() || undefined
     let newId = nid
     update((d) => {
       d.notes ??= []
       const x = d.notes.find((y) => y.id === nid)
-      if (x) { if (x.text !== t) Object.assign(x, { text: t, at: new Date().toISOString() }) }
-      else { newId = uid(); d.notes.push({ id: newId, text: t, at: new Date().toISOString() }) }
+      if (x) { if (x.text !== t || x.title !== h) Object.assign(x, { title: h, text: t, at: new Date().toISOString() }) }
+      else { newId = uid(); d.notes.push({ id: newId, title: h, text: t, at: new Date().toISOString() }) }
     })
-    setNid(newId); setText(t); setEditing(false)
+    setNid(newId); setTitle(h ?? ''); setText(t); setEditing(false)
   }
   const round = (bg: string, on: boolean) => ({ width: 40, height: 40, borderRadius: '50%', background: bg, color: '#1d1d1f', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0.45 })
   return (
-    <Sheet title={n ? 'Note' : 'New note'} actions={
+    <Sheet title={n ? 'Note' : 'New note'} full={!!n} actions={
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
         {n && <button aria-label="Edit" style={round('#E3D2FF', !editing)} onClick={() => setEditing(true)}><Icon.edit /></button>}
-        <button aria-label="Save" style={round('#D6EE7A', editing && !!text.trim())} onClick={save}><Icon.check color="#1d1d1f" size={20} /></button>
+        <button aria-label="Save" style={round('#D6EE7A', editing && filled)} onClick={save}><Icon.check color="#1d1d1f" size={20} /></button>
       </div>
     }>
       {editing
-        ? <textarea className="input" autoFocus rows={7} value={text} placeholder="Whatever’s on your mind" onChange={(e) => setText(e.target.value)} style={{ resize: 'vertical', minHeight: 150, lineHeight: 1.35 }} />
-        : <div style={{ fontSize: 16, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', padding: '4px 0 12px' }}>{n?.text}</div>}
+        ? <>
+            <input className="input" value={title} placeholder="Title" onChange={(e) => setTitle(e.target.value)} style={{ fontWeight: 600 }} />
+            <textarea className="input" autoFocus={!n} rows={14} value={text} placeholder="Whatever’s on your mind" onChange={(e) => setText(e.target.value)} style={{ resize: 'none', minHeight: 'min(52vh, 420px)', lineHeight: 1.35 }} />
+          </>
+        : n && <div style={{ padding: '4px 0 12px' }}>
+            {n.title && <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{n.title}</div>}
+            <div className="t13 muted" style={{ marginTop: n.title ? 4 : 0 }}>{fmtWeekday(localDay(n.at))}</div>
+            {n.text && <div style={{ fontSize: 16, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 14 }}>{n.text}</div>}
+          </div>}
     </Sheet>
   )
 }
