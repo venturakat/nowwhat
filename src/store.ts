@@ -104,6 +104,11 @@ export const migrate = (s: State): State => {
   }
   delete out.lessons
   for (const c of out.classes ?? []) { if ((c.payEvery as string) === 'week') c.payEvery = 'month'; delete (c as { payWeekday?: number }).payWeekday }
+  // tax lines made from the Argentina / Ukraine presets before "Paid in" existed get the preset's timing
+  for (const l of out.settings.taxLines ?? []) if (l.lag === undefined) {
+    if (l.id === 'ar-mono') l.lag = 0
+    if (l.id === 'ua-tax') { l.lag = 2; if (l.dueDay === 20) { l.dueDay = 19; if (l.payDay === 15 || l.payDay === 10) l.payDay = 14 } }
+  }
   fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
   // nutrition: earlier lookups only searched basic foods — forget the "not found" ones so they're tried again everywhere
