@@ -417,11 +417,14 @@ export const CUR_SIGN = new Proxy({} as Record<string, string>, { get: (_, k: st
 export const curName = (c: Currency) => {
   try { return new Intl.DisplayNames(undefined, { type: 'currency' }).of(c) ?? c } catch { return c }
 }
-// every currency code the phone knows (for adding one)
-export const allCurrencies = (): string[] => {
-  try { const l = (Intl as any).supportedValuesOf?.('currency') as string[] | undefined; if (l?.length) return l } catch { /* old phones */ }
-  return ['ARS', 'AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'GEL', 'HUF', 'ILS', 'INR', 'JPY', 'KZT', 'MXN', 'NOK', 'PLN', 'RON', 'SEK', 'TRY', 'UAH', 'USD']
-}
+// currencies in use today (ISO 4217, 2026) — the phone's own list also has withdrawn ones (francs, marks, old roubles…),
+// funds and metals, so the picker offers only these
+const ACTIVE = ('AED AFN ALL AMD AOA ARS AUD AWG AZN BAM BBD BDT BHD BIF BMD BND BOB BRL BSD BTN BWP BYN BZD CAD CDF CHF CLP CNY COP CRC ' +
+  'CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF GTQ GYD HKD HNL HTG HUF IDR ILS INR IQD IRR ISK JMD JOD ' +
+  'JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MYR MZN NAD NGN NIO ' +
+  'NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SOS SRD SSP STN SYP SZL THB TJS TMT ' +
+  'TND TOP TRY TTD TWD TZS UAH UGX USD UYU UZS VES VND VUV WST XAF XCD XCG XOF XPF YER ZAR ZMW ZWG').split(' ')
+export const allCurrencies = (): string[] => ACTIVE
 // numbers the way the phone writes them
 export const fmtNum = (n: number, dec = 2, minDec = dec) => n.toLocaleString(undefined, { minimumFractionDigits: minDec, maximumFractionDigits: dec })
 export const fmtCur = (amount: number, cur: Currency = MAIN, dec = true) => {
