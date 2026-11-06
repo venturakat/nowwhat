@@ -217,7 +217,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
   const differs = payIn !== cur
   const ars = payIn === 'ARS'
   // keep the rate choice sensible for the pay-in currency
-  const rateNow: ClassRate = ars ? (rate === 'app' ? 'blue' : rate) : rate === 'blue' || rate === 'oficial' ? 'app' : rate
+  const rateNow: ClassRate = rate === 'manual' ? 'manual' : 'app'
   const preview = differs && p ? classRate(st.settings, { ...(c ?? { id: '', name: '', days: [], since: today(), extra: [], skips: [], pays: [] }), price: p, currency: cur, payIn, rate: rateNow }) : undefined
   return (
     <Sheet title={c ? c.name : 'New class'}>
@@ -228,7 +228,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
       {differs && (
         <Field label={`From ${cur} to ${payIn}`}>
           <div className="seg">
-            {(ars ? (['blue', 'oficial', 'manual'] as ClassRate[]) : (['app', 'manual'] as ClassRate[])).map((r) => (
+            {(['app', 'manual'] as ClassRate[]).map((r) => (
               <button key={r} type="button" className={'chip' + (rateNow === r ? ' on' : '')} onClick={() => setRate(r)}>{r === 'blue' ? 'Dólar blue' : r === 'oficial' ? 'Dólar oficial' : r === 'app' ? 'Today’s rate' : 'I type it when paying'}</button>
             ))}
           </div>

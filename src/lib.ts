@@ -536,8 +536,9 @@ export const classPayIn = (c: Course): PayCur => c.payIn ?? c.currency
 export const classRateKind = (c: Course): ClassRate | undefined => {
   const p = classPayIn(c)
   if (p === c.currency) return undefined
-  const r = c.rate ?? (p === 'ARS' ? 'blue' : 'app')
-  return p === 'ARS' && r === 'app' ? 'blue' : p !== 'ARS' && (r === 'blue' || r === 'oficial') ? 'app' : r
+  // pesos follow the same rule as every currency: the app's rate (its source — blue, official… — is set in Settings › Currencies)
+  // or typed in when paying; old 'blue' / 'oficial' choices count as the app's rate
+  return c.rate === 'manual' ? 'manual' : 'app'
 }
 // 1 unit of the price currency in the pay-in currency, from today's rates (undefined: typed in when paying, or not loaded)
 export const classRate = (s: Settings, c: Course): number | undefined => {
