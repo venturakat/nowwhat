@@ -88,7 +88,7 @@ export const Splash = ({ onDone }: { onDone: () => void }) => {
       })
       order.sort((a, b) => a[0] - b[0]).forEach(([, el]) => g.appendChild(el))
       const w = ease(clamp((t - WORD_AT) / WORD)) // wordmark wipes in
-      wrect.current!.setAttribute('width', String(215 * w))
+      wrect.current!.setAttribute('width', String(225 * w))
       word.current!.setAttribute('opacity', String(Math.min(1, w * 2)))
       if (t < SPLASH_MS + 50) raf = requestAnimationFrame(frame)
       else hold = window.setTimeout(finish, reduced ? 500 : 350) // a short look at the finished logo
@@ -99,7 +99,7 @@ export const Splash = ({ onDone }: { onDone: () => void }) => {
 
   return (
     <div className={'splash' + (leaving ? ' out' : '')} onClick={finish} aria-label="now what">
-      <svg viewBox="-10 -70 289 187">
+      <svg viewBox="-10 -70 300 187">
         <defs><clipPath id="splash-word"><rect ref={wrect} x="55" y="-5" width="0" height="60" /></clipPath></defs>
         <g ref={sign} />
         <g ref={word} fill="currentColor" clipPath="url(#splash-word)" opacity="0">

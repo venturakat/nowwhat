@@ -23,7 +23,7 @@ html, body, #root { margin: 0; height: 100%; }
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Afacad', system-ui, sans-serif;
+  font-family: 'Commissioner', system-ui, sans-serif;
   font-size: 17px;
   line-height: 1.2;
   -webkit-font-smoothing: antialiased;
@@ -184,7 +184,7 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .sheet-foot { margin-top: auto; position: sticky; bottom: calc(-1 * (var(--safe-b) + 24px)); margin-bottom: calc(-1 * (var(--safe-b) + 24px)); padding: 12px 0 calc(var(--safe-b) + 24px); background: var(--bg); display: flex; flex-direction: column; gap: 10px; }
 
 /* the logo in the Today header sits where the big title would be */
-.h1 .logo { display: block; margin: 2px 0 4.67px; } /* baseline lands where a 44px title's baseline is; total height = the title's 41.8px line */
+.h1 .logo { display: block; margin: 0 0 2.54px; } /* total height = the title's 41.8px line */
 
 /* form fields that are switched off by another choice */
 .fset { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; transition: opacity .15s; }
