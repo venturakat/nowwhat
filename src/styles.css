@@ -141,6 +141,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; text-align: l
 .tile .mt { font-size: 13px; color: var(--ink2); margin-top: -4px; }
 .hscroll { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
 .hscroll::-webkit-scrollbar { display: none; }
+.catrow { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.catrow::-webkit-scrollbar { display: none; }
 .hscroll .tile { width: 72px; flex: none; }
 
 /* chart */

@@ -86,7 +86,7 @@ const Own = () => {
   return (
     <>
       {st.closet.length > 0 && (
-        <div className="row" style={{ gap: 16, padding: '0 4px', overflowX: 'auto' }}>
+        <div className="row catrow" style={{ gap: 16, padding: '12px 4px' }}>
           <button className="t15 w5" style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }} onClick={flipSort} aria-label="Sort">
             <Icon.arrowDown />{sort === 'cat' ? 'Category' : 'Most worn'}
           </button>
@@ -237,7 +237,7 @@ const ToBuy = () => {
                     update((d) => {
                       d.saved = d.saved.filter((x) => x.id !== s.id)
                       d.closet.push({ id: uid(), name: s.name, cat: s.cat, photo: s.photo, size: s.size, worn: 0, pairs: [], added: today() })
-                      ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name} (closet)`, amount: s.price, currency: s.currency ?? d.settings.mainCur, date: today(), oneOff: true })
+                      ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name}`, amount: s.price, currency: s.currency ?? d.settings.mainCur, date: today(), oneOff: true })
                     })
                     toast('Enjoy it · in your wardrobe, with its photo, and in the budget')
                   }}>Bought it</button>
@@ -299,7 +299,7 @@ const GotNeed = ({ id }: { id: string }) => {
   const done = (log: boolean) => {
     update((d) => {
       d.needs = d.needs.filter((x) => x.id !== n.id)
-      if (log && paid > 0) ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${n.name} (closet)`, amount: paid, currency: cur, date: today(), oneOff: true })
+      if (log && paid > 0) ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${n.name}`, amount: paid, currency: cur, date: today(), oneOff: true })
     })
     toast(log && paid > 0 ? `${fmtCur(paid, cur)} added to spending` : 'Off the list')
     openSheet(<ItemEdit from={{ name: n.name, cat: 'other', size: n.size }} />)
