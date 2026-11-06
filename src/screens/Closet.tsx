@@ -80,7 +80,9 @@ const Own = () => {
   const away = st.closet.filter((i) => i.offSeason).length
   const shown = st.closet.filter((i) => cat === 'all' || (cat === 'away' ? i.offSeason : i.cat === cat))
   // by category (the outfit formula order, then name) or most worn first
-  const items = sort === 'worn' ? shown.slice().sort((a, b) => b.worn - a.worn || a.name.localeCompare(b.name)) : byFormula(shown.slice().sort((a, b) => a.name.localeCompare(b.name)))
+  // by category, out-of-season things go last as a group of their own
+  const byCat = (xs: ClosetItem[]) => byFormula(xs.slice().sort((a, b) => a.name.localeCompare(b.name)))
+  const items = sort === 'worn' ? shown.slice().sort((a, b) => b.worn - a.worn || a.name.localeCompare(b.name)) : [...byCat(shown.filter((i) => !i.offSeason)), ...byCat(shown.filter((i) => i.offSeason))]
   const stale = st.closet.filter((i) => diffDays(i.lastWorn ?? i.added ?? today(), today()) > 90)
   return (
     <>
