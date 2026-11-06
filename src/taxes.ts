@@ -5,6 +5,10 @@ import { tr } from './i18n'
 // Bank-friendly amount: 954,54 (comma, no thousands separator)
 export const bankAmount = (n: number) => (Math.round(n * 100) / 100).toFixed(2).replace('.', ',')
 
+// the pay day when none is chosen: a few days before the deadline, so there's room if something goes wrong
+export const PAY_BEFORE = 5
+export const defaultPayDay = (dueDay: number) => Math.max(1, dueDay - PAY_BEFORE)
+
 // ---------- presets ("Start from…"): examples, every number editable ----------
 export type PresetKey = 'pl' | 'ua' | 'ar' | 'custom'
 export interface Preset { key: PresetKey; name: string; cur: string; rule: TaxRule; lines: () => TaxLine[]; transfer: () => TransferRow[] }
@@ -13,23 +17,23 @@ export const PRESETS: Preset[] = [
   {
     key: 'pl', name: 'Poland · ryczałt', cur: 'PLN', rule: 'nbp',
     lines: () => [
-      { id: 'dra', name: 'ZUS DRA', kind: 'fixed', amount: 0, every: 'month', payDay: 1, dueDay: 20, group: 'ZUS' },
-      { id: 'rca', name: 'ZUS RCA', kind: 'fixed', amount: 0, every: 'month', payDay: 1, dueDay: 20, group: 'ZUS' },
-      { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: 14, less: 'dra', lessPct: 50, every: 'month', payDay: 1, dueDay: 20 }
+      { id: 'dra', name: 'ZUS DRA', kind: 'fixed', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'rca', name: 'ZUS RCA', kind: 'fixed', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: 14, less: 'dra', lessPct: 50, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
     ],
     transfer: () => [row('ZUS account'), row('PIT account'), row('NIP'), row('Basis'), row('Title', 'Składki za {miesiąc} {yyyy}')]
   },
   {
     key: 'ua', name: 'Ukraine', cur: 'UAH', rule: 'paid',
     lines: () => [
-      { id: 'ua-tax', name: 'Single tax', kind: 'pct', pct: 5, every: 'quarter', payDay: 10, dueDay: 20 },
-      { id: 'ua-esv', name: 'ЄСВ', kind: 'fixed', amount: 0, every: 'quarter', payDay: 10, dueDay: 20 }
+      { id: 'ua-tax', name: 'Single tax', kind: 'pct', pct: 5, every: 'quarter', payDay: defaultPayDay(20), dueDay: 20 },
+      { id: 'ua-esv', name: 'ЄСВ', kind: 'fixed', amount: 0, every: 'quarter', payDay: defaultPayDay(20), dueDay: 20 }
     ],
     transfer: () => [row('IBAN'), row('РНОКПП'), row('Призначення', '{місяць} {yyyy}')]
   },
   {
     key: 'ar', name: 'Argentina', cur: 'ARS', rule: 'invoice',
-    lines: () => [{ id: 'ar-mono', name: 'Monotributo', kind: 'fixed', amount: 0, every: 'month', payDay: 15, dueDay: 20 }],
+    lines: () => [{ id: 'ar-mono', name: 'Monotributo', kind: 'fixed', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }],
     transfer: () => [row('CUIT'), row('Periodo', '{mes} {yyyy}')]
   },
   { key: 'custom', name: 'Custom', cur: '', rule: 'invoice', lines: () => [], transfer: () => [] }
@@ -75,7 +79,7 @@ export const lineFormula = (l: TaxLine, all: TaxLine[]) => {
 export const migrateTaxes = (out: State) => {
   const s0 = out.settings as Settings
   const lines = PRESETS[0].lines()
-  const pay = s0.taxPayDay ?? s0.taxDueDay ?? 1, due = s0.taxDueDay ?? 20
+  const due = s0.taxDueDay ?? 20, pay = s0.taxPayDay ?? defaultPayDay(due)
   for (const l of lines) { l.payDay = pay; l.dueDay = due }
   lines[0].amount = s0.dra ?? 0
   lines[1].amount = s0.rca ?? 0

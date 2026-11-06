@@ -44,8 +44,7 @@ export const migrate = (s: State): State => {
     out.version = 5
   }
   if (out.version < 6) {
-    // v6: ZUS + PIT are paid at the start of the month
-    out.settings = { ...out.settings, taxPayDay: out.settings.taxPayDay ?? 1 }
+    // v6 used to set the tax pay day to the 1st; since v10 an unset pay day follows the deadline (taxes.ts defaultPayDay)
     out.version = 6
   }
   if (out.version < 7) {
