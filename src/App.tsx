@@ -129,6 +129,8 @@ export const App = () => {
           </div>
         </div>
       )}
+      {/* the sheet's background carries on behind the keyboard, so the page underneath doesn't show through it */}
+      {sheet && area && <div className="kb-fill" style={{ top: area.top + area.h }} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
