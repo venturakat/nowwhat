@@ -5,6 +5,7 @@ import { curOptions, curSign, mainCur, diffDays, fmt, fmtBoth, fmtCur, fmtDay, t
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet } from '../form'
 import { Travel } from './Travel'
+import { useTodayWeather, type Wx } from '../weather'
 
 // the outfit formula: pieces are always shown in this order
 export const CATS: [ClosetCat, string][] = [['base', 'Base'], ['mid', 'Mid'], ['bottom', 'Bottoms'], ['dress', 'Dresses'], ['shoes', 'Shoes'], ['outer', 'Outer'], ['bag', 'Bags'], ['jewelry', 'Accessories'], ['underwear', 'Underwear'], ['other', 'Other']]
@@ -27,6 +28,21 @@ registerSubs('closet', SUBTABS.map((x) => x[0]))
 // "10–18 °C", "from 10 °C", "up to 18 °C"
 const tempText = (o: { tempMin?: number; tempMax?: number }) =>
   o.tempMin !== undefined && o.tempMax !== undefined ? `${o.tempMin}–${o.tempMax} °C` : o.tempMin !== undefined ? `from ${o.tempMin} °C` : o.tempMax !== undefined ? `up to ${o.tempMax} °C` : ''
+// saved outfits by how well they suit today's weather: the day's mean temperature inside the
+// outfit's comfort range first, then the nearest ranges; same range → by name; no range → last
+type Ranged = { name: string; tempMin?: number; tempMax?: number }
+const byWeather = <T extends Ranged>(xs: T[], w: Wx | null): T[] => {
+  if (!w) return xs
+  const t = (w.max + w.min) / 2
+  const has = (o: Ranged) => o.tempMin !== undefined || o.tempMax !== undefined
+  const lo = (o: Ranged) => o.tempMin ?? -Infinity, hi = (o: Ranged) => o.tempMax ?? Infinity
+  const off = (o: Ranged) => (t < lo(o) ? lo(o) - t : t > hi(o) ? t - hi(o) : 0)
+  // how centred today is in the range (open-ended ranges count by their one edge)
+  const centre = (o: Ranged) => Math.abs(t - (isFinite(lo(o)) && isFinite(hi(o)) ? (lo(o) + hi(o)) / 2 : isFinite(lo(o)) ? lo(o) : hi(o)))
+  return xs.slice().sort((a, b) =>
+    Number(has(b)) - Number(has(a)) || off(a) - off(b) || centre(a) - centre(b)
+    || lo(a) - lo(b) || hi(a) - hi(b) || a.name.localeCompare(b.name))
+}
 const num = (v: unknown) => (v === '' || v === undefined || v === null || isNaN(Number(v)) ? undefined : Number(v))
 
 export const compress = (file: File, max = 480): Promise<string> =>
@@ -339,6 +355,7 @@ const SavedEdit = ({ id }: { id?: string }) => {
 // ================= OUTFITS =================
 const Outfits = () => {
   const st = useSt()
+  const wx = useTodayWeather()
   const now = st.closet.filter((x) => !x.offSeason) // out-of-season things stay out of the constructor
   const starters = now.filter((x) => !NO_START.includes(x.cat))
   const [startId, setStartId] = useState<ID | undefined>(starters[0]?.id)
@@ -404,9 +421,10 @@ const Outfits = () => {
         </div>
       </div>
       <List title="Saved outfits" right={String(st.outfits.length)} empty="Nothing saved yet.">
-        {st.outfits.map((o) => {
+        {byWeather(st.outfits, wx).map((o, i) => {
+          const best = wx && i < 3 && (o.tempMin !== undefined || o.tempMax !== undefined)
           const its = byFormula(o.itemIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[])
-          return <Row key={o.id} dot={C.closet} title={<>{o.name}{tempText(o) && <span className="t15 muted" style={{ fontWeight: 400 }}> · {tempText(o)}</span>}</>} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(`Wearing ${o.name}`) }}>Wear</span>}
+          return <Row key={o.id} dot={C.closet} title={<>{o.name}{tempText(o) && <span className="t15 muted" style={{ fontWeight: 400 }}> · {tempText(o)}</span>}{best && <span className="t13" style={{ fontWeight: 500, background: '#F7CFF2', color: '#1a1a1a', borderRadius: 999, padding: '2px 8px', marginLeft: 6, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>today’s choice</span>}</>} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(`Wearing ${o.name}`) }}>Wear</span>}
             onClick={() => openSheet(<OutfitSheet id={o.id} onPlan={setPlan} />)} />
         })}
       </List>

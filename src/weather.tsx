@@ -37,6 +37,14 @@ const useWeather = (p: Place | undefined) => {
   return p && cache?.key === keyOf(p) ? cache.days : null
 }
 
+// today's forecast for the chosen city (null when weather is off, no city, or not loaded yet)
+export const useTodayWeather = (): Wx | null => {
+  const st = useSt()
+  const p = st.settings.weatherOff ? undefined : st.settings.weather ?? undefined
+  const days = useWeather(p)
+  return days?.[today()] ?? null
+}
+
 // WMO weather codes → words + a picture
 type Kind = 'sun' | 'part' | 'cloud' | 'fog' | 'drizzle' | 'rain' | 'snow' | 'storm'
 const kindOf = (c: number): [Kind, string] =>
