@@ -86,7 +86,7 @@ const Own = () => {
   return (
     <>
       {st.closet.length > 0 && (
-        <div className="row catrow" style={{ gap: 16, padding: '12px 4px' }}>
+        <div className="row catrow" style={{ gap: 16, padding: '8px 4px' }}>
           <button className="t15 w5" style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }} onClick={flipSort} aria-label="Sort">
             <Icon.arrowDown />{sort === 'cat' ? 'Category' : 'Most worn'}
           </button>
