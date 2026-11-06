@@ -219,6 +219,8 @@ export interface Outfit {
   id: ID
   name: string
   itemIds: ID[]
+  tempMin?: number // comfortable from … °C
+  tempMax?: number // … to °C
 }
 
 // Travel (Closet): packing lists made of wardrobe things, Supplies › Care things and anything typed in
