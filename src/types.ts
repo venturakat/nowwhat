@@ -76,7 +76,7 @@ export interface Settings {
   calendar?: Partial<Record<CalKey, boolean>> // what the calendar shows from the tabs (all off until chosen)
   weather?: Place // the calendar's forecast is for here
   weatherOff?: boolean // no weather block in the calendar
-  period?: { on?: boolean; cycle?: number; phases?: boolean } // period tracking: cycle length in days (28 if unset), cycle phase block on the calendar's day
+  period?: { on?: boolean; cycle?: number; days?: number; phases?: boolean } // period tracking: cycle length in days (28 if unset), period length in days (5 if unset), cycle phase block on the calendar's day
   travelUsual?: string[] // travel necessities offered under a packing list's Other field (not set = the starter list)
 }
 

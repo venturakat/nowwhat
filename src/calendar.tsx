@@ -72,7 +72,7 @@ const predictedPeriods = (st: State, to: string) => {
   if (last) for (let d = addDays(last, c); d <= to; d = addDays(d, c)) out.push(d)
   return out
 }
-const PERIOD_DAYS = 5 // assumed length of a period, for the phases
+export const periodDays = (st: State) => Math.min(10, Math.max(1, Math.round(st.settings.period?.days || 5))) // how long a period lasts, for the phases
 
 export const calItems = (st: State, from: string, to: string): Item[] => {
   const on = st.settings.calendar ?? {}
@@ -544,8 +544,9 @@ const CyclePhase = ({ date }: { date: string }) => {
   const start = all.filter((x) => x <= date).pop()
   if (!start) return null
   const n = diffDays(start, date) + 1
-  const ov = Math.max(PERIOD_DAYS + 2, c - 14) // ovulation day
-  const [name, words] = n <= PERIOD_DAYS ? ['Menstrual phase', 'Period']
+  const pd = periodDays(st)
+  const ov = Math.max(pd + 2, c - 14) // ovulation day
+  const [name, words] = n <= pd ? ['Menstrual phase', 'Period']
     : n < ov - 1 ? ['Follicular phase', 'Energy building up']
     : n <= ov + 1 ? ['Ovulation', 'Peak energy']
     : ['Luteal phase', 'Winding down']
@@ -592,6 +593,7 @@ const PeriodSettings = () => {
   const setP = (x: Partial<NonNullable<State['settings']['period']>>) => update((d) => { d.settings = { ...d.settings, period: { ...(d.settings.period ?? {}), ...x } } })
   const last = lastPeriod(st)
   const [cyc, setCyc] = useState(String(periodCycle(st)))
+  const [len, setLen] = useState(String(periodDays(st)))
   const sw = (on: boolean, label: string, run: () => void, meta?: string) => (
     <button className="lrow" onClick={run}>
       <span className="grow" style={{ textAlign: 'left' }}><div className="title">{label}</div>{meta && <div className="meta">{meta}</div>}</span>
@@ -616,6 +618,13 @@ const PeriodSettings = () => {
               setCyc(v)
               if (+v >= 15 && +v <= 60) setP({ cycle: +v })
             }} onBlur={() => setCyc(String(periodCycle(useStore.getState().st)))} />
+          </Field>
+          <Field label="Period length, days">
+            <input className="input" inputMode="numeric" value={len} onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, '')
+              setLen(v)
+              if (+v >= 1 && +v <= 10) setP({ days: +v })
+            }} onBlur={() => setLen(String(periodDays(useStore.getState().st)))} />
           </Field>
         </div>
       )}
