@@ -424,7 +424,7 @@ const Outfits = () => {
         {byWeather(st.outfits, wx).map((o, i) => {
           const best = wx && i < 3 && (o.tempMin !== undefined || o.tempMax !== undefined)
           const its = byFormula(o.itemIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[])
-          return <Row key={o.id} dot={C.closet} title={<>{o.name}{tempText(o) && <span className="t15 muted" style={{ fontWeight: 400 }}> · {tempText(o)}</span>}{best && <span className="t13" style={{ fontWeight: 500, background: '#F7CFF2', color: '#1a1a1a', borderRadius: 999, padding: '2px 8px', marginLeft: 6, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>today’s choice</span>}</>} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(`Wearing ${o.name}`) }}>Wear</span>}
+          return <Row key={o.id} dot={C.closet} title={<>{o.name}{tempText(o) && <span className="t15 muted" style={{ fontWeight: 400 }}> · {tempText(o)}</span>}{best && <span className="t13" style={{ fontWeight: 500, background: C.closet, color: 'var(--ink)', borderRadius: 999, padding: '0 8px', lineHeight: '18px', display: 'inline-block', marginLeft: 6, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>today’s choice</span>}</>} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(`Wearing ${o.name}`) }}>Wear</span>}
             onClick={() => openSheet(<OutfitSheet id={o.id} onPlan={setPlan} />)} />
         })}
       </List>
