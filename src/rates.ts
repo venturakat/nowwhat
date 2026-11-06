@@ -37,6 +37,8 @@ const fetchMarket = async (main: Currency): Promise<Got> => {
 
 // which main currencies have an official source, and its name
 export const OFFICIAL: Record<string, string> = { PLN: 'NBP', UAH: 'NBU', ARS: 'Banco Nación' }
+// the dólar blue (street rate) can be a currency's source: for pesos, or for dollars when pesos are the main currency
+export const blueFits = (main: Currency, c: Currency) => (c === 'ARS' && main !== 'ARS') || (c === 'USD' && main === 'ARS')
 
 const NBP = 'https://api.nbp.pl/api/exchangerates'
 const fetchOfficial = async (main: Currency, want: Currency[]): Promise<Got> => {
@@ -98,7 +100,8 @@ const doRefresh = async (force: boolean) => {
   const main = s.mainCur
   const src = (c: Currency) => s.rateSrc?.[c] ?? 'market'
   const auto = usedCurs(st).filter((c) => src(c) !== 'manual')
-  const ars = (st.classes ?? []).some((c) => (c.payIn ?? c.currency) === 'ARS')
+  const blueSrc = auto.filter((c) => src(c) === 'blue' && blueFits(main, c))
+  const ars = (st.classes ?? []).some((c) => (c.payIn ?? c.currency) === 'ARS') || blueSrc.length > 0
   const missing = auto.some((c) => !s.rates?.[c]) || (ars && !s.blueArs)
   if (!force && !missing && s.ratesAt && Date.now() - new Date(s.ratesAt).getTime() < MAX_AGE_H * 3600000) return false
   const off = OFFICIAL[main] ? auto.filter((c) => src(c) === 'official') : []
@@ -117,6 +120,14 @@ const doRefresh = async (force: boolean) => {
   }
   const b = blue.status === 'fulfilled' ? blue.value : undefined
   const o = ofi.status === 'fulfilled' ? ofi.value : undefined
+  // dólar blue as the source: pesos = (dollar in the main currency) / blue; dollars (pesos main) = blue
+  for (const c of blueSrc) {
+    if (!b) { delete got[c]; continue }
+    const usd = main === 'USD' ? 1 : got.USD?.v ?? market.USD?.v ?? s.rates.USD
+    if (c === 'USD') got[c] = { v: b, src: 'dólar blue' }
+    else if (usd) got[c] = { v: usd / b, src: 'dólar blue' }
+    else delete got[c]
+  }
   if (!Object.keys(got).length && !b && !o) return false
   update((d) => {
     if (d.settings.mainCur !== main) return // the main currency changed meanwhile: the next refresh fetches for it

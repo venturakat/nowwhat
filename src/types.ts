@@ -9,7 +9,7 @@ export type Currency = string
 export type PayCur = Currency // what a class can be paid in
 // where a currency's rate comes from: market (mid-market, any currency), official (the central bank of the
 // main currency's country: NBP for zł, NBU for ₴, Banco Nación / dólar oficial for pesos), manual (typed in)
-export type RateSrc = 'market' | 'official' | 'manual'
+export type RateSrc = 'market' | 'official' | 'manual' | 'blue' // blue: dólar blue (pesos, or dollars when pesos are the main currency)
 // one day of rates: m = the main currency then, r = how much of it 1 unit of each currency was worth
 export interface RateDay { m: Currency; r: Record<Currency, number> }
 

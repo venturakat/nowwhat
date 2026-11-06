@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
-import { OFFICIAL, refreshRates } from './rates'
+import { blueFits, OFFICIAL, refreshRates } from './rates'
 import { allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
 import type { RateSrc, State } from './types'
 
@@ -189,7 +189,7 @@ const CurrenciesSheet = () => {
       <List title="Other currencies">
         {s.curs.map((c) => (
           <Row key={c} title={`${curSign(c)} · ${curName(c)}`}
-            meta={src(c) === 'manual' ? 'typed in' : `${src(c) === 'official' ? OFFICIAL[s.mainCur] ?? 'official' : 'market'}${s.rateNote?.[c] && src(c) !== 'manual' && s.rateNote[c] !== 'market' ? ' · ' + s.rateNote[c] : ''}`}
+            meta={src(c) === 'manual' ? 'typed in' : src(c) === 'blue' ? 'dólar blue' : `${src(c) === 'official' ? OFFICIAL[s.mainCur] ?? 'official' : 'market'}${s.rateNote?.[c] && src(c) !== 'manual' && s.rateNote[c] !== 'market' ? ' · ' + s.rateNote[c] : ''}`}
             trail={<span className="t15">{fmtRate(s.rates[c])} {curSign(s.mainCur)}</span>}
             onClick={() => pushSheet(<CurSheet c={c} />)} />
         ))}
@@ -214,7 +214,7 @@ const CurSheet = ({ c }: { c: string }) => {
   const [rate, setRate] = useState(numText(s.rates[c]))
   const [armed, setArmed] = useState(false)
   const off = OFFICIAL[s.mainCur]
-  const opts: [RateSrc, string][] = [['market', 'Market'], ...(off ? [['official', `Official · ${off}`] as [RateSrc, string]] : []), ['manual', 'Type it in']]
+  const opts: [RateSrc, string][] = [['market', 'Market'], ...(off ? [['official', `Official · ${off}`] as [RateSrc, string]] : []), ...(blueFits(s.mainCur, c) ? [['blue', 'Dólar blue'] as [RateSrc, string]] : []), ['manual', 'Type it in']]
   const used = usedCurs({ ...st, settings: { ...s, curs: [] } }).includes(c)
   return (
     <Sheet title={`${curSign(c)} · ${curName(c)}`} full onBack={popSheet}>
@@ -223,7 +223,7 @@ const CurSheet = ({ c }: { c: string }) => {
       </Field>
       {srcNow === 'manual'
         ? <Field label={`1 ${curSign(c)} in ${curSign(s.mainCur)}`}><input className="input" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></Field>
-        : <span className="t14 muted">Now 1 {curSign(c)} = {fmtRate(s.rates[c])} {curSign(s.mainCur)}. {srcNow === 'official' ? `${off}’s rate, the one used in accounting.` : 'Mid-market, updated a few times a day.'}</span>}
+        : <span className="t14 muted">Now 1 {curSign(c)} = {fmtRate(s.rates[c])} {curSign(s.mainCur)}. {srcNow === 'official' ? `${off}’s rate, the one used in accounting.` : srcNow === 'blue' ? 'The street rate (sell), from DolarApi.' : 'Mid-market, updated a few times a day.'}</span>}
       <button className="btn full" disabled={srcNow === 'manual' && !parseNum(rate)} onClick={() => {
         update((d) => {
           d.settings.rateSrc = { ...(d.settings.rateSrc ?? {}), [c]: srcNow }
@@ -292,7 +292,7 @@ const switchMain = (d: State, c: string) => {
   for (const [k, v] of Object.entries(s.rates)) if (k !== c) rates[k] = Math.round((v / f) * 1e6) / 1e6
   rates[old] = Math.round((1 / f) * 1e6) / 1e6
   const srcs = { ...(s.rateSrc ?? {}) }
-  for (const k of Object.keys(srcs)) if (srcs[k] === 'official' && !OFFICIAL[c]) srcs[k] = 'market'
+  for (const k of Object.keys(srcs)) if ((srcs[k] === 'official' && !OFFICIAL[c]) || (srcs[k] === 'blue' && !blueFits(c, k))) srcs[k] = 'market'
   if (!srcs[old]) srcs[old] = OFFICIAL[c] ? 'official' : 'market'
   delete srcs[c]
   const conv1 = (n: number) => Math.round((n / f) * 100) / 100

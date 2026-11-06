@@ -10,6 +10,7 @@ interface Ui {
   sub: Record<Tab, string>
   sheet: ReactNode | null
   under: ReactNode[] // pages the current sheet was opened on top of (Settings → a category); they stay put underneath
+  pushed: boolean // the top page was just pushed (slides in) — not when it's uncovered by going back
   toast: string | null
   cal: boolean // the calendar page (to the left of Today) is open
   setCal: (on: boolean) => void
@@ -26,6 +27,7 @@ export const useUi = create<Ui>((set, get) => ({
   sub: { today: '', money: 'budget', supplies: 'meds', home: 'cleaning', closet: 'own' },
   sheet: null,
   under: [],
+  pushed: false,
   toast: null,
   cal: false,
   setCal: (on) => set({ cal: on }),
@@ -34,9 +36,9 @@ export const useUi = create<Ui>((set, get) => ({
     window.scrollTo({ top: 0 })
   },
   setSub: (sub) => set({ sub: { ...get().sub, [get().tab]: sub } }),
-  open: (n) => set({ sheet: n, under: [] }),
-  push: (n) => { const { sheet, under } = get(); set(sheet ? { sheet: n, under: [...under, sheet] } : { sheet: n, under: [] }) },
-  pop: () => { const { under } = get(); set(under.length ? { sheet: under[under.length - 1], under: under.slice(0, -1) } : { sheet: null, under: [] }) },
+  open: (n) => set({ sheet: n, under: [], pushed: false }),
+  push: (n) => { const { sheet, under } = get(); set(sheet ? { sheet: n, under: [...under, sheet], pushed: true } : { sheet: n, under: [], pushed: false }) },
+  pop: () => { const { under } = get(); set(under.length ? { sheet: under[under.length - 1], under: under.slice(0, -1), pushed: false } : { sheet: null, under: [], pushed: false }) },
   close: () => set({ sheet: null, under: [] }),
   say: (msg) => {
     set({ toast: msg })

@@ -87,7 +87,7 @@ const useVisibleArea = () => {
 
 export const App = () => {
   const ready = useStore((s) => s.ready)
-  const { tab, sheet, under, toast, go, close, cal } = useUi()
+  const { tab, sheet, under, pushed, toast, go, close, cal } = useUi()
   const area = useVisibleArea()
   const [splash, setSplash] = useState(true) // the loading animation, once per app start
   return (
@@ -125,7 +125,7 @@ export const App = () => {
             {/* one list, so a page keeps its state when something is opened on top of it and closed again */}
             {[...under, sheet].map((n, i) => i < under.length
               ? <div key={i} className={'page under' + (i === under.length - 1 ? ' below' : '')} aria-hidden>{n}</div>
-              : <div key={i} className={'page top' + (under.length ? ' pushed' : '')}>{n}</div>)}
+              : <div key={i} className={'page top' + (under.length ? ' pushed' : '') + (pushed ? ' slide' : '')}>{n}</div>)}
           </div>
         </div>
       )}
