@@ -159,10 +159,12 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     }
   }
   if (on.deliveries) for (const x of st.shipments ?? []) {
-    const d = x.eta ?? x.deliveredAt
+    // not ticked as delivered/collected yet and its day has passed → it rolls on to today, day by day, until ticked
+    const late = !x.deliveredAt && !!x.eta && x.eta < t
+    const d = late ? t : x.eta ?? x.deliveredAt
     if (!d || d < from || d > to) continue
     out.push({
-      id: 'sh-' + x.id, date: d, title: x.name, meta: `Delivery · ${x.courier || 'courier'}${x.deliveredAt ? ' · delivered' : ''}`, dot: C.supplies, done: !!x.deliveredAt, go: ['today'], edit: () => <ShipmentSheet id={x.id} back={1} />,
+      id: 'sh-' + x.id, date: d, title: x.name, meta: `Delivery · ${x.courier || 'courier'}${x.deliveredAt ? ' · delivered' : late ? ' · overdue' : ''}`, dot: C.supplies, done: !!x.deliveredAt, go: ['today'], edit: () => <ShipmentSheet id={x.id} back={1} />,
       toggle: { on: !!x.deliveredAt, run: () => update((s) => { const y = s.shipments?.find((z) => z.id === x.id); if (y) y.deliveredAt = y.deliveredAt ? undefined : today() }) }
     })
   }
