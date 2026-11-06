@@ -76,6 +76,7 @@ export interface Settings {
   calendar?: Partial<Record<CalKey, boolean>> // what the calendar shows from the tabs (all off until chosen)
   weather?: Place // the calendar's forecast is for here
   weatherOff?: boolean // no weather block in the calendar
+  period?: { on?: boolean; cycle?: number; phases?: boolean } // period tracking: cycle length in days (28 if unset), cycle phase block on the calendar's day
   travelUsual?: string[] // travel necessities offered under a packing list's Other field (not set = the starter list)
 }
 
@@ -445,6 +446,7 @@ export interface State {
   trips?: Trip[]
   events?: CalEvent[] // own appointments in the calendar
   birthdays?: Birthday[] // in the calendar every year
+  periodStarts?: string[] // first days of periods (logged / confirmed), sorted; the next ones are predicted from the latest + cycle length
   shopPlans?: Record<string, { date: string; time?: string; end?: string }> // calendar-only: a shopping run moved / timed for planning the day (key: planned date|category)
   dismissed: { date: string; ids: string[] }
 }

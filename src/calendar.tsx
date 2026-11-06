@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
-import { update, useSt } from './store'
+import { update, useSt, useStore } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import { DayWeather, PlaceSheet } from './weather'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
-  prevMonth, subDate, taxFor, fmtTax, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
+  prevMonth, diffDays, subDate, taxFor, fmtTax, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
@@ -62,6 +62,18 @@ const eventDates = (e: CalEvent, from: string, to: string) => {
   return out
 }
 
+
+// Period tracking: first days you logged (or confirmed) plus predictions every cycle after the latest one
+const PERIOD = '#E8798F'
+export const periodCycle = (st: State) => Math.min(60, Math.max(15, Math.round(st.settings.period?.cycle || 28)))
+const lastPeriod = (st: State) => (st.periodStarts ?? []).reduce((a, b) => (b > a ? b : a), '')
+const predictedPeriods = (st: State, to: string) => {
+  const last = lastPeriod(st), c = periodCycle(st), out: string[] = []
+  if (last) for (let d = addDays(last, c); d <= to; d = addDays(d, c)) out.push(d)
+  return out
+}
+const PERIOD_DAYS = 5 // assumed length of a period, for the phases
+
 export const calItems = (st: State, from: string, to: string): Item[] => {
   const on = st.settings.calendar ?? {}
   const out: Item[] = []
@@ -76,6 +88,10 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
   for (const b of st.birthdays ?? []) for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) {
     const d = dayIn(`${y}-${b.md.slice(0, 2)}`, +b.md.slice(3))
     if (d >= from && d <= to) out.push({ id: `bd-${b.id}-${y}`, date: d, title: `${b.name}’s birthday`, meta: b.year && y > b.year ? `Turns ${y - b.year}` : 'Birthday', dot: C.warn, edit: () => <BirthdayEdit id={b.id} /> })
+  }
+  if (st.settings.period?.on) {
+    for (const d of st.periodStarts ?? []) if (d >= from && d <= to) out.push({ id: 'per-' + d, date: d, title: 'Period', meta: 'First day', dot: PERIOD, edit: () => <PeriodEdit date={d} /> })
+    for (const d of predictedPeriods(st, to)) if (d >= from) out.push({ id: 'perp-' + d, date: d, title: 'Period', meta: 'Predicted', dot: PERIOD, edit: () => <PeriodEdit date={d} predicted /> })
   }
   for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.note, dot: C.ink, event: e })
   if (on.taxes) for (const mk of monthsIn(from, to)) {
@@ -265,6 +281,7 @@ export const CalendarPage = () => {
         ))}
         <Row title={<span className="muted">+ Add on {fmtDay(sel)}</span>} onClick={() => pushSheet(<AddSheet date={sel} />)} />
       </List>
+      <CyclePhase date={sel} />
       <DayWeather date={sel} />
       {!anyOn && <span className="t13 muted" style={{ padding: '0 4px' }}>Want taxes, classes, deliveries and more here too? Choose them with the gear above.</span>}
     </div>
@@ -283,6 +300,7 @@ const AddSheet = ({ date }: { date: string }) => {
         {opt('Appointment', 'Your own — not tied to any tab', () => pushSheet(<EventEdit date={date} />))}
         {opt('Parking lot task', 'New, or one already on the Parking lot', () => pushSheet(open.length ? <TaskPick date={date} /> : <TaskSheet date={date} back={2} />))}
         {opt('Birthday', 'Here every year on that day', () => pushSheet(<BirthdayEdit date={date} />))}
+        {st.settings.period?.on && opt('Period started', 'First day — the predictions move with it', () => pushSheet(<PeriodEdit date={date} add />))}
         {opt('Delivery', 'Goes on the Shipment log', () => pushSheet(<ShipmentSheet eta={date} back={2} />))}
         {classes.map((c) => opt(`Extra ${c.name} class`, c.time ? `At ${timeSpan(c.time, classEnd(c))}` : 'One extra class that day', () => {
           update((d) => { const L = d.classes?.find((y) => y.id === c.id); if (!L) return; L.skips = L.skips.filter((y) => y !== date); if (!L.extra.includes(date)) L.extra.push(date) })
@@ -489,6 +507,56 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
   )
 }
 
+// one period's first day: a logged one (change or delete it) or a predicted one (confirm it, or set the day it really started)
+const PeriodEdit = ({ date, predicted, add }: { date: string; predicted?: boolean; add?: boolean }) => {
+  const st = useSt()
+  const [d, setD] = useState(date)
+  const [armed, setArmed] = useState(false)
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(t) }, [armed])
+  const logged = !predicted && !add
+  const save = () => {
+    if (!d) return
+    update((s) => { const L = (s.periodStarts ?? []).filter((x) => !logged || x !== date); if (!L.includes(d)) L.push(d); s.periodStarts = L.sort() })
+    if (add) { popSheet(false); popSheet(false) } else popSheet()
+  }
+  return (
+    <Sheet title={add ? 'Period started' : 'Period'} onBack={popSheet}>
+      <span className="t15 muted">{predicted
+        ? `Predicted from your last period and a ${periodCycle(st)}-day cycle. If it starts earlier or later, set the day it started — the next ones move with it.`
+        : 'The first day of your period. The next ones are predicted from your latest one.'}</span>
+      <Field label="First day"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value)} /></Field>
+      <button className="btn full" disabled={!d} onClick={save}>{predicted ? 'It started on this day' : 'Save'}</button>
+      {logged && <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
+        if (!armed) { setArmed(true); return }
+        update((s) => { s.periodStarts = (s.periodStarts ?? []).filter((x) => x !== date) }); popSheet()
+      }}>Delete</button>}
+    </Sheet>
+  )
+}
+
+// the day's cycle phase, under the day list (Settings › Calendar › Show cycle phases on calendar)
+const CyclePhase = ({ date }: { date: string }) => {
+  const st = useSt()
+  const p = st.settings.period
+  if (!p?.on || !p.phases) return null
+  const c = periodCycle(st)
+  const all = [...(st.periodStarts ?? []), ...predictedPeriods(st, addDays(date, c))].sort()
+  const start = all.filter((x) => x <= date).pop()
+  if (!start) return null
+  const n = diffDays(start, date) + 1
+  const ov = Math.max(PERIOD_DAYS + 2, c - 14) // ovulation day
+  const [name, words] = n <= PERIOD_DAYS ? ['Menstrual phase', 'Period']
+    : n < ov - 1 ? ['Follicular phase', 'Energy building up']
+    : n <= ov + 1 ? ['Ovulation', 'Peak energy']
+    : ['Luteal phase', 'Winding down']
+  const next = all.find((x) => x > date)
+  return (
+    <List>
+      <Row dot={PERIOD} title={name} meta={[`Day ${n} of ${c}`, words, next ? `next period ${fmtDay(next)}` : ''].filter(Boolean).join(' · ')} />
+    </List>
+  )
+}
+
 // Settings › Calendar: what the calendar shows from the tabs
 export const CalendarSettings = () => {
   const st = useSt()
@@ -512,6 +580,46 @@ export const CalendarSettings = () => {
         </button>
         {!st.settings.weatherOff && <Row title={st.settings.weather ? 'Change city' : 'Choose your city'} trail={<Icon.chevR />} onClick={() => pushSheet(<PlaceSheet />)} />}
       </div>
+      <PeriodSettings />
     </Sheet>
+  )
+}
+
+// Settings › Calendar › Period tracking
+const PeriodSettings = () => {
+  const st = useSt()
+  const p = st.settings.period ?? {}
+  const setP = (x: Partial<NonNullable<State['settings']['period']>>) => update((d) => { d.settings = { ...d.settings, period: { ...(d.settings.period ?? {}), ...x } } })
+  const last = lastPeriod(st)
+  const [cyc, setCyc] = useState(String(periodCycle(st)))
+  const sw = (on: boolean, label: string, run: () => void, meta?: string) => (
+    <button className="lrow" onClick={run}>
+      <span className="grow" style={{ textAlign: 'left' }}><div className="title">{label}</div>{meta && <div className="meta">{meta}</div>}</span>
+      <span className={'switch' + (on ? ' on' : '')} role="switch" aria-checked={on} aria-label={label}><i /></span>
+    </button>
+  )
+  return (
+    <List title="Period tracking">
+      {sw(!!p.on, 'Track my period', () => setP({ on: !p.on || undefined }))}
+      {p.on && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 16px 10px' }}>
+          <Field label="First day of last period">
+            <input className="input" type="date" value={last} onChange={(e) => {
+              const v = e.target.value
+              if (!v) return
+              update((s) => { const L = (s.periodStarts ?? []).filter((x) => x !== last); if (!L.includes(v)) L.push(v); s.periodStarts = L.sort() })
+            }} />
+          </Field>
+          <Field label="Cycle length, days">
+            <input className="input" inputMode="numeric" value={cyc} onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, '')
+              setCyc(v)
+              if (+v >= 15 && +v <= 60) setP({ cycle: +v })
+            }} onBlur={() => setCyc(String(periodCycle(useStore.getState().st)))} />
+          </Field>
+        </div>
+      )}
+      {p.on && sw(!!p.phases, 'Show cycle phases on calendar', () => setP({ phases: !p.phases || undefined }), 'Under the day in the calendar')}
+    </List>
   )
 }
