@@ -14,7 +14,8 @@ type Vals = Record<string, any>
 type Def = FieldDef & { off?: (v: Vals) => boolean }
 
 // Generic bottom-sheet form. Number fields come back as numbers (or undefined when empty).
-export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode; onBack?: () => void; full?: boolean }) => {
+export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode; onBack?: () => void; full?: boolean; twoTap?: boolean }) => {
+  const [armed, setArmed] = useState(false) // twoTap: first Delete tap arms (3 s), second deletes
   const full = p.full ?? !!p.onBack
   // number fields are kept as typed text (so "12,50" works) and parsed on save
   const [v, setV] = useState<Vals>(() => {
@@ -37,7 +38,10 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
       {p.saveLabel ?? 'Save'}
     </button>
     {p.onDelete && (
-      <button className="btn full soft" onClick={() => { p.onDelete!(); closeSheet() }}>
+      <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
+        if (p.twoTap && !armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return }
+        p.onDelete!(); closeSheet()
+      }}>
         Delete
       </button>
     )}

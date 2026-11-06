@@ -126,6 +126,7 @@ const CareEdit = ({ id, preset }: { id?: string; preset?: Partial<SelfCare> }) =
         if (x) Object.assign(d.selfcare.find((y) => y.id === x.id)!, data)
         else d.selfcare.push({ id: uid(), ...data })
       })}
+      twoTap
       onDelete={x ? () => update((d) => { d.selfcare = (d.selfcare ?? []).filter((y) => y.id !== x.id) }) : undefined}
     />
   )
