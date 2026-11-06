@@ -275,7 +275,7 @@ const CurPicker = ({ main }: { main?: boolean }) => {
       <input className="input" value={q} placeholder="Search: euro, USD, hryvnia…" onChange={(e) => setQ(e.target.value)} />
       {main && <span className="t13 muted">Amounts keep their own currency. Supply prices, project costs and “up to” prices switch over at today’s rate.</span>}
       <List>
-        {list.slice(0, 80).map((c) => <Row key={c} title={`${curSign(c)} · ${curName(c)}`} meta={c} onClick={() => !busy && pick(c)} />)}
+        {list.map((c) => <Row key={c} title={`${curSign(c)} · ${curName(c)}`} meta={c} onClick={() => !busy && pick(c)} />)}
       </List>
     </Sheet>
   )
