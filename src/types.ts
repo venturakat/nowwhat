@@ -355,7 +355,9 @@ export interface Course {
   endTime?: string // default: an hour after the start
   times?: Record<string, { start: string; end?: string }> // one class at a different time, by its date
   moved?: Record<string, string> // one class moved: new date -> its own date (that one is in skips, the new one in extra)
-  payDay?: number // day of the month you pay (default: when the second fortnight starts)
+  payEvery?: 'class' | 'week' | 'month' // how often you pay (default: month) — only changes the calendar's payment events
+  payWeekday?: number // weekly: the weekday you pay (0 Sun … 6 Sat)
+  payDay?: number // monthly: day of the month you pay (default: when the second fortnight starts)
   since: string // first class that isn't paid yet when this was set up
   extra: string[] // one-off extra classes
   skips: string[] // cancelled classes

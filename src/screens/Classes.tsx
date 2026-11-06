@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Settings } from '../types'
 import type { ClassRate, Course, Currency, PayCur } from '../types'
-import { fitSize, addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName } from '../lib'
+import { fitSize, addDays, classBatch, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName, pad, daysInMonth } from '../lib'
 import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, TimeRange, toast } from '../ui'
 import { refreshRates } from '../rates'
 import { copyText } from './Money'
@@ -62,7 +62,7 @@ const ClassBlock = ({ c }: { c: Course }) => {
           <span className="t14">
             {b.dates.length} {b.dates.length === 1 ? 'class' : 'classes'} × {cur0(c.price, c.currency)}
             {kind && b.rate !== undefined ? ` × ${numText(r2(b.rate))} ${RATE_NAME[kind]}` : kind ? ` · paid in ${payIn}, rate typed when you pay` : ''}
-            {` · ${fmt(b.pln)}${b.fee ? ` with the ${cur0(b.fee, b.feeCur)} fee` : ''} · pay ${fmtDay(b.due)}`}
+            {` · ${fmt(b.pln)}${b.fee ? ` with the ${cur0(b.fee, b.feeCur)} fee` : ''}${(c.payEvery ?? 'month') === 'month' ? ` · pay ${fmtDay(b.due)}` : ''}`}
           </span>
           <div className="row" style={{ gap: 8 }}>
             <button className="btn grow" onClick={() => openSheet(<PaySheet id={c.id} />)}>Paid…</button>
@@ -205,11 +205,13 @@ export const ClassEdit = ({ id }: { id?: string }) => {
   const [fee, setFee] = useState(numText(c?.fee))
   const [feeCur, setFeeCur] = useState<Currency>(c?.feeCurrency ?? st.settings.mainCur)
   const CURS = curs(st.settings, [cur, feeCur])
-  const PAY_CURS = curs(st.settings, [payIn, 'ARS'])
+  const PAY_CURS = curs(st.settings, [payIn])
   const [days, setDays] = useState<number[]>(c?.days ?? [])
   const [time, setTime] = useState(c?.time ?? '')
   const [endTime, setEndTime] = useState(c ? classEnd(c) ?? '' : '')
-  const [payDay, setPayDay] = useState(String(c?.payDay ?? st.settings.splitDay))
+  const [every, setEvery] = useState<'class' | 'week' | 'month'>(c?.payEvery ?? 'month')
+  const [payWd, setPayWd] = useState<number | undefined>(c?.payWeekday)
+  const [payDay, setPayDay] = useState(() => { const t = today(); return `${t.slice(0, 8)}${pad(Math.min(c?.payDay ?? st.settings.splitDay, daysInMonth(+t.slice(0, 4), +t.slice(5, 7))))}` })
   const [since, setSince] = useState(c?.since ?? today())
   const p = parseNum(price)
   const differs = payIn !== cur
@@ -222,7 +224,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
       <Field label="What"><input className="input" value={name} placeholder="Spanish, yoga, piano…" autoFocus={!c} onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Price per class"><input className="input" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
       <Field label="Price currency"><CurPick value={cur} options={CURS} onChange={(x) => { if (payIn === cur) setPayIn(x); setCur(x) }} /></Field>
-      <Field label="I pay in"><CurPick value={payIn} options={PAY_CURS} onChange={setPayIn} /></Field>
+      <Field label="Payment currency"><CurPick value={payIn} options={PAY_CURS} onChange={setPayIn} /></Field>
       {differs && (
         <Field label={`From ${cur} to ${payIn}`}>
           <div className="seg">
@@ -247,17 +249,34 @@ export const ClassEdit = ({ id }: { id?: string }) => {
         </div>
       </Field>
       <TimeRange start={time} end={endTime} onChange={(a, b) => { setTime(a); setEndTime(b) }} />
-      <Field label="I pay on day of the month"><input className="input" inputMode="numeric" value={payDay} onChange={(e) => setPayDay(e.target.value.replace(/\D/g, ''))} /></Field>
+      <Field label="I pay">
+        <div className="seg">
+          {(['class', 'week', 'month'] as const).map((k) => (
+            <button key={k} type="button" className={'chip' + (every === k ? ' on' : '')} onClick={() => setEvery(k)}>{k === 'class' ? 'Per class' : k === 'week' ? 'Per week' : 'Per month'}</button>
+          ))}
+        </div>
+      </Field>
+      {every === 'week' && (
+        <Field label="Payment day">
+          <div className="seg" style={{ flexWrap: 'wrap' }}>
+            {[1, 2, 3, 4, 5, 6, 0].map((i) => (
+              <button key={i} type="button" className={'chip' + (payWd === i ? ' on' : '')} onClick={() => setPayWd(i)}>{weekdayName(i)}</button>
+            ))}
+          </div>
+        </Field>
+      )}
+      {every === 'month' && <Field label="Payment day"><input className="input" type="date" value={payDay} onChange={(e) => setPayDay(e.target.value)} /></Field>}
       {!c?.pays.length && <Field label="First class you haven’t paid for yet"><input className="input" type="date" value={since} onChange={(e) => setSince(e.target.value)} /></Field>}
       {p && !differs && cur !== st.settings.mainCur ? <span className="t13 muted">About {fmt(toMain(st.settings, p, cur))} a class</span> : null}
-      <button className="btn full" disabled={!name.trim() || !p || !days.length} onClick={() => {
+      <button className="btn full" disabled={!name.trim() || !p || !days.length || (every === 'week' && payWd === undefined)} onClick={() => {
         const needsArs = payIn === 'ARS'
         update((d) => {
           d.classes ??= []
           const data = {
             name: name.trim(), price: p!, currency: cur, payIn: payIn === cur ? undefined : payIn, rate: payIn === cur ? undefined : rateNow,
             fee: parseNum(fee) || undefined, feeCurrency: parseNum(fee) ? feeCur : undefined,
-            days: [...days].sort(), time: time || undefined, endTime: (time && endTime) || undefined, payDay: Math.min(31, Math.max(1, Number(payDay) || d.settings.splitDay))
+            days: [...days].sort(), time: time || undefined, endTime: (time && endTime) || undefined, payEvery: every, payWeekday: every === 'week' ? payWd : undefined,
+            payDay: Math.min(31, Math.max(1, Number(payDay.slice(8, 10)) || d.settings.splitDay))
           }
           const x = d.classes.find((y) => y.id === id)
           if (x) Object.assign(x, data, x.pays.length ? {} : { since })

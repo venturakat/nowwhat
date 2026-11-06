@@ -560,6 +560,8 @@ export const classDates = (l: Course, from: string, to: string) => {
   for (const x of l.extra) if (x >= from && x <= to) out.add(x)
   return [...out].filter((d) => !l.skips.includes(d)).sort()
 }
+// weekly payers: the Mon–Sun week a payment day belongs to
+export const weekOf = (d: string) => { const wd = (parse(d).getDay() + 6) % 7; const mon = addDays(d, -wd); return [mon, addDays(mon, 6)] as const }
 // a class's time on a day ('17:00–18:00'): its own time if it was changed, else the usual one
 export const classEnd = (c: Course) => c.endTime ?? (c.time ? addHours(c.time, 1) : undefined) // classes are an hour unless set
 export const classTime = (c: Course, d: string) => (c.times?.[d] ? timeSpan(c.times[d].start, c.times[d].end) : timeSpan(c.time, classEnd(c)))
