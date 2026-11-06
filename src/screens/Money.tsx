@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
-import type { Currency, Session, State } from '../types'
+import type { Currency, Session, State, TaxLine, TaxMonth } from '../types'
+import { bankAmount, fillTransfer, lineFormula } from '../taxes'
+import { tr } from '../i18n'
 import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
-  setTaxPaid, curOptions, curSign, fmtTax
+  setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, taxPeriodName, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
@@ -601,89 +603,86 @@ const ClientSheet = ({ id }: { id: string }) => {
 // ================= TAXES =================
 const Taxes = () => {
   const st = useSt()
-  const ft = (n: number, dec = false) => fmtTax(st.settings, n, dec) // taxes are in their own currency
+  const s = st.settings
+  const ft = (n: number, dec = false) => fmtTax(s, n, dec) // taxes are in their own currency
   const t = today()
   const curM = monthKey(t)
   const year = curM.slice(0, 4)
-  // the payment to show: the earliest unpaid month before the current month
+  const lines = taxLinesOf(s)
+  const [details, setDetails] = useState(false) // transfer details, closed until it's time to pay
+  const editMonth = (m: string) => openSheet(<TaxMonthSheet m={m} />)
+  // the payment to show: the earliest unpaid period before the current month
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
-  // only months since taxes were first tracked here (ZUS is due every month, so older months would all look unpaid)
+  // only months since taxes were first tracked here (fixed amounts are due every period, so older ones would all look unpaid)
   const since = Object.keys(st.taxMonths).sort()[0] ?? prevMonth(curM)
   const candidates = [...months, ...Object.keys(st.taxMonths)].filter((m, i, a) => a.indexOf(m) === i && m < curM && m >= since).sort()
-  // earliest unpaid past month; if everything is paid, the month that is accruing now
-  const due = candidates.find((m) => !taxFor(st, m).paid && taxFor(st, m).total > 0) ?? curM
+  // earliest unpaid past period; if everything is paid, the one that is accruing now
+  let due = candidates.find((m) => { const x = taxFor(st, m); return !x.paid && x.total > 0 })
+  if (!due) { due = curM; for (let i = 0, m = curM; i < 12; i++, m = nextMonth(m)) if (lines.some((l) => lineEndsIn(l, m))) { due = m; break } }
   const tx = taxFor(st, due)
-  const [dy, dm] = due.split('-').map(Number)
-  const dueDate = `${dm === 12 ? dy + 1 : dy}-${String(dm === 12 ? 1 : dm + 1).padStart(2, '0')}-${String(st.settings.taxDueDay).padStart(2, '0')}`
-  const inDays = diffDays(t, dueDate)
-  const payDate = dueDate.slice(0, 8) + String(st.settings.taxPayDay ?? st.settings.taxDueDay).padStart(2, '0')
-  const revs = months.map((m) => taxFor(st, m).revenue)
+  const pays = taxPays(st, due, tx)
+  const next = pays.find((x) => !x.paid) ?? pays[0]
+  const inDays = next ? diffDays(t, next.due) : 0
+  const revs = months.map((m) => monthRevenue(st, m))
   const past = months.map((m, i) => (m <= curM ? revs[i] : 0))
   const ytd = past.reduce((a, b) => a + b, 0)
   const nonZero = past.filter((r) => r > 0).length || 1
   const max = Math.max(...revs, 1)
-  // the footer always speaks about this calendar month (its PIT is paid next month)
-  const after = curM
-  const afterTx = taxFor(st, after)
-  const afterDue = `${nextMonth(curM)}-${String(st.settings.taxDueDay).padStart(2, '0')}`
-  const yearPit = months.reduce((a, m) => a + taxFor(st, m).pit, 0)
-
-  const zus = r2(tx.dra + tx.rca)
-  const [details, setDetails] = useState(false) // transfer details, closed until it's time to pay
-  const editMonth = (m: string) => openSheet(<TaxMonthSheet m={m} />)
-  // the number that identifies me on the tax transfer (chosen in Settings › Taxes & accounts)
-  const s = st.settings
-  const idKind = s.taxIdKind ?? (s.nip ? 'nip' : s.regon ? 'regon' : s.pesel ? 'pesel' : undefined)
-  const idNum = idKind ? s[idKind] : undefined
-  const ID_NAME = { nip: 'NIP', regon: 'REGON', pesel: 'PESEL' } as const
+  // the footer speaks about the periods running now (paid after they end)
+  const pctLines = lines.filter((l) => l.kind !== 'fixed')
+  const transfer = (s.transfer ?? []).map((r) => [r.label, fillTransfer(r.text, due!).trim() || undefined] as [string, string | undefined])
+  const paidNames = tx.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
+  const formulas = pctLines.map((l) => lineFormula(l, lines)).join('. ')
   return (
     <>
       <div className="card dark" style={{ gap: 6 }}>
-        <div className="between">
-          <span className="t15 w5">{monthName(due, true)} · {inDays < 0 ? `${-inDays} days late` : `you pay ${fmtDay(payDate)} · deadline ${fmtDay(dueDate)}`}</span>
-          {(tx.zusPaid || tx.pitPaid) && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> {tx.paid ? 'paid' : tx.zusPaid ? 'ZUS paid' : 'PIT paid'}</span>}
-        </div>
-        <div className="big" style={{ fontSize: fitSize(ft(tx.paid ? tx.total : tx.left), 60, 9) }}>{ft(tx.paid ? tx.total : tx.left)}</div>
-        <div className="parts" style={{ paddingTop: 6 }}>
-          <Quota label="ZUS (DRA + RCA)" amount={zus} paid={tx.zusPaid} />
-          <Quota label="PIT-28" amount={tx.pit} paid={tx.pitPaid} />
-        </div>
-        <span className="t13" style={{ opacity: 0.7 }}>Tap an amount to copy it</span>
-        {/* ZUS and PIT are sometimes paid on different days */}
-        <div className="btn2" style={{ paddingTop: 4 }}>
-          <button className={'btn ' + (tx.zusPaid ? 'ghost' : 'money')} onClick={() => update((d) => setTaxPaid(d, due, 'zus', !tx.zusPaid))}>{tx.zusPaid ? 'Undo ZUS paid' : 'Mark ZUS paid'}</button>
-          <button className={'btn ' + (tx.pitPaid ? 'ghost' : 'money')} onClick={() => update((d) => setTaxPaid(d, due, 'pit', !tx.pitPaid))}>{tx.pitPaid ? 'Undo PIT paid' : 'Mark PIT paid'}</button>
-        </div>
-        <span className="t13" style={{ opacity: 0.7 }}>Already in your budget for {fmtDay(payDate)}. Revenue {ft(tx.revenue, true)} · <u onClick={() => editMonth(due)}>edit</u></span>
-      </div>
-      {/* everything typed into the transfer form, once a month (or twice, when paid on different days) */}
-      <div className="card" style={{ gap: 0, padding: '4px 0' }}>
-        <button className="between" style={{ padding: '14px 20px', alignItems: 'center' }} onClick={() => setDetails(!details)}>
-          <span className="t17">Transfer details</span>
-          <span style={{ display: 'flex', transform: details ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s', color: 'var(--ink2)' }}><Icon.chevR /></span>
-        </button>
-        {details && (
-          <div className="copylist">
-            {([
-              ['ZUS account', s.zusAccount?.trim()],
-              ['PIT account', s.taxAccount?.trim()],
-              [idKind ? ID_NAME[idKind] : 'NIP', idNum],
-              ['Basis', s.zusBasis ? bankAmount(s.zusBasis) : undefined],
-              ['Title', zusTitle(due)]
-            ] as [string, string | undefined][]).map(([label, value]) => (
-              <button key={label} className="copyrow" disabled={!value} onClick={() => value && copyText(value, `${label} copied`)}>
-                <span className="k">{label}</span>
-                <span className="v">{value ?? 'add in Settings'}</span>
-                {value && <span className="c" aria-hidden><Icon.copy /></span>}
-              </button>
-            ))}
-          </div>
+        {!lines.length ? (
+          <span className="t15">{tr('No tax lines yet. Add them in Settings › Taxes.')}</span>
+        ) : (
+          <>
+            <div className="between">
+              <span className="t15 w5">{taxPeriodName(st, due)} · {!next ? '' : inDays < 0 && !tx.paid ? tr('{n} days late', { n: -inDays }) : tr('you pay {pay} · deadline {due}', { pay: fmtDay(next.pay), due: fmtDay(next.due) })}</span>
+              {paidNames && <span className="pill"><Icon.check color="#1E1E1E" size={13} /> {tx.paid ? tr('paid') : tr('{x} paid', { x: paidNames })}</span>}
+            </div>
+            <div className="big" style={{ fontSize: fitSize(ft(tx.paid ? tx.total : tx.left), 60, 9) }}>{ft(tx.paid ? tx.total : tx.left)}</div>
+            <div className="parts" style={{ paddingTop: 6, flexWrap: 'wrap' }}>
+              {tx.groups.map((g) => <Quota key={g.key} label={g.name} amount={g.amount} paid={g.paid} />)}
+            </div>
+            <span className="t13" style={{ opacity: 0.7 }}>{tr('Tap an amount to copy it')}</span>
+            {/* the parts are sometimes paid on different days */}
+            <div className="btn2" style={{ paddingTop: 4, gridTemplateColumns: tx.groups.length === 1 ? '1fr' : undefined }}>
+              {tx.groups.map((g) => (
+                <button key={g.key} className={'btn ' + (g.paid ? 'ghost' : 'money')} onClick={() => update((d) => setTaxPaid(d, due!, g.key, !g.paid))}>{g.paid ? tr('Undo {x} paid', { x: g.name }) : tr('Mark {x} paid', { x: g.name })}</button>
+              ))}
+            </div>
+            <span className="t13" style={{ opacity: 0.7 }}>{next ? tr('Already in your budget for {d}.', { d: fmtDay(next.pay) }) + ' ' : ''}{tr('Revenue')} {ft(tx.revenue, true)} · <u onClick={() => editMonth(due!)}>{tr('edit')}</u></span>
+          </>
         )}
       </div>
+      {/* everything typed into the transfer form */}
+      {transfer.length > 0 && (
+        <div className="card" style={{ gap: 0, padding: '4px 0' }}>
+          <button className="between" style={{ padding: '14px 20px', alignItems: 'center' }} onClick={() => setDetails(!details)}>
+            <span className="t17">{tr('Transfer details')}</span>
+            <span style={{ display: 'flex', transform: details ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s', color: 'var(--ink2)' }}><Icon.chevR /></span>
+          </button>
+          {details && (
+            <div className="copylist">
+              {transfer.map(([label, value], i) => (
+                <button key={i} className="copyrow" disabled={!value} onClick={() => value && copyText(value, tr('{x} copied', { x: label }))}>
+                  <span className="k">{label}</span>
+                  <span className="v">{value ?? tr('add in Settings')}</span>
+                  {value && <span className="c" aria-hidden><Icon.copy /></span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">Revenue {year} so far</span><span className="mid" style={{ fontSize: fitSize(ft(ytd), 30, 9) }}>{ft(ytd)}</span></button>
-          <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5 muted">avg / month</span><span className="t17" style={{ fontSize: 20 }}>{ft(ytd / nonZero)}</span></div>
+          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">{tr('Revenue {y} so far', { y: year })}</span><span className="mid" style={{ fontSize: fitSize(ft(ytd), 30, 9) }}>{ft(ytd)}</span></button>
+          <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5 muted">{tr('avg / month')}</span><span className="t17" style={{ fontSize: 20 }}>{ft(ytd / nonZero)}</span></div>
         </div>
         <div className="chart">
           {months.map((m, i) => (
@@ -695,12 +694,19 @@ const Taxes = () => {
         </div>
       </div>
       <List>
-        <Row dot={C.money} title={`${monthName(after, true)} cash flow`} meta="Revenue so far · grows as you invoice" trail={ft(afterTx.revenue)} onClick={() => editMonth(after)} />
-        {/* what next month's PIT will roughly be, from the revenue counted so far (even before this month is paid) */}
-        <Row dot={C.money} title={`Estimated PIT-28 for ${monthName(after, true)}`} meta={`So far · to be paid by ${fmtDay(afterDue)}`} trail={ft(afterTx.pit)} onClick={() => editMonth(after)} />
-        <Row dot={C.money} title={`Annual PIT-28`} meta={`By 30 Apr ${Number(year) + 1} · ${ft(yearPit)} paid monthly this year`} onClick={() => editMonth(curM)} />
+        <Row dot={C.money} title={tr('{m} cash flow', { m: monthName(curM, true) })} meta={tr('Revenue so far · grows as you invoice')} trail={ft(monthRevenue(st, curM))} onClick={() => editMonth(curM)} />
+        {/* what the % taxes of the running period will roughly be, from the revenue counted so far */}
+        {pctLines.map((l) => {
+          const end = periodEnd(l, curM)
+          const part = taxFor(st, end).parts.find((p) => p.line.id === l.id)
+          return <Row key={'e' + l.id} dot={C.money} title={tr('Estimated {x} for {p}', { x: l.name, p: taxPeriodName(st, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(nextMonth(end), l.dueDay)) })} trail={ft(part?.amount ?? 0)} onClick={() => editMonth(end)} />
+        })}
+        {pctLines.map((l) => {
+          const sum = months.filter((m) => lineEndsIn(l, m)).reduce((a, m) => a + (taxFor(st, m).parts.find((p) => p.line.id === l.id)?.amount ?? 0), 0)
+          return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('So far this year')} trail={ft(sum)} onClick={() => editMonth(curM)} />
+        })}
       </List>
-      <div className="t13 muted" style={{ padding: '0 4px' }}>PIT = {Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA). Tap any month to check or correct it. Rates are in Settings.</div>
+      <div className="t13 muted" style={{ padding: '0 4px' }}>{formulas ? formulas + '. ' : ''}{tr('Tap any month to check or correct it. Tax lines are in Settings.')}</div>
     </>
   )
 }
@@ -711,46 +717,59 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
   const tm = st.taxMonths[m]
   const tx = taxFor(st, m)
   const fromIncome = revenueFromIncome(st, m)
-  // both fields start filled in; PIT follows the revenue until you type your own number
+  const lines = tx.parts.map((p) => p.line)
+  // amounts follow the revenue until you type your own number
   const [rev, setRev] = useState(numText(r2(tx.revenue)))
-  const [pit, setPit] = useState(numText(r2(tx.pit)))
-  const [pitOwn, setPitOwn] = useState(tm?.pitOverride !== undefined)
-  const [zusPaid, setZusPaid] = useState(tx.zusPaid)
-  const [pitPaid, setPitPaid] = useState(tx.pitPaid)
-  const calcPit = (r: number) => Math.max(0, r2(st.settings.pitRate * (r - 0.5 * tx.dra)))
+  const [own, setOwn] = useState<Record<string, string | undefined>>(() => Object.fromEntries(tx.parts.filter((p) => p.own).map((p) => [p.line.id, numText(p.amount)])))
+  const [paid, setPaid] = useState<Record<string, boolean>>(() => Object.fromEntries(tx.groups.map((g) => [g.key, g.paid])))
   const revNum = parseNum(rev) ?? 0
-  const pitNum = pitOwn ? parseNum(pit) ?? 0 : calcPit(revNum)
+  const revOf = (l: TaxLine) => periodMonths(l, m).reduce((a, x) => a + (x === m ? revNum : monthRevenue(st, x)), 0)
+  const ownNum: Record<string, number | undefined> = {}
+  for (const [k, v] of Object.entries(own)) if (v !== undefined) ownNum[k] = parseNum(v) ?? 0
+  const { amounts, calc } = lineAmounts(lines, revOf, ownNum)
+  const total = r2(lines.reduce((a, l) => a + amounts[l.id], 0))
   return (
     <Sheet title={`${monthName(m, true)} ${m.slice(0, 4)}`}>
-      <Field label={`Revenue (invoices + business income: ${ft(fromIncome, true)})`}>
-        <input className="input" inputMode="decimal" value={rev} onChange={(e) => { setRev(e.target.value); if (!pitOwn) setPit(numText(calcPit(parseNum(e.target.value) ?? 0))) }} />
+      <Field label={tr('Revenue (invoices + business income: {x})', { x: ft(fromIncome, true) })}>
+        <input className="input" inputMode="decimal" value={rev} onChange={(e) => setRev(e.target.value)} />
       </Field>
-      <Field label={pitOwn ? 'PIT-28 (your number)' : `PIT-28 (calculated: ${Math.round(st.settings.pitRate * 100)}% × (revenue − ½ DRA))`}>
-        <input className="input" inputMode="decimal" value={pitOwn ? pit : numText(pitNum)} onChange={(e) => { setPit(e.target.value); setPitOwn(true) }} />
-        {pitOwn && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => { setPitOwn(false); setPit(numText(calcPit(revNum))) }}>Use the calculated amount</button>}
-      </Field>
-      <div className="seg">
-        <button className={'chip' + (zusPaid ? ' on' : '')} onClick={() => setZusPaid(!zusPaid)}>{zusPaid ? '✓ ' : ''}ZUS paid</button>
-        <button className={'chip' + (pitPaid ? ' on' : '')} onClick={() => setPitPaid(!pitPaid)}>{pitPaid ? '✓ ' : ''}PIT paid</button>
-      </div>
-      <div className="t14 muted">DRA {ft(tx.dra, true)} · RCA {ft(tx.rca, true)} · PIT {ft(pitNum, true)} = <b>{ft(r2(tx.dra + tx.rca + pitNum), true)}</b></div>
+      {lines.map((l) => {
+        const mine = own[l.id] !== undefined
+        const how = l.kind === 'fixed' ? tr('usual amount') : tr('calculated: {f}', { f: lineFormula(l, taxLinesOf(st.settings)).split(' = ')[1] })
+        return (
+          <Field key={l.id} label={`${l.name} (${mine ? tr('your number') : how})`}>
+            <input className="input" inputMode="decimal" value={mine ? own[l.id] : numText(calc[l.id])} onChange={(e) => setOwn({ ...own, [l.id]: e.target.value })} />
+            {mine && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => setOwn({ ...own, [l.id]: undefined })}>{l.kind === 'fixed' ? tr('Use the usual amount') : tr('Use the calculated amount')}</button>}
+          </Field>
+        )
+      })}
+      {tx.groups.length > 0 && (
+        <div className="seg">
+          {tx.groups.map((g) => <button key={g.key} className={'chip' + (paid[g.key] ? ' on' : '')} onClick={() => setPaid({ ...paid, [g.key]: !paid[g.key] })}>{paid[g.key] ? '✓ ' : ''}{tr('{x} paid', { x: g.name })}</button>)}
+        </div>
+      )}
+      {lines.length > 0 && <div className="t14 muted">{lines.map((l) => `${l.name} ${ft(amounts[l.id], true)}`).join(' · ')} = <b>{ft(total, true)}</b></div>}
       <button className="btn full" onClick={() => {
         update((d) => {
-          d.taxMonths[m] = {
-            ...(d.taxMonths[m] ?? {}),
-            revenueOverride: Math.abs(revNum - fromIncome) < 0.005 ? undefined : revNum,
-            pitOverride: pitOwn ? pitNum : undefined,
-            paid: zusPaid && pitPaid, zusPaid: zusPaid || undefined, pitPaid: pitPaid || undefined
+          const x: TaxMonth = { ...(d.taxMonths[m] ?? {}) }
+          x.revenueOverride = Math.abs(revNum - fromIncome) < 0.005 ? undefined : revNum
+          const ls = { ...(x.lines ?? {}) }
+          for (const g of tx.groups) for (const p of g.parts) {
+            const o: { paid?: boolean; amount?: number } = {}
+            if (paid[g.key]) o.paid = true
+            if (ownNum[p.line.id] !== undefined) o.amount = ownNum[p.line.id]
+            if (o.paid || o.amount !== undefined) ls[p.line.id] = o; else delete ls[p.line.id]
           }
+          x.lines = ls
+          d.taxMonths[m] = x
         })
         closeSheet()
-      }}>Save</button>
+      }}>{tr('Save')}</button>
     </Sheet>
   )
 }
 
-// Bank-friendly amount: 954,54 (comma, no thousands separator)
-export const bankAmount = (n: number) => (Math.round(n * 100) / 100).toFixed(2).replace('.', ',')
+export { bankAmount }
 
 export const copyText = (text: string, msg: string) => {
   const done = () => { toast(msg); navigator.vibrate?.(15) }
@@ -771,13 +790,10 @@ export const copyText = (text: string, msg: string) => {
   else fallback()
 }
 
-// Tap = choose this quota, hold (~0.5 s) = copy its amount as 954,54
+// Tap = copy its amount as 954,54
 const Quota = ({ label, amount, paid }: { label: string; amount: number; paid?: boolean }) => (
   <button className="quota" onClick={() => copyText(bankAmount(amount), `${bankAmount(amount)} copied`)}>
-    <span className="t13 w5">{label}{paid ? ' · paid' : ''}</span>
+    <span className="t13 w5">{label}{paid ? ' · ' + tr('paid') : ''}</span>
     <span className="t17" style={paid ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{fmtTax(useStore.getState().st.settings, amount, true)}</span>
   </button>
 )
-// the title of the ZUS transfer: "Składki za listopad 2026" (the month the contributions are for)
-const PL_MONTHS = ['styczeń', 'luty', 'marzec', 'kwiecień', 'maj', 'czerwiec', 'lipiec', 'sierpień', 'wrzesień', 'październik', 'listopad', 'grudzień']
-const zusTitle = (mk: string) => `Składki za ${PL_MONTHS[+mk.slice(5, 7) - 1]} ${mk.slice(0, 4)}`

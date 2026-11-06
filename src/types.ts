@@ -49,12 +49,16 @@ export interface Settings {
   ratesAuto?: boolean
   ratesNote?: string
   subsFrom?: string // budget half from which subscriptions are added automatically
-  pitRate: number // ryczałt, e.g. 0.14
-  dra: number // ZUS health (DRA)
-  rca: number // ZUS social (RCA)
+  taxLines?: TaxLine[] // what is paid in taxes (v10; replaces pitRate / dra / rca)
+  taxRule?: TaxRule // how invoices in other currencies count for taxes
+  transfer?: TransferRow[] // Taxes › Transfer details (label + text to copy)
+  // before v10 (kept, no longer read)
+  pitRate?: number
+  dra?: number
+  rca?: number
   splitDay: number // second half starts on this day (15)
-  taxDueDay: number // official deadline (20th)
-  taxPayDay?: number // the day I actually pay — the budget puts ZUS + PIT on this day
+  taxDueDay?: number // before v10
+  taxPayDay?: number // before v10
   leadDays: number // meds, pets, care: shop this many days before running out
   leadDaysShort?: number // groceries, home: shop this many days before
   usdPln?: number // before v9
@@ -142,13 +146,37 @@ export interface Timer {
   startedAt: string
 }
 
+// one thing paid in taxes: fixed, % of revenue, or % of (revenue − part of another line)
+export type TaxKind = 'fixed' | 'pct' | 'pctLess'
+export type TaxEvery = 'month' | 'quarter' | 'year'
+// nbp: invoice month, NBP mid rate of the last working day before the invoice (zł taxes)
+// invoice: invoice month, the app's rate of the invoice day · paid: the month the money arrives, the rate of that day
+export type TaxRule = 'nbp' | 'invoice' | 'paid'
+export interface TaxLine {
+  id: ID
+  name: string
+  kind: TaxKind
+  amount?: number // fixed: per period
+  pct?: number // % of revenue (14 = 14%)
+  less?: ID // pctLess: the other line
+  lessPct?: number // pctLess: this % of the other line is taken off the revenue first
+  every: TaxEvery // its period; paid in the month after the period ends
+  payDay: number // the day I pay (the budget puts it here)
+  dueDay: number // official deadline
+  group?: string // lines with the same group are paid together (one tile, one Paid button)
+}
+export interface TransferRow { id: ID; label: string; text: string }
+
+// keyed by month (YYYY-MM); quarterly/yearly lines keep their state in the last month of their period
 export interface TaxMonth {
   revenueOverride?: number
+  lines?: Record<ID, { paid?: boolean; amount?: number }> // amount = own number for that period
+  // before v10
   draOverride?: number
   rcaOverride?: number
   pitOverride?: number
-  paid: boolean // both paid
-  zusPaid?: boolean // paid on their own (it happens)
+  paid?: boolean
+  zusPaid?: boolean
   pitPaid?: boolean
 }
 

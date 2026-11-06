@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { get as idbGet, set as idbSet } from 'idb-keyval'
 import type { BudgetItem, State } from './types'
 import { seed } from './seed'
+import { migrateTaxes } from './taxes'
 import { defaultCleanPlan, defaultCleanTasks } from './cleaning'
 import { fillCurs, leftToDurations, logRates, periodItems, periodOf, setMainCur, syncProjectBuys, today, uid } from './lib'
 
@@ -87,6 +88,11 @@ export const migrate = (s: State): State => {
     fillCurs(out, 'PLN')
     logRates(out.settings)
     out.version = 9
+  }
+  if (out.version < 10) {
+    // v10: taxes become a list of tax lines; ZUS DRA, ZUS RCA and PIT-28 carry over with the same amounts, paid flags and own numbers
+    migrateTaxes(out)
+    out.version = 10
   }
   // Spanish classes (USD price paid in pesos) became one of the Classes
   if (out.lessons && !out.classes) {

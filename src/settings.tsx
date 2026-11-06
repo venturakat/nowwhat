@@ -1,11 +1,13 @@
 import { exportJson, importJson, update, useSt, useStore } from './store'
 import { useState } from 'react'
-import { Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast } from './ui'
+import { C, Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast } from './ui'
 import { FormSheet } from './form'
 import { seed } from './seed'
 import { blueFits, OFFICIAL, refreshRates } from './rates'
-import { allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
-import type { RateSrc, State } from './types'
+import { uid, fmtCur, allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
+import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule } from './types'
+import { applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
+import { tr } from './i18n'
 
 export const SettingsSheet = () => {
   return (
@@ -41,34 +43,121 @@ const BackupSheet = () => (
 
 const TaxesCard = () => {
   const st = useSt()
+  const ls = st.settings.taxLines ?? []
   return (
-    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(
-      <FormSheet title="Taxes & accounts" onBack={popSheet} initial={{ ...st.settings, taxCur: st.settings.taxCur ?? 'PLN', pitPct: Math.round(st.settings.pitRate * 1000) / 10 }}
-        fields={[
-          { key: 'taxCur', label: 'Taxes are in', type: 'select', options: curOptions(st.settings, st.settings.taxCur ?? 'PLN') },
-          { key: 'pitPct', label: 'PIT-28 ryczałt %', type: 'number' },
-          { key: 'dra', label: 'ZUS DRA (health) per month', type: 'number' },
-          { key: 'rca', label: 'ZUS RCA (social) per month', type: 'number' },
-          { key: 'zusBasis', label: 'ZUS contribution basis (podstawa wymiaru składek)', type: 'number' },
-          { key: 'taxPayDay', label: 'I pay ZUS + PIT on day (puts it in the budget)', type: 'number', step: 1 },
-          { key: 'taxDueDay', label: 'Official deadline, day', type: 'number', step: 1 },
-          { key: 'zusAccount', label: 'ZUS account (rachunek składkowy)', type: 'text' },
-          { key: 'taxAccount', label: 'Tax account (mikrorachunek)', type: 'text' },
-          { key: 'nip', label: 'NIP', type: 'text' },
-          { key: 'regon', label: 'REGON', type: 'text' },
-          { key: 'pesel', label: 'PESEL', type: 'text' },
-          { key: 'taxIdKind', label: 'Identify me in tax transfers with', type: 'select', options: [['nip', 'NIP'], ['regon', 'REGON'], ['pesel', 'PESEL']] }
-        ]}
-        onSave={(v) => update((d) => {
-          const { pitPct, ...rest } = v
-          const clean = (x?: string) => x?.replace(/\s/g, '') || undefined // numbers without spaces, the way the transfer form wants them
-          d.settings = { ...d.settings, ...rest, zusBasis: v.zusBasis || undefined, nip: clean(v.nip), regon: clean(v.regon), pesel: clean(v.pesel), pitRate: (pitPct ?? 14) / 100 }
-        })}
-      />
-    )}>
-      <span className="t17">Taxes & accounts</span>
-      <span className="t14 muted">ZUS amounts, PIT %, pay days, account numbers, NIP / REGON / PESEL</span>
+    <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<TaxesSheet />)}>
+      <span className="t17">{tr('Taxes')}</span>
+      <span className="t14 muted">{ls.length ? ls.map((l) => l.name).join(', ') : tr('Tax lines, pay days, transfer details')}</span>
     </button>
+  )
+}
+
+const TaxesSheet = () => {
+  const st = useSt()
+  const s = st.settings
+  const lines = s.taxLines ?? []
+  const tc = s.taxCur ?? 'PLN'
+  const rule = s.taxRule ?? (tc === 'PLN' ? 'nbp' : 'invoice')
+  const [armed, setArmed] = useState<PresetKey | null>(null) // a preset replaces the lines: first tap arms it (3 s), second applies
+  const RN = RULE_NAME(), EN = EVERY_NAME()
+  const lineMeta = (l: TaxLine) => [l.kind === 'fixed' ? fmtCur(l.amount ?? 0, tc, true) : l.kind === 'pct' ? `${l.pct ?? 0}%` : `${l.pct ?? 0}% − ${l.lessPct ?? 0}% ${tr('of')} ${lines.find((x) => x.id === l.less)?.name ?? '—'}`, EN[l.every], tr('pay day {d}', { d: l.payDay }), l.group && tr('with {g}', { g: l.group })].filter(Boolean).join(' · ')
+  return (
+    <Sheet title={tr('Taxes')} full onBack={popSheet}>
+      <Field label={tr('Start from')}>
+        <div className="seg">
+          {PRESETS.map((p) => (
+            <button key={p.key} type="button" className="chip" style={armed === p.key ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
+              if (armed !== p.key) { setArmed(p.key); setTimeout(() => setArmed((a) => (a === p.key ? null : a)), 3000); return }
+              update((d) => applyPreset(d, p.key)); setArmed(null); toast(tr('Started from {x}', { x: p.name }))
+            }}>{armed === p.key ? tr('Replace lines') : p.name}</button>
+          ))}
+        </div>
+      </Field>
+      <Field label={tr('Taxes are in')}>
+        <div className="seg">
+          {curOptions(s, tc).map(([k, l]) => <button key={k} type="button" className={'chip' + (tc === k ? ' on' : '')} onClick={() => update((d) => { d.settings.taxCur = k; if (k !== 'PLN' && d.settings.taxRule === 'nbp') d.settings.taxRule = 'invoice' })}>{l}</button>)}
+        </div>
+      </Field>
+      <Field label={tr('Invoices count')}>
+        <div className="seg">
+          {(Object.keys(RN) as TaxRule[]).filter((k) => k !== 'nbp' || tc === 'PLN').map((k) => <button key={k} type="button" className={'chip' + (rule === k ? ' on' : '')} onClick={() => update((d) => { d.settings.taxRule = k })}>{RN[k]}</button>)}
+        </div>
+      </Field>
+      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Tax lines')}</span>
+      {lines.length > 0 && (
+        <List>
+          {lines.map((l) => <Row key={l.id} dot={C.money} title={l.name} meta={lineMeta(l)} onClick={() => pushSheet(<TaxLineSheet id={l.id} />)} />)}
+        </List>
+      )}
+      <button className="btn soft" onClick={() => pushSheet(<TaxLineSheet />)}>{tr('Add tax line')}</button>
+      <span className="t13 muted" style={{ padding: '0 4px' }}>{tr('Each line is paid in the month after its period ends.')}</span>
+      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Transfer details')}</span>
+      {(s.transfer ?? []).length > 0 && (
+        <List>
+          {(s.transfer ?? []).map((r) => <Row key={r.id} dot={C.ink} title={r.label} meta={r.text || tr('empty')} onClick={() => pushSheet(<TransferRowSheet id={r.id} />)} />)}
+        </List>
+      )}
+      <button className="btn soft" onClick={() => pushSheet(<TransferRowSheet />)}>{tr('Add row')}</button>
+      <span className="t13 muted" style={{ padding: '0 4px' }}>{tr('In the text, {p} become the month you pay for.', { p: PLACEHOLDERS })}</span>
+    </Sheet>
+  )
+}
+
+const TaxLineSheet = ({ id }: { id?: string }) => {
+  const st = useSt()
+  const lines = st.settings.taxLines ?? []
+  const l = lines.find((x) => x.id === id)
+  const others = lines.filter((x) => x.id !== id)
+  const groups = [...new Set(lines.map((x) => x.group?.trim()).filter(Boolean))] as string[]
+  const KN = KIND_NAME(), EN = EVERY_NAME()
+  return (
+    <FormSheet title={l ? l.name : tr('New tax line')} onBack={popSheet} twoTap
+      initial={l ? { ...l } : { kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? 1, dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }}
+      fields={[
+        { key: 'name', label: tr('Name'), type: 'text', placeholder: 'ZUS, ЄСВ, Monotributo…' },
+        { key: 'kind', label: tr('How it’s worked out'), type: 'select', options: (Object.keys(KN) as TaxKind[]).filter((k) => k !== 'pctLess' || others.length).map((k) => [k, KN[k]]) },
+        { key: 'amount', label: tr('Amount per period'), type: 'number', hide: (v) => v.kind !== 'fixed' },
+        { key: 'pct', label: tr('Rate, %'), type: 'number', hide: (v) => v.kind === 'fixed' },
+        { key: 'less', label: tr('Minus part of'), type: 'select', options: others.map((x) => [x.id, x.name]), hide: (v) => v.kind !== 'pctLess' },
+        { key: 'lessPct', label: tr('How much of it, %'), type: 'number', hide: (v) => v.kind !== 'pctLess' },
+        { key: 'every', label: tr('Period'), type: 'select', options: (Object.keys(EN) as TaxEvery[]).map((k) => [k, EN[k]]) },
+        { key: 'payDay', label: tr('I pay on day (puts it in the budget)'), type: 'number', step: 1 },
+        { key: 'dueDay', label: tr('Official deadline, day'), type: 'number', step: 1 },
+        { key: 'group', label: tr('Paid together as (optional)'), type: 'text', suggest: groups }
+      ]}
+      onSave={(v) => update((d) => {
+        const day = (n: number | undefined, dflt: number) => Math.min(31, Math.max(1, Math.round(n ?? dflt)))
+        const x: TaxLine = {
+          id: l?.id ?? uid(), name: String(v.name).trim(), kind: v.kind, every: v.every,
+          payDay: day(v.payDay, 1), dueDay: day(v.dueDay, 20), group: String(v.group ?? '').trim() || undefined,
+          ...(v.kind === 'fixed' ? { amount: v.amount ?? 0 } : { pct: v.pct ?? 0 }),
+          ...(v.kind === 'pctLess' ? { less: v.less ?? others[0]?.id, lessPct: v.lessPct ?? 0 } : {})
+        }
+        const ls = d.settings.taxLines ?? []
+        d.settings.taxLines = l ? ls.map((y) => (y.id === l.id ? x : y)) : [...ls, x]
+      })}
+      onDelete={l ? () => { update((d) => { d.settings.taxLines = (d.settings.taxLines ?? []).filter((y) => y.id !== l.id) }) } : undefined}
+    />
+  )
+}
+
+const TransferRowSheet = ({ id }: { id?: string }) => {
+  const st = useSt()
+  const r = (st.settings.transfer ?? []).find((x) => x.id === id)
+  return (
+    <FormSheet title={r ? r.label : tr('New row')} onBack={popSheet} twoTap initial={r ? { ...r } : {}}
+      fields={[
+        { key: 'label', label: tr('Label'), type: 'text', placeholder: tr('Account, NIP, Title…') },
+        { key: 'text', label: tr('Text to copy'), type: 'text' }
+      ]}
+      extra={<span className="t13 muted">{tr('{p} become the month you pay for.', { p: PLACEHOLDERS })}</span>}
+      onSave={(v) => update((d) => {
+        const x = { id: r?.id ?? uid(), label: String(v.label).trim(), text: String(v.text ?? '').trim() }
+        const rs = d.settings.transfer ?? []
+        d.settings.transfer = r ? rs.map((y) => (y.id === r.id ? x : y)) : [...rs, x]
+      })}
+      onDelete={r ? () => { update((d) => { d.settings.transfer = (d.settings.transfer ?? []).filter((y) => y.id !== r.id) }) } : undefined}
+    />
   )
 }
 

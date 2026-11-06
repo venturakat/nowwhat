@@ -11,7 +11,8 @@ export type FieldDef =
 
 type Vals = Record<string, any>
 // off: the field is greyed out and can't be changed while this returns true (e.g. one-time purchase ticked)
-type Def = FieldDef & { off?: (v: Vals) => boolean }
+// hide: the field isn't shown while this returns true (e.g. a fixed amount needs no %)
+type Def = FieldDef & { off?: (v: Vals) => boolean; hide?: (v: Vals) => boolean }
 
 // Generic bottom-sheet form. Number fields come back as numbers (or undefined when empty).
 export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode; onBack?: () => void; full?: boolean; twoTap?: boolean }) => {
@@ -40,7 +41,7 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
     {p.onDelete && (
       <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
         if (p.twoTap && !armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return }
-        p.onDelete!(); closeSheet()
+        p.onDelete!(); if (p.onBack) p.onBack(); else closeSheet()
       }}>
         Delete
       </button>
@@ -49,7 +50,7 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
   )
   return (
     <Sheet title={p.title} onBack={p.onBack} full={full}>
-      {p.fields.map((f) => f.type === 'check' ? (
+      {p.fields.filter((f) => !f.hide?.(v)).map((f) => f.type === 'check' ? (
         <button key={f.key} type="button" className="row" style={{ gap: 10, alignSelf: 'flex-start', marginTop: -4 }} onClick={() => set(f.key, !v[f.key])}>
           <Check on={!!v[f.key]} /><span className="t15">{f.label}</span>
         </button>

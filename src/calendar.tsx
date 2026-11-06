@@ -5,7 +5,7 @@ import type { CalEvent, CalKey, State } from './types'
 import { DayWeather, PlaceSheet } from './weather'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
-  prevMonth, diffDays, subDate, taxFor, fmtTax, taxLeftName, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
+  prevMonth, diffDays, subDate, taxPays, taxPeriodName, fmtTax, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
@@ -96,12 +96,12 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
   for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.note, dot: C.ink, event: e })
   if (on.taxes) for (const mk of monthsIn(from, to)) {
     const forMonth = prevMonth(mk)
-    const tx = taxFor(st, forMonth)
-    const pay = dayIn(mk, st.settings.taxPayDay ?? st.settings.taxDueDay)
-    const paid = tx.paid
-    if (tx.total > 0 && pay >= from && pay <= to) out.push({ id: 'tax-' + mk, date: pay, title: paid ? 'ZUS + PIT' : taxLeftName(tx), meta: `for ${monthName(forMonth, true)} · ${fmtTax(st.settings, paid ? tx.total : tx.left, true)}${paid ? ' · paid' : tx.zusPaid ? ' · ZUS paid' : tx.pitPaid ? ' · PIT paid' : ''}`, dot: C.money, done: paid, go: ['money', 'taxes'] })
-    const dl = dayIn(mk, st.settings.taxDueDay)
-    if (tx.total > 0 && !paid && dl !== pay && dl >= from && dl <= to) out.push({ id: 'taxdl-' + mk, date: dl, title: 'Tax deadline', meta: `${taxLeftName(tx)} for ${monthName(forMonth, true)}`, dot: C.alert, go: ['money', 'taxes'] })
+    for (const x of taxPays(st, forMonth)) {
+      if (x.amount <= 0) continue
+      const paidPart = x.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
+      if (x.pay >= from && x.pay <= to) out.push({ id: `tax-${mk}-${x.pay}`, date: x.pay, title: x.paid ? x.name : x.leftName, meta: `for ${taxPeriodName(st, forMonth)} · ${fmtTax(st.settings, x.paid ? x.amount : x.left, true)}${x.paid ? ' · paid' : paidPart ? ` · ${paidPart} paid` : ''}`, dot: C.money, done: x.paid, go: ['money', 'taxes'] })
+      if (!x.paid && x.due !== x.pay && x.due >= from && x.due <= to) out.push({ id: `taxdl-${mk}-${x.pay}`, date: x.due, title: 'Tax deadline', meta: `${x.leftName} for ${taxPeriodName(st, forMonth)}`, dot: C.alert, go: ['money', 'taxes'] })
+    }
   }
   if (on.subs) for (const s of st.subscriptions.filter((x) => !x.paused)) for (const mk of monthsIn(from, to)) {
     const d = subDate(s, mk)

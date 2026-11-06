@@ -1,4 +1,4 @@
-import type { BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, PayCur, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { TaxEvery, TaxLine, TaxRule, BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, PayCur, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -139,12 +139,13 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   for (const [cat, v] of Object.entries(byCat)) {
     out.push({ id: 'sup-' + cat, label: CAT_LABEL[cat as SupplyCat], amount: v.amount, date: p.start, meta: `${v.n} planned ${v.n === 1 ? 'buy' : 'buys'} · from Supplies`, kind: 'supplies' })
   }
-  // taxes for previous month, on the day I pay them (official deadline is taxDueDay)
-  const due = `${p.month}-${pad(st.settings.taxPayDay ?? st.settings.taxDueDay)}`
-  if (due >= p.start && due <= p.end) {
+  // taxes for the periods that ended last month, on the days I pay them (official deadlines are later)
+  {
     const forMonth = prevMonth(p.month)
-    const tx = taxFor(st, forMonth)
-    if (tx.total > 0) out.push({ id: 'tax-' + forMonth, label: 'ZUS + PIT', amount: toMain(st.settings, tx.total, taxCur(st.settings), due), date: due, meta: `for ${monthName(forMonth, true)} · ${tx.paid ? 'paid' : tx.zusPaid ? 'ZUS paid · PIT ' + fmtDay(due) : tx.pitPaid ? 'PIT paid · ZUS ' + fmtDay(due) : 'pay ' + fmtDay(due)}`, kind: 'tax' })
+    for (const x of taxPays(st, forMonth)) if (x.amount > 0 && x.pay >= p.start && x.pay <= p.end) {
+      const paidPart = x.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
+      out.push({ id: `tax-${forMonth}-${x.pay}`, label: x.name, amount: toMain(st.settings, x.amount, taxCur(st.settings), x.pay), date: x.pay, meta: `for ${taxPeriodName(st, forMonth)} · ${x.paid ? 'paid' : paidPart ? `${paidPart} paid · ${x.leftName} ${fmtDay(x.pay)}` : 'pay ' + fmtDay(x.pay)}`, kind: 'tax' })
+    }
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
   const localDay = (iso: string) => { const x = new Date(iso); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}` }
@@ -279,6 +280,7 @@ export const summarize = (st: State, key: string): PeriodSummary => {
 // taxes are worked out in their own currency (zł unless set)
 export const taxCur = (s: Settings) => s.taxCur ?? 'PLN'
 export const fmtTax = (s: Settings, n: number, dec = false) => fmtCur(n, taxCur(s), dec)
+export const taxRule = (s: Settings): TaxRule => s.taxRule ?? (taxCur(s) === 'PLN' ? 'nbp' : 'invoice')
 export const revenueFromIncome = (st: State, mk: string) => {
   const tc = taxCur(st.settings)
   let sum = 0
@@ -286,32 +288,113 @@ export const revenueFromIncome = (st: State, mk: string) => {
     if (!key.startsWith(mk)) continue
     for (const it of p.items) if (it.kind === 'income' && it.taxable) sum += conv(st.settings, it.amount, it.currency ?? st.settings.mainCur, tc, it.date ?? periodFromKey(key, st.settings).end)
   }
-  // invoices count as revenue in the month of the invoice date, at their NBP rate — no need to wait for payment
-  for (const s of st.sessions) if (s.invoiced && s.invoiceDate && s.invoiceDate.startsWith(mk)) sum += sessionTax(st, s)
+  // invoices count in the month of the invoice date (no need to wait for payment) — or, by the "when paid" rule, in the month the money arrives
+  const paidRule = taxRule(st.settings) === 'paid'
+  for (const s of st.sessions) if (s.invoiced && s.invoiceDate && (paidRule ? s.paid && s.paidDate?.startsWith(mk) : s.invoiceDate.startsWith(mk))) sum += sessionTax(st, s)
   return sum
 }
+export const monthRevenue = (st: State, mk: string) => st.taxMonths[mk]?.revenueOverride ?? revenueFromIncome(st, mk)
+const PERIOD_LEN: Record<TaxEvery, number> = { month: 1, quarter: 3, year: 12 }
+// does this line's period end in month mk? (it's paid the month after)
+export const lineEndsIn = (l: TaxLine, mk: string) => +mk.slice(5, 7) % PERIOD_LEN[l.every] === 0
+// the month in which the period containing mk ends
+export const periodEnd = (l: TaxLine, mk: string) => {
+  const n = PERIOD_LEN[l.every], m = +mk.slice(5, 7)
+  return `${mk.slice(0, 4)}-${pad(Math.ceil(m / n) * n)}`
+}
+// months of the line's period that ends in mk
+export const periodMonths = (l: TaxLine, mk: string) => {
+  const out = [mk]
+  while (out.length < PERIOD_LEN[l.every]) out.unshift(prevMonth(out[0]))
+  return out
+}
+export const taxLinesOf = (s: Settings) => s.taxLines ?? []
+// the lines' amounts for one period: own numbers first, then fixed, then % lines (a % line may take off part of another line)
+export const lineAmounts = (lines: TaxLine[], revOf: (l: TaxLine) => number, own: Record<string, number | undefined>) => {
+  const out: Record<string, number> = {}
+  const calc: Record<string, number> = {}
+  const get = (l: TaxLine, depth = 0): number => {
+    if (out[l.id] !== undefined) return out[l.id]
+    let c = 0
+    if (l.kind === 'fixed') c = l.amount ?? 0
+    else if (l.kind === 'pct') c = Math.max(0, r2(((l.pct ?? 0) / 100) * revOf(l)))
+    else {
+      const o = lines.find((x) => x.id === l.less && x.id !== l.id)
+      const off = o && depth < 5 ? get(o, depth + 1) : 0
+      c = Math.max(0, r2(((l.pct ?? 0) / 100) * (revOf(l) - ((l.lessPct ?? 0) / 100) * off)))
+    }
+    calc[l.id] = c
+    return (out[l.id] = own[l.id] ?? c)
+  }
+  for (const l of lines) get(l)
+  for (const l of lines) if (calc[l.id] === undefined) calc[l.id] = out[l.id]
+  return { amounts: out, calc }
+}
+export interface TaxPart { line: TaxLine; amount: number; calc: number; own: boolean; paid: boolean; revenue: number }
+export interface TaxGroup { key: string; name: string; parts: TaxPart[]; amount: number; left: number; paid: boolean; payDay: number; dueDay: number }
+// everything for the periods ending in month mk (paid next month)
 export const taxFor = (st: State, mk: string) => {
   const tm = st.taxMonths[mk]
-  const s = st.settings
-  const revenue = tm?.revenueOverride ?? revenueFromIncome(st, mk)
-  const dra = tm?.draOverride ?? s.dra
-  const rca = tm?.rcaOverride ?? s.rca
-  const pit = tm?.pitOverride ?? Math.max(0, r2(s.pitRate * (revenue - 0.5 * dra)))
-  // ZUS (DRA + RCA) is a fixed monthly amount, due whether or not there was revenue; only PIT depends on revenue
-  const total = r2(dra + rca + pit)
-  const zusPaid = !!(tm?.paid || tm?.zusPaid), pitPaid = !!(tm?.paid || tm?.pitPaid)
-  const left = r2((zusPaid ? 0 : dra + rca) + (pitPaid ? 0 : pit)) // still to pay
-  return { revenue, dra, rca, pit, total, paid: zusPaid && pitPaid, zusPaid, pitPaid, left, override: tm?.revenueOverride !== undefined }
+  const revenue = monthRevenue(st, mk)
+  const lines = taxLinesOf(st.settings).filter((l) => lineEndsIn(l, mk))
+  const revOf = (l: TaxLine) => periodMonths(l, mk).reduce((a, m) => a + (m === mk ? revenue : monthRevenue(st, m)), 0)
+  const own: Record<string, number | undefined> = {}
+  for (const l of lines) own[l.id] = tm?.lines?.[l.id]?.amount
+  const { amounts, calc } = lineAmounts(lines, revOf, own)
+  const parts: TaxPart[] = lines.map((l) => ({ line: l, amount: amounts[l.id], calc: calc[l.id], own: own[l.id] !== undefined, paid: !!tm?.lines?.[l.id]?.paid, revenue: revOf(l) }))
+  const groups: TaxGroup[] = []
+  for (const p of parts) {
+    const key = p.line.group?.trim() || p.line.id
+    let g = groups.find((x) => x.key === key)
+    if (!g) groups.push((g = { key, name: p.line.group?.trim() || p.line.name, parts: [], amount: 0, left: 0, paid: true, payDay: p.line.payDay, dueDay: p.line.dueDay }))
+    g.parts.push(p)
+    g.amount = r2(g.amount + p.amount)
+    if (!p.paid) { g.left = r2(g.left + p.amount); g.paid = false }
+  }
+  const total = r2(parts.reduce((a, p) => a + p.amount, 0))
+  const left = r2(groups.reduce((a, g) => a + g.left, 0))
+  return { revenue, parts, groups, total, left, paid: parts.length > 0 && groups.every((g) => g.paid), override: tm?.revenueOverride !== undefined }
 }
-// what's still to pay, in words: 'ZUS + PIT', 'ZUS' or 'PIT'
-export const taxLeftName = (tx: { zusPaid: boolean; pitPaid: boolean }) => (tx.zusPaid ? 'PIT' : tx.pitPaid ? 'ZUS' : 'ZUS + PIT')
-// mark ZUS or PIT (or both) paid / not paid for a month
-export const setTaxPaid = (d: State, mk: string, part: 'zus' | 'pit' | 'both', on: boolean) => {
-  const tm = (d.taxMonths[mk] ??= { paid: false })
-  let z = !!(tm.paid || tm.zusPaid), p = !!(tm.paid || tm.pitPaid)
-  if (part !== 'pit') z = on
-  if (part !== 'zus') p = on
-  tm.zusPaid = z || undefined; tm.pitPaid = p || undefined; tm.paid = z && p
+export type TaxInfo = ReturnType<typeof taxFor>
+// "ZUS + PIT-28": what's still to pay (everything, once all is paid)
+export const taxLeftName = (tx: TaxInfo) => (tx.groups.some((g) => !g.paid) ? tx.groups.filter((g) => !g.paid) : tx.groups).map((g) => g.name).join(' + ')
+export const taxAllName = (tx: TaxInfo) => tx.groups.map((g) => g.name).join(' + ')
+// mark a group (or everything) paid / not paid for the periods ending in mk
+export const setTaxPaid = (d: State, mk: string, group: string | 'all', on: boolean) => {
+  const tm = (d.taxMonths[mk] ??= {})
+  const ls = (tm.lines ??= {})
+  for (const g of taxFor(d, mk).groups) if (group === 'all' || g.key === group) for (const p of g.parts) {
+    const x = (ls[p.line.id] ??= {})
+    if (on) x.paid = true; else delete x.paid
+  }
+}
+// a day of a month, never past its end
+export const dayOf = (mk: string, day: number) => { const [y, m] = mk.split('-').map(Number); return `${mk}-${pad(Math.min(Math.max(1, day || 1), daysInMonth(y, m)))}` }
+// the payments for the periods ending in mk, one per pay day (in the next month): names, amounts, paid
+export const taxPays = (st: State, mk: string, tx = taxFor(st, mk)) => {
+  const pm = nextMonth(mk)
+  const out: { pay: string; due: string; groups: TaxGroup[]; name: string; leftName: string; amount: number; left: number; paid: boolean }[] = []
+  for (const g of tx.groups) {
+    const pay = dayOf(pm, g.payDay), due = dayOf(pm, g.dueDay)
+    let x = out.find((o) => o.pay === pay)
+    if (!x) out.push((x = { pay, due, groups: [], name: '', leftName: '', amount: 0, left: 0, paid: true }))
+    x.groups.push(g)
+    if (due > x.due) x.due = due
+  }
+  for (const x of out) {
+    x.amount = r2(x.groups.reduce((a, g) => a + g.amount, 0)); x.left = r2(x.groups.reduce((a, g) => a + g.left, 0))
+    x.paid = x.groups.every((g) => g.paid)
+    x.name = x.groups.map((g) => g.name).join(' + ')
+    x.leftName = (x.paid ? x.groups : x.groups.filter((g) => !g.paid)).map((g) => g.name).join(' + ')
+  }
+  return out.sort((a, b) => a.pay.localeCompare(b.pay))
+}
+// "November" for monthly taxes, "Q4 2026" when only quarterly ones are due, "2026" for yearly
+export const taxPeriodName = (st: State, mk: string) => {
+  const ls = taxLinesOf(st.settings).filter((l) => lineEndsIn(l, mk))
+  if (!ls.length || ls.some((l) => l.every === 'month')) return monthName(mk, true)
+  if (ls.some((l) => l.every === 'quarter')) return `Q${+mk.slice(5, 7) / 3} ${mk.slice(0, 4)}`
+  return mk.slice(0, 4)
 }
 
 // ---------- work ----------
@@ -349,8 +432,9 @@ export const ensureFees = (d: State) => {
 // in the tax currency: invoices in zł taxes use their NBP rate, the rest the rate of the invoice day
 export const sessionTax = (st: State, s: Session) => {
   const cur = sessionCur(st, s), amt = sessionAmt(st, s), tc = taxCur(st.settings)
-  if (s.nbpRate && tc === 'PLN' && cur !== 'PLN') return amt * s.nbpRate
-  return conv(st.settings, amt, cur, tc, s.invoiceDate ?? s.paidDate)
+  const rule = taxRule(st.settings)
+  if (rule === 'nbp' && s.nbpRate && tc === 'PLN' && cur !== 'PLN') return amt * s.nbpRate
+  return conv(st.settings, amt, cur, tc, rule === 'paid' ? s.paidDate ?? s.invoiceDate : s.invoiceDate ?? s.paidDate)
 }
 // in the main currency: invoiced ones via their NBP rate (exact when the main currency is zł),
 // paid ones at the rate of their day, the rest at today's rate (an estimate)
@@ -367,7 +451,7 @@ export const fmtSum = (st: State, l: Session[]) => {
   return [...by].map(([c, n]) => fmtCur(n, c, n % 1 !== 0)).join(' + ')
 }
 // invoices outside zł need the NBP rate of the day before the invoice (Polish taxes)
-export const needsRate = (st: State, s: Session) => taxCur(st.settings) === 'PLN' && sessionCur(st, s) !== 'PLN'
+export const needsRate = (st: State, s: Session) => taxRule(st.settings) === 'nbp' && taxCur(st.settings) === 'PLN' && sessionCur(st, s) !== 'PLN'
 export const fmtHours = (h: number) => (Math.round(h * 10) / 10).toString().replace(/\.0$/, '') + ' h'
 export const fmtClock = (ms: number) => {
   const t = Math.max(0, Math.floor(ms / 1000))
