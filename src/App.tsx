@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useSt, useStore } from './store'
 import { Icon, openSheet, registerSettings, useUi, type Tab } from './ui'
 import { CalendarPage } from './calendar'
@@ -91,6 +91,18 @@ export const App = () => {
   const ready = useStore((s) => s.ready)
   const { tab, sheet, under, pushed, toast, go, close, cal } = useUi()
   const area = useVisibleArea()
+  // a page pushed on top keeps the sheet at least as tall as the page it covers,
+  // so a short form doesn't shrink the sheet and flash the screen behind it
+  const sheetEl = useRef<HTMLDivElement>(null)
+  const lastH = useRef(0), depth = useRef(0)
+  const [minH, setMinH] = useState(0)
+  useLayoutEffect(() => {
+    const d = sheet ? under.length : 0
+    if (d === 0) { if (minH) setMinH(0) }
+    else if (d > depth.current) { const h = lastH.current; setMinH((m) => Math.max(m, h)) }
+    depth.current = d
+    if (sheetEl.current) lastH.current = sheetEl.current.offsetHeight
+  })
   const [splash, setSplash] = useState(true) // the loading animation, once per app start
   // a new language redraws everything (open sheets included)
   const lang = useStore((s) => resolveLang(s.st.settings.lang))
@@ -132,7 +144,7 @@ export const App = () => {
       </nav>
       {sheet && (
         <div className="scrim" onClick={close} style={area ? { top: area.top, bottom: 'auto', height: area.h } : undefined}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} style={area ? { maxHeight: area.h - 24 } : undefined}>
+          <div className="sheet" ref={sheetEl} onClick={(e) => e.stopPropagation()} style={{ ...(area ? { maxHeight: area.h - 24 } : {}), ...(minH ? { minHeight: `min(${minH}px, ${area ? area.h - 24 + 'px' : '92vh'})` } : {}) }}>
             {/* pages stay mounted underneath (same key), so going back finds them as you left them */}
             {/* one list, so a page keeps its state when something is opened on top of it and closed again */}
             {[...under, sheet].map((n, i) => i < under.length

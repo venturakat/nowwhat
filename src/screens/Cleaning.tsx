@@ -39,7 +39,11 @@ export const Cleaning = () => {
         </List>
       )}
       {seasonal.map((m) => <SeasonCard key={m} mode={m} />)}
-      <button className="btn full soft" onClick={() => openSheet(<ListsSheet />)}>Edit lists</button>
+      <div className="card" style={{ gap: 6, padding: 16 }}>
+        <span className="t14 w5 muted">{tr('Cleaning presets')}</span>
+        <span className="t17">{tr('Modify to make it suit your needs.')}</span>
+        <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => openSheet(<ListsSheet />)}>{tr('Edit lists')}</button>
+      </div>
     </>
   )
 }
