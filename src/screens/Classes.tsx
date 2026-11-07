@@ -6,6 +6,7 @@ import { fitSize, addDays, classBatch, classMonthCost, paysPerClass, classEnd, c
 import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, TimeRange, toast } from '../ui'
 import { refreshRates } from '../rates'
 import { copyText } from './Money'
+import { tr, trn } from '../i18n'
 
 // Classes (Money › Classes): any regular paid classes. Each has a price per class in one currency and can be
 // paid in another (USD price sent as pesos at the dólar blue rate), plus a transfer fee in any currency.
@@ -23,14 +24,14 @@ export const Classes = () => {
   const all = st.classes ?? []
   if (!all.length) return (
     <button className="card money" style={{ gap: 6, textAlign: 'left' }} onClick={() => openSheet(<ClassEdit />)}>
-      <span className="t17">Set up your classes</span>
-      <span className="t15">Price per class and its currency, the days you have them, and the first class you haven’t paid for yet.</span>
+      <span className="t17">{tr('Set up your classes')}</span>
+      <span className="t15">{tr('Price per class and its currency, the days you have them, and the first class you haven’t paid for yet.')}</span>
     </button>
   )
   return (
     <>
       {all.map((c) => <ClassBlock key={c.id} c={c} />)}
-      <button className="btn full soft" onClick={() => openSheet(<ClassEdit />)}>+ Add a class</button>
+      <button className="btn full soft" onClick={() => openSheet(<ClassEdit />)}>{tr('+ Add a class')}</button>
     </>
   )
 }
@@ -47,43 +48,43 @@ const ClassBlock = ({ c }: { c: Course }) => {
     setBusy(true)
     const ok = await refreshRates(true).catch(() => false)
     setBusy(false)
-    toast(ok ? 'Rates updated' : 'Couldn’t reach the rates — type the rate when you pay')
+    toast(ok ? tr('Rates updated') : tr('Couldn’t reach the rates — type the rate when you pay'))
   }
   const rateLine = kind === 'blue' || kind === 'oficial'
-    ? `dólar ${kind} ${kind === 'blue' ? (s.blueArs ? `${numText(s.blueArs)}${s.blueAt ? ` · ${fmtDay(s.blueAt.slice(0, 10))} ${new Date(s.blueAt).toTimeString().slice(0, 5)}` : ''}` : 'not loaded yet') : s.oficialArs ? numText(s.oficialArs) : 'not loaded yet'}`
+    ? `dólar ${kind} ${kind === 'blue' ? (s.blueArs ? `${numText(s.blueArs)}${s.blueAt ? ` · ${fmtDay(s.blueAt.slice(0, 10))} ${new Date(s.blueAt).toTimeString().slice(0, 5)}` : ''}` : tr('not loaded yet')) : s.oficialArs ? numText(s.oficialArs) : tr('not loaded yet')}`
     : ''
   return (
     <>
       {b ? (
         <div className="card money" style={{ gap: 6 }}>
-          <span className="t15 w5">{c.name} · {per ? 'cost this month' : `next payment · ${monthName(b.month, true)}`}</span>
+          <span className="t15 w5">{c.name} · {per ? tr('cost this month') : `${tr('next payment')} · ${monthName(b.month, true)}`}</span>
           {per && b.paid !== undefined
             ? <span className="big" style={{ fontSize: fitSize(fmtPay(b.paid, payIn), 46, 10) }}>{fmtPay(b.paid, payIn)}</span>
             : b.paid !== undefined
-            ? <button className="big" style={{ fontSize: fitSize(fmtPay(b.paid, payIn), 46, 10), textAlign: 'left' }} onClick={() => copyText(String(b.paid), `${fmtPay(b.paid!, payIn, payIn !== 'ARS')} copied`)}>{fmtPay(b.paid, payIn)}</button>
+            ? <button className="big" style={{ fontSize: fitSize(fmtPay(b.paid, payIn), 46, 10), textAlign: 'left' }} onClick={() => copyText(String(b.paid), tr('{x} copied', { x: fmtPay(b.paid!, payIn, payIn !== 'ARS') }))}>{fmtPay(b.paid, payIn)}</button>
             : <span className="big" style={{ fontSize: fitSize(fmtCur(b.total, c.currency, false), 46, 10) }}>{fmtCur(b.total, c.currency, false)}</span>}
           <span className="t14">
-            {b.dates.length} {b.dates.length === 1 ? 'class' : 'classes'} × {cur0(c.price, c.currency)}
-            {kind && b.rate !== undefined ? ` × ${numText(r2(b.rate))} ${RATE_NAME[kind]}` : kind ? ` · paid in ${payIn}, rate typed when you pay` : ''}
-            {` · ${fmt(b.pln)}${b.fee ? ` with the ${cur0(b.fee, b.feeCur)} fee${per ? ' each time' : ''}` : ''}${per ? '' : ` · pay ${fmtDay(b.due)}`}`}
+            {trn(b.dates.length, '{n} class', '{n} classes')} × {cur0(c.price, c.currency)}
+            {kind && b.rate !== undefined ? ` × ${numText(r2(b.rate))} ${tr(RATE_NAME[kind])}` : kind ? ' · ' + tr('paid in {x}, rate typed when you pay', { x: payIn }) : ''}
+            {` · ${fmt(b.pln)}${b.fee ? ' ' + tr(per ? 'with the {x} fee each time' : 'with the {x} fee', { x: cur0(b.fee, b.feeCur) }) : ''}${per ? '' : ' · ' + tr('pay {d}', { d: fmtDay(b.due) })}`}
           </span>
           {(!per || (kind && kind !== 'manual')) && <div className="row" style={{ gap: 8 }}>
-            {!per && <button className="btn grow" onClick={() => openSheet(<PaySheet id={c.id} />)}>Paid</button>}
-            {kind && kind !== 'manual' && <button className={'btn soft' + (per ? ' grow' : '')} disabled={busy} onClick={refresh}>{busy ? 'Updating…' : 'Update rate'}</button>}
+            {!per && <button className="btn grow" onClick={() => openSheet(<PaySheet id={c.id} />)}>{tr('Paid')}</button>}
+            {kind && kind !== 'manual' && <button className={'btn soft' + (per ? ' grow' : '')} disabled={busy} onClick={refresh}>{busy ? tr('Updating…') : tr('Update rate')}</button>}
           </div>}
-          {!per && b.paid !== undefined && <span className="t13">Tap the amount to copy it{rateLine ? ` · ${rateLine}` : ''}</span>}
+          {!per && b.paid !== undefined && <span className="t13">{tr('Tap the amount to copy it')}{rateLine ? ` · ${rateLine}` : ''}</span>}
         </div>
       ) : (
         <div className="card money" style={{ gap: 4 }}>
           <span className="t15 w5">{c.name}</span>
-          <span className="t14">{!c.days.length ? 'No class days set yet' : per ? 'No classes this month' : 'Nothing to pay right now'}</span>
+          <span className="t14">{tr(!c.days.length ? 'No class days set yet' : per ? 'No classes this month' : 'Nothing to pay right now')}</span>
         </div>
       )}
-      <List title={b ? `${c.name} in ${monthName(b.month, true)}` : c.name} right={b ? 'tap to cancel' : undefined}>
+      <List title={b ? tr('{x} in {m}', { x: c.name, m: monthName(b.month, true) }) : c.name} right={b ? 'tap to cancel' : undefined}>
         {b && <MonthClasses c={c} month={b.month} />}
-        <Row title={<span className="muted">+ Extra class</span>} onClick={() => openSheet(<ExtraClass id={c.id} />)} />
-        {(!per || c.pays.length > 0) && <Row title="Payments" meta={c.pays.length ? `${c.pays.length} so far · last ${fmtDay([...c.pays].sort((a, x) => x.date.localeCompare(a.date))[0].date)}` : 'Nothing paid here yet'} trail={<Icon.chevR />} onClick={() => openSheet(<PaysSheet id={c.id} />)} />}
-        <Row title="Class settings" trail={<Icon.chevR />} onClick={() => openSheet(<ClassEdit id={c.id} />)} />
+        <Row title={<span className="muted">{tr('+ Extra class')}</span>} onClick={() => openSheet(<ExtraClass id={c.id} />)} />
+        {(!per || c.pays.length > 0) && <Row title={tr('Payments')} meta={c.pays.length ? tr('{n} so far · last {d}', { n: c.pays.length, d: fmtDay([...c.pays].sort((a, x) => x.date.localeCompare(a.date))[0].date) }) : tr('Nothing paid here yet')} trail={<Icon.chevR />} onClick={() => openSheet(<PaysSheet id={c.id} />)} />}
+        <Row title={tr('Class settings')} trail={<Icon.chevR />} onClick={() => openSheet(<ClassEdit id={c.id} />)} />
       </List>
     </>
   )
@@ -102,7 +103,7 @@ const MonthClasses = ({ c, month }: { c: Course; month: string }) => {
         const isPaid = paid.has(d)
         return (
           <Row key={d} dot={isPaid ? C.ok : off ? C.line : C.money} done={off} title={fmtWeekday(d)}
-            meta={[classTime(c, d), c.moved?.[d] ? `moved from ${fmtDay(c.moved[d])}` : c.extra.includes(d) && 'extra', isPaid ? 'paid' : off ? 'cancelled' : d < today() ? 'had it' : ''].filter(Boolean).join(' · ')}
+            meta={[classTime(c, d), c.moved?.[d] ? tr('moved from {d}', { d: fmtDay(c.moved[d]) }) : c.extra.includes(d) && tr('extra'), isPaid ? tr('paid') : off ? tr('cancelled') : d < today() ? tr('had it') : ''].filter(Boolean).join(' · ')}
             onClick={isPaid ? undefined : () => editClass(c.id, (L) => toggleClass(L, d))} />
         )
       })}
@@ -116,7 +117,7 @@ const ExtraClass = ({ id }: { id: string }) => {
   return (
     <Sheet title="Extra class">
       <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value)} /></Field>
-      <button className="btn full" disabled={!d} onClick={() => { editClass(id, (L) => { L.skips = L.skips.filter((y) => y !== d); if (!L.extra.includes(d)) L.extra.push(d) }); closeSheet() }}>Add</button>
+      <button className="btn full" disabled={!d} onClick={() => { editClass(id, (L) => { L.skips = L.skips.filter((y) => y !== d); if (!L.extra.includes(d)) L.extra.push(d) }); closeSheet() }}>{tr('Add')}</button>
     </Sheet>
   )
 }
@@ -136,11 +137,11 @@ const PaySheet = ({ id }: { id: string }) => {
   const zl = parseNum(pln) ?? est
   return (
     <Sheet title={`${c.name} · ${monthName(b.month, true)}`}>
-      <span className="t15 muted">{b.dates.length} {b.dates.length === 1 ? 'class' : 'classes'}: {b.dates.map((d) => fmtDay(d).split(' ')[0]).join(', ')} {monthName(b.month)}</span>
+      <span className="t15 muted">{trn(b.dates.length, '{n} class', '{n} classes')}: {b.dates.map((d) => fmtDay(d).split(' ')[0]).join(', ')} {monthName(b.month)}</span>
       <Field label="Paid on"><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-      {kind && <Field label={`${kind === 'blue' ? 'Dólar blue' : kind === 'oficial' ? 'Dólar oficial' : 'Rate'} that day: 1 ${c.currency} in ${payIn}`}><input className="input" inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} /></Field>}
-      <div className="card money" style={{ gap: 2, padding: 16 }}><span className="t14 w5">Sent</span><span className="mid">{rate ? fmtPay(sent, payIn, payIn !== 'ARS') : '—'}</span></div>
-      <Field label={`It cost you in ${curSign(st.settings.mainCur)}${b.fee ? `, with the ${cur0(b.fee, b.feeCur)} fee` : ''}`}><input className="input" inputMode="decimal" value={pln} placeholder={numText(est)} onChange={(e) => setPln(e.target.value)} /></Field>
+      {kind && <Field label={tr('{r} that day: 1 {a} in {b}', { r: kind === 'blue' ? 'Dólar blue' : kind === 'oficial' ? 'Dólar oficial' : tr('Rate'), a: c.currency, b: payIn })}><input className="input" inputMode="decimal" value={rateText} onChange={(e) => setRateText(e.target.value)} /></Field>}
+      <div className="card money" style={{ gap: 2, padding: 16 }}><span className="t14 w5">{tr('Sent')}</span><span className="mid">{rate ? fmtPay(sent, payIn, payIn !== 'ARS') : '—'}</span></div>
+      <Field label={b.fee ? tr('It cost you in {c}, with the {x} fee', { c: curSign(st.settings.mainCur), x: cur0(b.fee, b.feeCur) }) : tr('It cost you in {c}', { c: curSign(st.settings.mainCur) })}><input className="input" inputMode="decimal" value={pln} placeholder={numText(est)} onChange={(e) => setPln(e.target.value)} /></Field>
       <button className="btn full" disabled={!rate || !date} onClick={() => {
         update((d) => {
           const L = d.classes!.find((x) => x.id === id)!
@@ -148,8 +149,8 @@ const PaySheet = ({ id }: { id: string }) => {
           ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: itemId, kind: 'expense', label: `${L.name} (paid)`, amount: zl, currency: d.settings.mainCur, date, oneOff: true })
           L.pays.push({ id: uid(), date, dates: b.dates, price: L.price, currency: L.currency, rate: kind ? rate : undefined, paid: sent, payIn, pln: zl, plnCur: d.settings.mainCur, itemId })
         })
-        closeSheet(); toast(`Paid · ${fmt(zl)} added to the budget`)
-      }}>Save payment</button>
+        closeSheet(); toast(tr('Paid · {x} added to the budget', { x: fmt(zl) }))
+      }}>{tr('Save payment')}</button>
     </Sheet>
   )
 }
@@ -160,10 +161,10 @@ const PaysSheet = ({ id }: { id: string }) => {
   if (!c) return null
   const pays = [...c.pays].sort((a, x) => x.date.localeCompare(a.date))
   return (
-    <Sheet title={`${c.name} · payments`}>
+    <Sheet title={`${c.name} · ${tr('payments')}`}>
       <List empty="Nothing paid here yet">
         {pays.map((p) => (
-          <Row key={p.id} dot={C.ok} title={fmtDay(p.date)} meta={`${p.dates.length} ${p.dates.length === 1 ? 'class' : 'classes'}${p.rate ? ` · rate ${numText(r2(p.rate))}` : ''} · ${fmtCur(p.pln, p.plnCur ?? 'PLN', false)}`} trail={fmtPay(p.paid, p.payIn)}
+          <Row key={p.id} dot={C.ok} title={fmtDay(p.date)} meta={`${trn(p.dates.length, '{n} class', '{n} classes')}${p.rate ? ' · ' + tr('rate {x}', { x: numText(r2(p.rate)) }) : ''} · ${fmtCur(p.pln, p.plnCur ?? 'PLN', false)}`} trail={fmtPay(p.paid, p.payIn)}
             onClick={() => openSheet(<PayView cid={c.id} id={p.id} />)} />
         ))}
       </List>
@@ -177,9 +178,9 @@ const PayView = ({ cid, id }: { cid: string; id: string }) => {
   const p = c?.pays.find((x) => x.id === id)
   if (!c || !p) return null
   return (
-    <Sheet title={`${c.name} · paid ${fmtDay(p.date)}`}>
+    <Sheet title={`${c.name} · ${tr('paid {d}', { d: fmtDay(p.date) })}`}>
       <span className="t15">{fmtPay(p.paid, p.payIn, p.payIn !== 'ARS')} · {fmtCur(p.pln, p.plnCur ?? 'PLN', false)}</span>
-      <span className="t15 muted">{p.dates.length} {p.dates.length === 1 ? 'class' : 'classes'} × {cur0(p.price, p.currency)}{p.rate ? ` × ${numText(r2(p.rate))}` : ''}</span>
+      <span className="t15 muted">{trn(p.dates.length, '{n} class', '{n} classes')} × {cur0(p.price, p.currency)}{p.rate ? ` × ${numText(r2(p.rate))}` : ''}</span>
       <span className="t14 muted">{p.dates.map(fmtDay).join(', ')}</span>
       <button className="btn full soft" onClick={() => {
         update((d) => {
@@ -188,7 +189,7 @@ const PayView = ({ cid, id }: { cid: string; id: string }) => {
           for (const per of Object.values(d.periods)) per.items = per.items.filter((i) => i.id !== p.itemId)
         })
         openSheet(<PaysSheet id={cid} />)
-      }}>Delete payment</button>
+      }}>{tr('Delete payment')}</button>
     </Sheet>
   )
 }
@@ -224,18 +225,18 @@ export const ClassEdit = ({ id }: { id?: string }) => {
   const preview = differs && p ? classRate(st.settings, { ...(c ?? { id: '', name: '', days: [], since: today(), extra: [], skips: [], pays: [] }), price: p, currency: cur, payIn, rate: rateNow }) : undefined
   return (
     <Sheet title={c ? c.name : 'New class'}>
-      <Field label="What"><input className="input" value={name} placeholder="Spanish, yoga, piano…" autoFocus={!c} onChange={(e) => setName(e.target.value)} /></Field>
+      <Field label="What"><input className="input" value={name} placeholder={tr('Spanish, yoga, piano…')} autoFocus={!c} onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Price per class"><input className="input" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
       <Field label="Price currency"><CurPick value={cur} options={CURS} onChange={(x) => { if (payIn === cur) setPayIn(x); setCur(x) }} /></Field>
       <Field label="Payment currency"><CurPick value={payIn} options={PAY_CURS} onChange={setPayIn} /></Field>
       {differs && (
-        <Field label={`From ${cur} to ${payIn}`}>
+        <Field label={tr('From {a} to {b}', { a: cur, b: payIn })}>
           <div className="seg">
             {(['app', 'manual'] as ClassRate[]).map((r) => (
-              <button key={r} type="button" className={'chip' + (rateNow === r ? ' on' : '')} onClick={() => setRate(r)}>{r === 'blue' ? 'Dólar blue' : r === 'oficial' ? 'Dólar oficial' : r === 'app' ? 'Today’s rate' : 'I type it when paying'}</button>
+              <button key={r} type="button" className={'chip' + (rateNow === r ? ' on' : '')} onClick={() => setRate(r)}>{r === 'blue' ? 'Dólar blue' : r === 'oficial' ? 'Dólar oficial' : r === 'app' ? tr('Today’s rate') : tr('I type it when paying')}</button>
             ))}
           </div>
-          {preview !== undefined && p ? <span className="t13 muted">Now about {fmtPay(perClassPaid({ price: p, payIn } as Course, preview), payIn, !ars)} a class</span> : null}
+          {preview !== undefined && p ? <span className="t13 muted">{tr('Now about {x} a class', { x: fmtPay(perClassPaid({ price: p, payIn } as Course, preview), payIn, !ars) })}</span> : null}
         </Field>
       )}
       <Field label="Transfer fee each time">
@@ -255,13 +256,13 @@ export const ClassEdit = ({ id }: { id?: string }) => {
       <Field label="I pay">
         <div className="seg">
           {(['class', 'month'] as const).map((k) => (
-            <button key={k} type="button" className={'chip' + (every === k ? ' on' : '')} onClick={() => setEvery(k)}>{k === 'class' ? 'Per class' : 'Per month'}</button>
+            <button key={k} type="button" className={'chip' + (every === k ? ' on' : '')} onClick={() => setEvery(k)}>{k === 'class' ? tr('Per class') : tr('Per month')}</button>
           ))}
         </div>
       </Field>
       {every === 'month' && <Field label="Payment day"><input className="input" type="date" value={payDay} onChange={(e) => setPayDay(e.target.value)} /></Field>}
       {!c?.pays.length && <Field label="First class you haven’t paid for yet"><input className="input" type="date" value={since} onChange={(e) => setSince(e.target.value)} /></Field>}
-      {p && !differs && cur !== st.settings.mainCur ? <span className="t13 muted">About {fmt(toMain(st.settings, p, cur))} a class</span> : null}
+      {p && !differs && cur !== st.settings.mainCur ? <span className="t13 muted">{tr('About {x} a class', { x: fmt(toMain(st.settings, p, cur)) })}</span> : null}
       <button className="btn full" disabled={!name.trim() || !p || !days.length} onClick={() => {
         const needsArs = payIn === 'ARS'
         update((d) => {
@@ -278,11 +279,11 @@ export const ClassEdit = ({ id }: { id?: string }) => {
         })
         closeSheet()
         if (needsArs) refreshRates(true).catch(() => {})
-      }}>Save</button>
+      }}>{tr('Save')}</button>
       {c && <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
         if (!armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return }
         update((d) => { d.classes = (d.classes ?? []).filter((x) => x.id !== id) }); closeSheet()
-      }}>{armed ? 'Delete' : 'Remove this class'}</button>}
+      }}>{armed ? tr('Delete') : tr('Remove this class')}</button>}
     </Sheet>
   )
 }

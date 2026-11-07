@@ -1,4 +1,4 @@
-import { getLang, monthNames, weekdayNames } from './i18n'
+import { getLang, monthNames, tr, trn, weekdayNames } from './i18n'
 import type { TaxEvery, TaxLine, TaxRule, BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, PayCur, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
@@ -133,13 +133,13 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     }
   }
   for (const [cat, v] of Object.entries(byCat)) {
-    out.push({ id: 'sup-' + cat, label: CAT_LABEL[cat as SupplyCat], amount: v.amount, date: p.start, meta: `${v.n} planned ${v.n === 1 ? 'buy' : 'buys'} · from Supplies`, kind: 'supplies' })
+    out.push({ id: 'sup-' + cat, label: tr(CAT_LABEL[cat as SupplyCat]), amount: v.amount, date: p.start, meta: trn(v.n, '{n} planned buy · from Supplies', '{n} planned buys · from Supplies'), kind: 'supplies' })
   }
   // taxes paid this month, on the days I pay them (official deadlines are later)
   {
     for (const x of taxPays(st, p.month)) if (x.amount > 0 && x.pay >= p.start && x.pay <= p.end) {
       const paidPart = x.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
-      out.push({ id: `tax-${x.pay}`, label: x.name, amount: toMain(st.settings, x.amount, taxCur(st.settings), x.pay), date: x.pay, meta: `for ${x.forName} · ${x.paid ? 'paid' : paidPart ? `${paidPart} paid · ${x.leftName} ${fmtDay(x.pay)}` : 'pay ' + fmtDay(x.pay)}`, kind: 'tax' })
+      out.push({ id: `tax-${x.pay}`, label: x.name, amount: toMain(st.settings, x.amount, taxCur(st.settings), x.pay), date: x.pay, meta: `${tr('for {x}', { x: x.forName })} · ${x.paid ? tr('paid') : paidPart ? `${tr('{x} paid', { x: paidPart })} · ${x.leftName} ${fmtDay(x.pay)}` : tr('pay {d}', { d: fmtDay(x.pay) })}`, kind: 'tax' })
     }
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
@@ -160,14 +160,14 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     if (d > g.d) g.d = d
   }
   for (const [k, g] of Object.entries(hourly))
-    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtCur(g.amt, g.cur, g.amt % 1 !== 0)} · ${fmtDay(g.d)} · invoiced`, kind: 'fee', income: true, expected: true })
+    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtCur(g.amt, g.cur, g.amt % 1 !== 0)} · ${fmtDay(g.d)} · ${tr('invoiced')}`, kind: 'fee', income: true, expected: true })
   for (const s of st.sessions) {
     if (s.fee === undefined || s.paid) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
     const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
     if (!inHalf(d)) continue
-    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionMain(st, s), date: d, meta: `${s.feeMonth ? 'monthly fee' : s.task} · ${fmtCur(s.fee ?? 0, s.feeCur ?? 'EUR')} · ${fmtDay(d)} · ${s.invoiced ? 'invoiced' : 'expected'}`, kind: 'fee', income: true, expected: true, counted: !!s.feeMonth })
+    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionMain(st, s), date: d, meta: `${s.feeMonth ? tr('monthly fee') : s.task} · ${fmtCur(s.fee ?? 0, s.feeCur ?? 'EUR')} · ${fmtDay(d)} · ${s.invoiced ? tr('invoiced') : tr('expected')}`, kind: 'fee', income: true, expected: true, counted: !!s.feeMonth })
   }
   // future months of monthly clients (their entry is only created when the month comes)
   for (const c of st.clients) {
@@ -175,7 +175,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const d = feeDate(c, p.month)
     if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
     if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
-    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: toMain(st.settings, c.fixedEur, c.fixedCur ?? 'EUR'), date: d, meta: `monthly fee · ${fmtCur(c.fixedEur, c.fixedCur ?? 'EUR')} · ${fmtDay(d)} · expected`, kind: 'fee', income: true, expected: true, counted: true })
+    out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: toMain(st.settings, c.fixedEur, c.fixedCur ?? 'EUR'), date: d, meta: `${tr('monthly fee')} · ${fmtCur(c.fixedEur, c.fixedCur ?? 'EUR')} · ${fmtDay(d)} · ${tr('expected')}`, kind: 'fee', income: true, expected: true, counted: true })
   }
   // the next batch of classes to pay for, on the day of its first class (until it's paid)
   // per-class payers: like any regular expense — the classes held in this half, fee each time
@@ -184,25 +184,25 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const ds = classDates(c, p.start, p.end)
     if (!ds.length) continue
     const fee = c.fee ?? 0, feeCur = c.feeCurrency ?? st.settings.mainCur
-    out.push({ id: 'lessons-' + c.id, label: c.name, amount: r2(ds.reduce((a, d) => a + toMain(st.settings, c.price, c.currency, d) + toMain(st.settings, fee, feeCur, d), 0)), date: ds[0], meta: `${ds.length} ${ds.length === 1 ? 'class' : 'classes'} · ${ds.length === 1 ? fmtDay(ds[0]) : `${fmtDay(ds[0])} – ${fmtDay(ds[ds.length - 1])}`}`, kind: 'lessons' })
+    out.push({ id: 'lessons-' + c.id, label: c.name, amount: r2(ds.reduce((a, d) => a + toMain(st.settings, c.price, c.currency, d) + toMain(st.settings, fee, feeCur, d), 0)), date: ds[0], meta: `${trn(ds.length, '{n} class', '{n} classes')} · ${ds.length === 1 ? fmtDay(ds[0]) : `${fmtDay(ds[0])} – ${fmtDay(ds[ds.length - 1])}`}`, kind: 'lessons' })
   }
   for (const c of st.classes ?? []) {
     if (paysPerClass(c)) continue
     const lb = classBatch(st, c)
-    if (lb && inHalf(lb.due)) out.push({ id: 'lessons-' + c.id, label: c.name, amount: lb.pln, date: lb.due, meta: `${lb.dates.length} ${lb.dates.length === 1 ? 'class' : 'classes'} · ${fmtDay(lb.due)}`, kind: 'lessons' })
+    if (lb && inHalf(lb.due)) out.push({ id: 'lessons-' + c.id, label: c.name, amount: lb.pln, date: lb.due, meta: `${trn(lb.dates.length, '{n} class', '{n} classes')} · ${fmtDay(lb.due)}`, kind: 'lessons' })
   }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
     const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
     return { c, pln: inP.reduce((a, x) => a + toMain(st.settings, x.amount, c.currency, x.date), 0), dates: inP.map((x) => x.date) }
   }).filter((x) => x.dates.length)
-  if (cr.length) out.push({ id: 'credits', label: 'Credits', amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: creditMeta(cr.flatMap((x) => x.dates)), kind: 'credit' })
+  if (cr.length) out.push({ id: 'credits', label: tr('Credits'), amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: creditMeta(cr.flatMap((x) => x.dates)), kind: 'credit' })
   // subscriptions charged in this half, as one line
   const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
-  if (subs.length) out.push({ id: 'subs', label: 'Subscriptions', amount: subs.reduce((a, { x, d }) => a + toMain(st.settings, x.amount, x.currency, d), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
+  if (subs.length) out.push({ id: 'subs', label: tr('Subscriptions'), amount: subs.reduce((a, { x, d }) => a + toMain(st.settings, x.amount, x.currency, d), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
   // selfcare planned in this half (from today on; done ones are logged as spending instead)
   const care = careInPeriod(st, p.start, p.end)
-  if (care.length) out.push({ id: 'care', label: 'Selfcare', amount: care.reduce((a, c) => a + c.pln, 0), date: care[0].date, meta: [...new Set(care.map((c) => c.x.name))].join(', '), kind: 'care' })
+  if (care.length) out.push({ id: 'care', label: tr('Selfcare'), amount: care.reduce((a, c) => a + c.pln, 0), date: care[0].date, meta: [...new Set(care.map((c) => c.x.name))].join(', '), kind: 'care' })
   return out
 }
 
@@ -212,7 +212,7 @@ const creditMeta = (dates: string[]) => {
   const d = [...dates].sort()
   const a = parse(d[0]), b = parse(d[d.length - 1])
   const range = d[0] === d[d.length - 1] ? fmtDay(d[0]) : a.getMonth() === b.getMonth() ? `${a.getDate()}–${fmtDay(d[d.length - 1])}` : `${fmtDay(d[0])} – ${fmtDay(d[d.length - 1])}`
-  return `${d.length} ${d.length === 1 ? 'payment' : 'payments'} · ${range}`
+  return `${trn(d.length, '{n} payment', '{n} payments')} · ${range}`
 }
 // same day each month (clamped to the month's last day)
 export const monthlyDate = (first: string, i: number) => {
@@ -368,7 +368,7 @@ export const taxFor = (st: State, pm: string) => {
 }
 export type TaxInfo = ReturnType<typeof taxFor>
 // "October", "Q3 2026", "2026" — or several, joined
-export const periodLabel = (l: TaxLine, end: string) => (l.every === 'month' ? monthName(end, true) : l.every === 'quarter' ? `Q${+end.slice(5, 7) / 3} ${end.slice(0, 4)}` : end.slice(0, 4))
+export const periodLabel = (l: TaxLine, end: string) => (l.every === 'month' ? monthName(end, true) : l.every === 'quarter' ? tr('Q{q} {y}', { q: +end.slice(5, 7) / 3, y: end.slice(0, 4) }) : end.slice(0, 4))
 export const partsName = (parts: TaxPart[]) => [...new Set(parts.map((p) => periodLabel(p.line, p.end)))].join(' + ')
 // "ZUS + PIT-28": what's still to pay (everything, once all is paid)
 export const taxLeftName = (tx: { groups: TaxGroup[] }) => (tx.groups.some((g) => !g.paid) ? tx.groups.filter((g) => !g.paid) : tx.groups).map((g) => g.name).join(' + ')
@@ -458,7 +458,7 @@ export const fmtSum = (st: State, l: Session[]) => {
 }
 // invoices outside zł need the NBP rate of the day before the invoice (Polish taxes)
 export const needsRate = (st: State, s: Session) => taxRule(st.settings) === 'nbp' && taxCur(st.settings) === 'PLN' && sessionCur(st, s) !== 'PLN'
-export const fmtHours = (h: number) => (Math.round(h * 10) / 10).toString().replace(/\.0$/, '') + ' h'
+export const fmtHours = (h: number) => (Math.round(h * 10) / 10).toString().replace(/\.0$/, '') + ' ' + tr('h')
 export const fmtClock = (ms: number) => {
   const t = Math.max(0, Math.floor(ms / 1000))
   return `${pad(Math.floor(t / 3600))}:${pad(Math.floor((t % 3600) / 60))}:${pad(t % 60)}`

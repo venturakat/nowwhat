@@ -4,6 +4,7 @@ import type { Credit, Currency } from '../types'
 import { fitSize, curOptions, CUR_SIGN, creditStatus, diffDays, fmt, fmtBoth, fmtCur, fmtDay, monthName, periodOf, toMain, today, uid } from '../lib'
 import { C, closeSheet, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
+import { tr, trn } from '../i18n'
 
 const monthYear = (d?: string) => (d ? `${monthName(d.slice(0, 7))} ${d.slice(0, 4)}` : '—')
 
@@ -26,9 +27,9 @@ export const Credits = () => {
     <>
       {open.length > 0 && (
         <div className="card dark" style={{ gap: 6 }}>
-          <span className="t15 w5">Still to repay · {open.length} {open.length === 1 ? 'credit' : 'credits'}</span>
+          <span className="t15 w5">{tr('Still to repay')} · {trn(open.length, '{n} credit', '{n} credits')}</span>
           <span className="big" style={{ fontSize: fitSize(fmt(remaining), 49.5, 9) }}>{fmt(remaining)}</span>
-          <span className="t15">{fmt(thisMonth)} left to pay this month · all clear by {monthYear(lastEnd)}</span>
+          <span className="t15">{tr('{a} left to pay this month · all clear by {d}', { a: fmt(thisMonth), d: monthYear(lastEnd) })}</span>
         </div>
       )}
       <List title="Credits" empty="No credits — nice.">
@@ -36,18 +37,18 @@ export const Credits = () => {
           const n = s.next ? diffDays(t, s.next.date) : 0
           return (
             <Row key={c.id} dot={n <= 2 ? C.alert : C.money} title={c.name}
-              meta={`Next ${s.next ? (n === 0 ? 'today' : n === 1 ? 'tomorrow' : fmtDay(s.next.date)) : '—'} · ${fmtCur(s.next?.amount ?? 0, c.currency)} · ${s.left.length} left`}
+              meta={`${tr('Next {d}', { d: s.next ? (n === 0 ? tr('today') : n === 1 ? tr('tomorrow') : fmtDay(s.next.date)) : '—' })} · ${fmtCur(s.next?.amount ?? 0, c.currency)} · ${tr('{n} left', { n: s.left.length })}`}
               trail={(c.currency ?? st.settings.mainCur) === st.settings.mainCur ? fmt(s.remaining) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(s.remaining, c.currency, false)}<br /><span className="t13 muted">{fmt(pl(c, s.remaining))}</span></span>} onClick={() => openSheet(<CreditSheet id={c.id} />)} />
           )
         })}
       </List>
-      <button className="btn full soft" onClick={() => openSheet(<CreditEdit />)}>+ Add a credit</button>
+      <button className="btn full soft" onClick={() => openSheet(<CreditEdit />)}>{tr('+ Add a credit')}</button>
       {closed.length > 0 && (
         <List title="Paid off" right={String(closed.length)}>
-          {closed.map(({ c }) => <Row key={c.id} done title={c.name} meta={c.closedOn ? `Closed early ${fmtDay(c.closedOn)}` : 'All payments done'} onClick={() => openSheet(<CreditSheet id={c.id} />)} />)}
+          {closed.map(({ c }) => <Row key={c.id} done title={c.name} meta={c.closedOn ? tr('Closed early {d}', { d: fmtDay(c.closedOn) }) : tr('All payments done')} onClick={() => openSheet(<CreditSheet id={c.id} />)} />)}
         </List>
       )}
-      <div className="t13 muted" style={{ padding: '0 4px' }}>Each payment shows up in the Budget’s fixed list for its fortnight, until the credit is paid off.</div>
+      <div className="t13 muted" style={{ padding: '0 4px' }}>{tr('Each payment shows up in the Budget’s fixed list for its fortnight, until the credit is paid off.')}</div>
     </>
   )
 }
@@ -65,36 +66,36 @@ const CreditSheet = ({ id }: { id: string }) => {
     <Sheet title={c.name}>
       <div className="card money" style={{ gap: 8 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <div className="col"><span className="t14 w5">Left to repay</span><span className="mid">{fmtCur(s.remaining, cur)}</span>{cur !== st.settings.mainCur && <span className="t14">{fmt(toMain(st.settings, s.remaining, cur))}</span>}</div>
-          <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5">{s.closed ? 'Done' : 'Ends'}</span><span className="t17">{s.closed ? '✓' : monthYear(s.endsOn)}</span></div>
+          <div className="col"><span className="t14 w5">{tr('Left to repay')}</span><span className="mid">{fmtCur(s.remaining, cur)}</span>{cur !== st.settings.mainCur && <span className="t14">{fmt(toMain(st.settings, s.remaining, cur))}</span>}</div>
+          <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5">{s.closed ? tr('Done') : tr('Ends')}</span><span className="t17">{s.closed ? '✓' : monthYear(s.endsOn)}</span></div>
         </div>
         <div className="bar"><div style={{ width: `${paidPct * 100}%` }} /></div>
-        <span className="t14">{s.left.length} of {c.count} payments left · {fmtBoth(st.settings, c.installment, cur)} a month</span>
+        <span className="t14">{tr('{n} of {m} payments left · {x} a month', { n: s.left.length, m: c.count, x: fmtBoth(st.settings, c.installment, cur) })}</span>
       </div>
       <div className="t14 muted">
-        Taken {fmtDay(c.takenOn)} {c.takenOn.slice(0, 4)}{c.borrowed ? ` · borrowed ${fmtCur(c.borrowed, cur)} · repaying ${fmtCur(s.total, cur)} in total` : ''}
-        {c.extras.length ? ` · extra paid ${fmtCur(c.extras.reduce((a, x) => a + x.amount, 0), cur)}` : ''}
+        {tr('Taken {d}', { d: fmtDay(c.takenOn) + ' ' + c.takenOn.slice(0, 4) })}{c.borrowed ? ' · ' + tr('borrowed {a} · repaying {b} in total', { a: fmtCur(c.borrowed, cur), b: fmtCur(s.total, cur) }) : ''}
+        {c.extras.length ? ' · ' + tr('extra paid {x}', { x: fmtCur(c.extras.reduce((a, x) => a + x.amount, 0), cur) }) : ''}
         {c.note ? <><br />{c.note}</> : null}
       </div>
       {!s.closed && (
         <>
           <List title="Coming payments" right={`${s.left.length}`}>
-            {shown.map((p) => <Row key={p.n} dot={C.money} title={fmtDay(p.date) + ' ' + p.date.slice(0, 4)} meta={`Payment ${p.n} of ${c.count}${p.amount < c.installment - 0.004 && p.n !== c.count ? ' · partly covered by extra' : ''}`} trail={fmtCur(p.amount, cur)} />)}
-            {!all && s.left.length > 4 && <Row title={<span className="muted">Show all</span>} onClick={() => setAll(true)} />}
+            {shown.map((p) => <Row key={p.n} dot={C.money} title={fmtDay(p.date) + ' ' + p.date.slice(0, 4)} meta={`${tr('Payment {n} of {m}', { n: p.n, m: c.count })}${p.amount < c.installment - 0.004 && p.n !== c.count ? ' · ' + tr('partly covered by extra') : ''}`} trail={fmtCur(p.amount, cur)} />)}
+            {!all && s.left.length > 4 && <Row title={<span className="muted">{tr('Show all')}</span>} onClick={() => setAll(true)} />}
           </List>
           <div className="btn2">
-            <button className="btn" onClick={() => openSheet(<ExtraSheet id={c.id} />)}>Extra payment</button>
-            <button className="btn ghost" onClick={() => openSheet(<CloseSheet id={c.id} />)}>Close it now</button>
+            <button className="btn" onClick={() => openSheet(<ExtraSheet id={c.id} />)}>{tr('Extra payment')}</button>
+            <button className="btn ghost" onClick={() => openSheet(<CloseSheet id={c.id} />)}>{tr('Close it now')}</button>
           </div>
         </>
       )}
       {c.extras.length > 0 && (
         <List title="Extra payments">
-          {c.extras.map((x) => <Row key={x.id} title={fmtCur(x.amount, cur)} meta={fmtDay(x.date) + ' ' + x.date.slice(0, 4)} trail={<span className="t14 muted">remove</span>} onClick={() => update((d) => { const cc = d.credits.find((y) => y.id === c.id)!; cc.extras = cc.extras.filter((y) => y.id !== x.id) })} />)}
+          {c.extras.map((x) => <Row key={x.id} title={fmtCur(x.amount, cur)} meta={fmtDay(x.date) + ' ' + x.date.slice(0, 4)} trail={<span className="t14 muted">{tr('remove')}</span>} onClick={() => update((d) => { const cc = d.credits.find((y) => y.id === c.id)!; cc.extras = cc.extras.filter((y) => y.id !== x.id) })} />)}
         </List>
       )}
-      {c.closedOn && <button className="btn full soft" onClick={() => update((d) => { delete d.credits.find((y) => y.id === c.id)!.closedOn })}>Reopen (undo closing)</button>}
-      <button className="btn full soft" onClick={() => openSheet(<CreditEdit id={c.id} />)}>Edit details</button>
+      {c.closedOn && <button className="btn full soft" onClick={() => update((d) => { delete d.credits.find((y) => y.id === c.id)!.closedOn })}>{tr('Reopen (undo closing)')}</button>}
+      <button className="btn full soft" onClick={() => openSheet(<CreditEdit id={c.id} />)}>{tr('Edit details')}</button>
     </Sheet>
   )
 }
@@ -104,14 +105,14 @@ const ExtraSheet = ({ id }: { id: string }) => {
   const c = st.credits.find((x) => x.id === id)!
   return (
     <FormSheet title="Extra payment" initial={{ date: today() }} saveLabel="Add extra payment"
-      fields={[{ key: 'amount', label: `Amount (${CUR_SIGN[c.currency ?? useStore.getState().st.settings.mainCur]})`, type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
-      extra={<span className="t14 muted">Your bank takes it off the end, so the last payments shrink or disappear. It’s also added to that fortnight’s spending.</span>}
+      fields={[{ key: 'amount', label: tr('Amount ({x})', { x: CUR_SIGN[c.currency ?? useStore.getState().st.settings.mainCur] }), type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
+      extra={<span className="t14 muted">{tr('Your bank takes it off the end, so the last payments shrink or disappear. It’s also added to that fortnight’s spending.')}</span>}
       onSave={(v) => {
         if (!v.amount) return
         update((d) => { d.credits.find((x) => x.id === id)!.extras.push({ id: uid(), date: v.date || today(), amount: v.amount }) })
-        logPayment(v.date || today(), `Extra payment · ${c.name}`, v.amount, c.currency)
+        logPayment(v.date || today(), `${tr('Extra payment')} · ${c.name}`, v.amount, c.currency)
         const s = creditStatus({ ...c, extras: [...c.extras, { id: 'x', date: v.date, amount: v.amount }] })
-        toast(s.left.length ? `Now ends ${monthYear(s.endsOn)}` : 'That pays it off!')
+        toast(s.left.length ? tr('Now ends {d}', { d: monthYear(s.endsOn) }) : 'That pays it off!')
       }}
     />
   )
@@ -123,11 +124,11 @@ const CloseSheet = ({ id }: { id: string }) => {
   const s = creditStatus(c)
   return (
     <FormSheet title="Close it now" initial={{ date: today(), amount: s.remaining }} saveLabel="Close the credit"
-      fields={[{ key: 'amount', label: `Paid to close it (${CUR_SIGN[c.currency ?? useStore.getState().st.settings.mainCur]}) — check the bank’s figure, early repayment is often less`, type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
+      fields={[{ key: 'amount', label: tr('Paid to close it ({x}) — check the bank’s figure, early repayment is often less', { x: CUR_SIGN[c.currency ?? useStore.getState().st.settings.mainCur] }), type: 'number' }, { key: 'date', label: 'Date', type: 'date' }]}
       onSave={(v) => {
         const date = v.date || today()
         update((d) => { d.credits.find((x) => x.id === id)!.closedOn = date })
-        if (v.amount) logPayment(date, `Closing payment · ${c.name}`, v.amount, c.currency)
+        if (v.amount) logPayment(date, `${tr('Closing payment')} · ${c.name}`, v.amount, c.currency)
         toast('Paid off. Well done!')
       }}
     />

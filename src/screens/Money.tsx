@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
 import type { Currency, Session, State, TaxLine, TaxMonth } from '../types'
 import { bankAmount, fillTransfer, lineFormula } from '../taxes'
-import { tr } from '../i18n'
+import { tr, trn } from '../i18n'
 import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
@@ -69,7 +69,7 @@ const Budget = () => {
             if (it) p.items = p.items.filter((x) => x.id !== it.id)
             ensurePeriod(d, target).items.push(item as any)
           })
-          if (target !== key) toast(`Moved to ${periodFromKey(target, st.settings).label}`)
+          if (target !== key) toast(tr('Moved to {x}', { x: periodFromKey(target, st.settings).label }))
         }}
         onDelete={it ? () => update((d) => { const p = ensurePeriod(d, key); p.items = p.items.filter((x) => x.id !== it.id) }) : undefined}
       />
@@ -92,32 +92,32 @@ const Budget = () => {
     <>
       <div className="between">
         <button className="btn soft sm" onClick={() => setKey(shiftPeriod(key, -1))}><Icon.chevL /></button>
-        <div className="t17">{s.info.label}{isNow ? ' · now' : ''}</div>
+        <div className="t17">{s.info.label}{isNow ? ' · ' + tr('now') : ''}</div>
         <button className="btn soft sm" onClick={() => setKey(shiftPeriod(key, 1))}><Icon.chevR /></button>
       </div>
       <div className="card money" style={{ gap: 8 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
           <div className="col">
-            <span className="t15 w5">Left this fortnight</span>
+            <span className="t15 w5">{tr('Left this fortnight')}</span>
             <span className="big" style={{ fontSize: fitSize(fmt(s.left), 46, 8), color: s.left < 0 ? 'var(--alert)' : undefined }}>{fmt(s.left)}</span>
           </div>
           <div className="col" style={{ alignItems: 'flex-end' }}>
-            <span className="t14 w5">{isNow ? `per day · ${s.daysLeft} d left` : 'per day'}</span>
+            <span className="t14 w5">{isNow ? trn(s.daysLeft, 'per day · {n} day left', 'per day · {n} days left') : tr('per day')}</span>
             <span className="mid" style={{ fontSize: fitSize(fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1)), 23, 8) }}>{fmt(isNow ? s.perDay : s.left / (diffDays(s.info.start, s.info.end) + 1))}</span>
           </div>
         </div>
         <div className="bar"><div style={{ width: `${pct * 100}%` }} /></div>
-        <span className="t14">Spent {fmt(s.fixed + s.spent)} of {fmt(s.income)}</span>
+        <span className="t14">{tr('Spent {a} of {b}', { a: fmt(s.fixed + s.spent), b: fmt(s.income) })}</span>
       </div>
-      {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>Copied from last month — edit anything and it becomes this fortnight's own plan.</div>}
+      {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>{tr('Copied from last month — edit anything and it becomes this fortnight’s own plan.')}</div>}
       <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
         {s.auto.filter((a) => a.income && !a.expected).map((a) => (
           <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
         ))}
         {incomes.map((i) => (
-          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.taxable && 'business revenue'].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
+          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.taxable && tr('business revenue')].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
-        <Row title={<span className="muted">+ Add money in</span>} onClick={() => editItem(undefined, 'income')} />
+        <Row title={<span className="muted">{tr('+ Add money in')}</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
       {s.auto.some((a) => a.expected) && (
         <List title="Expected from clients" right={<span className="muted">{fmt(s.auto.filter((a) => a.expected).reduce((x, a) => x + a.amount, 0))}</span>}>
@@ -133,7 +133,7 @@ const Budget = () => {
         {expenses.map((i) => (
           <Row key={i.id} dot={C.line} title={i.label} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
-        <Row title={<span className="muted">+ Add fixed expense</span>} onClick={() => editItem(undefined, 'expense')} />
+        <Row title={<span className="muted">{tr('+ Add fixed expense')}</span>} onClick={() => editItem(undefined, 'expense')} />
       </List>
       {bought.length > 0 && (
         <Fold title="Supplies bought" right={fmt(boughtSum)}>
@@ -144,11 +144,11 @@ const Budget = () => {
       )}
       <Fold title="Day-to-day spending" right={fmt(s.spent)}>
         {spends.length ? spends.map((x) => (
-          <Row key={x.id} title={x.note || 'Spending'} meta={fmtDay(x.date)} trail={amt(x)} onClick={() => editSpend(x.id)} />
-        )) : <div className="list-empty">Nothing logged yet.</div>}
+          <Row key={x.id} title={x.note || tr('Spending')} meta={fmtDay(x.date)} trail={amt(x)} onClick={() => editSpend(x.id)} />
+        )) : <div className="list-empty">{tr('Nothing logged yet.')}</div>}
         <MergeSpends spends={spends} date={isNow ? today() : s.info.end} />
       </Fold>
-      <button className="btn full soft" onClick={() => editSpend()}>+ Log spending</button>
+      <button className="btn full soft" onClick={() => editSpend()}>{tr('+ Log spending')}</button>
     </>
   )
 }
@@ -172,7 +172,7 @@ const MergeSpends = ({ spends, date }: { spends: State['spends']; date: string }
     setSure(false)
     toast('Merged')
   }
-  return <Row title={<span className={sure ? undefined : 'muted'}>{sure ? 'Tap again to merge' : 'Merge identical spends'}</span>} onClick={() => sure ? merge() : setSure(true)} />
+  return <Row title={<span className={sure ? undefined : 'muted'}>{sure ? tr('Tap again to merge') : tr('Merge identical spends')}</span>} onClick={() => sure ? merge() : setSure(true)} />
 }
 
 // a list that opens on tap — closed by default
@@ -181,7 +181,7 @@ const Fold = ({ title, right, children }: { title: string; right: ReactNode; chi
   return (
     <div className="list">
       <button className="list-h" style={{ width: '100%', paddingBottom: open ? undefined : 8 }} onClick={() => setOpen(!open)}>
-        <span className="t17 row" style={{ gap: 6 }}>{title} <span className="muted" style={{ display: 'inline-flex', transform: open ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><Icon.chevR /></span></span>
+        <span className="t17 row" style={{ gap: 6 }}>{tr(title)} <span className="muted" style={{ display: 'inline-flex', transform: open ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><Icon.chevR /></span></span>
         <span className="t14 w5 muted">{right}</span>
       </button>
       {open && children}
@@ -196,7 +196,7 @@ export const SpendSheet = ({ id, initial }: { id?: string; initial?: any }) => (
     fields={[
       { key: 'amount', label: 'How much', type: 'number' },
       { key: 'currency', label: 'Currency', type: 'select', options: curOptions(useStore.getState().st.settings, initial?.currency) },
-      { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…', suggest: ['Eat out', 'Taxi', 'Coffee', 'Movies', 'Books', 'Gifts', 'Travel'] },
+      { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…', suggest: ['Eat out', 'Taxi', 'Coffee', 'Movies', 'Books', 'Gifts', 'Travel'].map((x) => tr(x)) },
       { key: 'date', label: 'Date', type: 'date' }
     ]}
     onSave={(v) => {
@@ -231,7 +231,7 @@ export const stopTimer = (st: State) => {
       d.sessions.push({ id: uid(), clientId: t.clientId, task: t.task, start: t.startedAt, end, invoiced: false, paid: false })
     d.timer = null
   })
-  toast('Saved to ' + (st.clients.find((c) => c.id === t.clientId)?.name ?? 'client'))
+  toast(tr('Saved to {x}', { x: st.clients.find((c) => c.id === t.clientId)?.name ?? tr('client') }))
 }
 
 export const StartTimerSheet = () => {
@@ -243,13 +243,13 @@ export const StartTimerSheet = () => {
   const [task, setTask] = useState('')
   return (
     <Sheet title="Start work timer">
-      {!clients.length && <div className="t15 muted">No clients yet. Add one in Money → Work → “+ Add client”.</div>}
-      <div className="field"><label>Client</label>
+      {!clients.length && <div className="t15 muted">{tr('No clients yet. Add one in Money → Work → “+ Add client”.')}</div>}
+      <div className="field"><label>{tr('Client')}</label>
         <div className="seg">{clients.map((c) => <button key={c.id} className={'chip' + (cid === c.id ? ' on' : '')} onClick={() => setCid(c.id)}>{c.name}</button>)}</div>
       </div>
-      <div className="field"><label>Task</label>
-        <input className="input" value={task} placeholder={lastTask ?? 'What are you working on?'} onChange={(e) => setTask(e.target.value)} />
-        {lastTask && !task && <span className="t13 muted">Leave empty to continue “{lastTask}”</span>}
+      <div className="field"><label>{tr('Task')}</label>
+        <input className="input" value={task} placeholder={lastTask ?? tr('What are you working on?')} onChange={(e) => setTask(e.target.value)} />
+        {lastTask && !task && <span className="t13 muted">{tr('Leave empty to continue “{x}”', { x: lastTask })}</span>}
       </div>
       <button className="btn full work" disabled={!cid} onClick={() => {
         update((d) => {
@@ -261,7 +261,7 @@ export const StartTimerSheet = () => {
         })
         closeSheet()
         useUi.getState().go('money', 'work')
-      }}><Icon.play /> Start</button>
+      }}><Icon.play /> {tr('Start')}</button>
     </Sheet>
   )
 }
@@ -288,35 +288,35 @@ const Work = () => {
     <>
       {t ? (
         <div className="card dark" style={{ gap: 6 }}>
-          <div className="between t15 w5"><span>● Running · {tc?.name}</span><span>{fmtCur(tc?.rateEur ?? 0, tc?.cur ?? 'EUR', (tc?.rateEur ?? 0) % 1 !== 0)} / h</span></div>
+          <div className="between t15 w5"><span>● {tr('Running')} · {tc?.name}</span><span>{tr('{x} / h', { x: fmtCur(tc?.rateEur ?? 0, tc?.cur ?? 'EUR', (tc?.rateEur ?? 0) % 1 !== 0) })}</span></div>
           <div className="big">{fmtClock(elapsed)}</div>
-          <div className="t15">{t.task} · {fmtCur((elapsed / 3600000) * (tc?.rateEur ?? 0), tc?.cur ?? 'EUR')} so far</div>
+          <div className="t15">{t.task} · {tr('{x} so far', { x: fmtCur((elapsed / 3600000) * (tc?.rateEur ?? 0), tc?.cur ?? 'EUR') })}</div>
           <div className="row" style={{ paddingTop: 8 }}>
-            <button className="btn work grow" onClick={() => stopTimer(st)}>Stop & save</button>
-            <button className="btn ghost grow" onClick={() => openSheet(<StartTimerSheet />)}>Switch task</button>
+            <button className="btn work grow" onClick={() => stopTimer(st)}>{tr('Stop & save')}</button>
+            <button className="btn ghost grow" onClick={() => openSheet(<StartTimerSheet />)}>{tr('Switch task')}</button>
           </div>
         </div>
       ) : (
         <button className="card work" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }} onClick={() => openSheet(<StartTimerSheet />)}>
           <Icon.play size={22} />
-          <span className="grow"><div className="t17">Start work timer</div><div className="t14 muted">Hours go straight onto the client’s invoice</div></span>
+          <span className="grow"><div className="t17">{tr('Start work timer')}</div><div className="t14 muted">{tr('Hours go straight onto the client’s invoice')}</div></span>
         </button>
       )}
       <List title="Clients" right={monthName(mk, true)}>
         {clientStats.map(({ c, mh, monthEur, monthPln, unInv, unpaid, unpaidEur, unInvEur }) => (
           <Row key={c.id} dot={C.work} title={c.name}
-            meta={[c.kind === 'fixed' ? `${fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR')} / month · on the ${ord(c.payDay ?? 1)}` : c.kind === 'job' ? (monthPln ? `Jobs this month · ${monthEur}` : 'No jobs this month') : mh ? `${fmtHours(mh)} · ${monthEur}` : 'No hours this month', unInv.length ? `${unInvEur} to invoice` : '', unpaid.length ? `${unpaidEur} not paid yet` : ''].filter(Boolean).join(' · ')}
+            meta={[c.kind === 'fixed' ? tr('{x} / month · on the {d}', { x: fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR'), d: ord(c.payDay ?? 1) }) : c.kind === 'job' ? (monthPln ? tr('Jobs this month · {x}', { x: monthEur }) : tr('No jobs this month')) : mh ? `${fmtHours(mh)} · ${monthEur}` : tr('No hours this month'), unInv.length ? tr('{x} to invoice', { x: unInvEur }) : '', unpaid.length ? tr('{x} not paid yet', { x: unpaidEur }) : ''].filter(Boolean).join(' · ')}
             trail={mh || monthPln ? fmt(monthPln, true) : '—'} onClick={() => openSheet(<ClientSheet id={c.id} />)} />
         ))}
-        <Row title={<span className="muted">+ Add client</span>} onClick={() => openSheet(<ClientEdit />)} />
+        <Row title={<span className="muted">{tr('+ Add client')}</span>} onClick={() => openSheet(<ClientEdit />)} />
       </List>
       {next && (
         <button className="card work" style={{ gap: 6 }} onClick={() => openSheet(<ClientSheet id={next.c.id} />)}>
-          <span className="t14 w5">Next step</span>
+          <span className="t14 w5">{tr('Next step')}</span>
           <span className="t17">
             {next.unpaid.length
-              ? `${next.c.name} paid? Tap to mark it — ${fmt(next.unpaidPln, true)} moves to income.`
-              : `Invoice ${next.c.name}: ${fmtHours(next.unInv.reduce((a, s) => a + hours(s), 0))} · ${next.unInvEur}`}
+              ? tr('{x} paid? Tap to mark it — {a} moves to income.', { x: next.c.name, a: fmt(next.unpaidPln, true) })
+              : tr('Invoice {x}: {h} · {a}', { x: next.c.name, h: fmtHours(next.unInv.reduce((a, s) => a + hours(s), 0)), a: next.unInvEur })}
           </span>
         </button>
       )}
@@ -344,11 +344,11 @@ const ClientEdit = ({ id, kind }: { id?: string; kind?: ClientKind }) => {
   const k: ClientKind | undefined = kind ?? c?.kind ?? (c ? 'hourly' : undefined)
   if (!k) return (
     <Sheet title="New client">
-      <span className="t15 muted">How do they pay you?</span>
+      <span className="t15 muted">{tr('How do they pay you?')}</span>
       {KINDS.map(([key, name, hint]) => (
         <button key={key} className="card" style={{ gap: 4, textAlign: 'left', padding: 16, background: 'var(--card)' }} onClick={() => openSheet(<ClientEdit kind={key} />)}>
-          <span className="t17">{name}</span>
-          <span className="t14 muted">{hint}</span>
+          <span className="t17">{tr(name)}</span>
+          <span className="t14 muted">{tr(hint)}</span>
         </button>
       ))}
     </Sheet>
@@ -365,12 +365,12 @@ const ClientEdit = ({ id, kind }: { id?: string; kind?: ClientKind }) => {
     : k === 'fixed' ? 'Each month gets its own entry. It shows in the budget as expected until you mark it paid.'
     : 'Add jobs in the client’s card, in any currency, whenever they come.'
   return (
-    <FormSheet title={c ? `${c.name} · ${KINDS.find((x) => x[0] === k)![1].toLowerCase()}` : KINDS.find((x) => x[0] === k)![1]}
+    <FormSheet title={c ? `${c.name} · ${tr(KINDS.find((x) => x[0] === k)![1]).toLowerCase()}` : KINDS.find((x) => x[0] === k)![1]}
       initial={c ? { fixedCur: 'EUR', cur: 'EUR', payDay: 1, ...c, since: c.since ? c.since + '-01' : today().slice(0, 8) + '01' } : { rateEur: 12, cur: 'EUR', fixedCur: 'EUR', payDay: 1, since: today().slice(0, 8) + '01' }}
       fields={fields}
       extra={<>
-        <span className="t13 muted">{hint}</span>
-        {c && <button type="button" className="t14 w5 muted" style={{ alignSelf: 'flex-start', padding: '4px 0' }} onClick={() => openSheet(<KindPick id={c.id} />)}>Change how they pay →</button>}
+        <span className="t13 muted">{tr(hint)}</span>
+        {c && <button type="button" className="t14 w5 muted" style={{ alignSelf: 'flex-start', padding: '4px 0' }} onClick={() => openSheet(<KindPick id={c.id} />)}>{tr('Change how they pay →')}</button>}
       </>}
       onSave={(v) => update((d) => {
         const data = { name: v.name, kind: k, rateEur: v.rateEur ?? c?.rateEur ?? 0, fixedEur: v.fixedEur ?? c?.fixedEur, cur: v.cur ?? c?.cur ?? 'EUR', fixedCur: v.fixedCur ?? c?.fixedCur ?? 'EUR', payDay: Math.min(31, Math.max(1, Math.round(v.payDay ?? c?.payDay ?? 1))), since: v.since ? String(v.since).slice(0, 7) : c?.since }
@@ -386,8 +386,8 @@ const KindPick = ({ id }: { id: string }) => (
   <Sheet title="How do they pay you?">
     {KINDS.map(([key, name, hint]) => (
       <button key={key} className="card" style={{ gap: 4, textAlign: 'left', padding: 16, background: 'var(--card)' }} onClick={() => openSheet(<ClientEdit id={id} kind={key} />)}>
-        <span className="t17">{name}</span>
-        <span className="t14 muted">{hint}</span>
+        <span className="t17">{tr(name)}</span>
+        <span className="t14 muted">{tr(hint)}</span>
       </button>
     ))}
   </Sheet>
@@ -404,7 +404,7 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
     return (
       <FormSheet title={s ? (s.feeMonth ? 'Edit monthly fee' : 'Edit job') : 'New job'} initial={init}
         fields={[{ key: 'task', label: 'What for', type: 'text', placeholder: 'Logo redesign' }, { key: 'fee', label: 'Amount', type: 'number' }, { key: 'feeCur', label: 'Currency', type: 'select', options: curOptions(st.settings, init.feeCur) }, { key: 'invoiceDate', label: 'Invoice date', type: 'date', clearable: true }, { key: 'paidDate', label: 'Paid on', type: 'date', clearable: true }]}
-        extra={<span className="t13 muted">Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.</span>}
+        extra={<span className="t13 muted">{tr('Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.')}</span>}
         onSave={(v) => update((d) => {
           const data = { task: v.task, fee: v.fee ?? 0, feeCur: (v.feeCur ?? 'EUR') as Currency }
           const sid = s?.id ?? uid()
@@ -434,7 +434,7 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
   return (
     <FormSheet title={s ? 'Edit hours' : 'Add hours'} initial={init}
       fields={[{ key: 'task', label: 'Task', type: 'text' }, { key: 'start', label: 'Start', type: 'datetime' }, { key: 'end', label: 'Stop', type: 'datetime' }, { key: 'invoiceDate', label: oldInvoiced ? 'Invoice date (invoiced earlier)' : 'Invoice date', type: 'date', clearable: true }, { key: 'paidDate', label: 'Paid on', type: 'date', clearable: true }]}
-      extra={<span className="t13 muted">Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.</span>}
+      extra={<span className="t13 muted">{tr('Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.')}</span>}
       onSave={(v) => update((d) => {
         const data = { task: v.task, start: new Date(v.start).toISOString(), end: new Date(v.end).toISOString() }
         const sid = s?.id ?? uid()
@@ -519,18 +519,18 @@ const InvoiceSheet = ({ ids, fix }: { ids: string[]; fix?: boolean }) => {
   const ok = !!date && (!anyEur || !!r)
   return (
     <Sheet title={fix ? (anyEur ? 'Invoice date & rate' : 'Invoice date') : 'Mark invoiced'}>
-      <span className="t15 muted">{ss.length} {ss.length === 1 ? 'entry' : 'entries'} · {fmtSum(st, ss)}</span>
+      <span className="t15 muted">{trn(ss.length, '{n} entry', '{n} entries')} · {fmtSum(st, ss)}</span>
       <Field label="Invoice date"><input className="input" type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value && anyEur) load(e.target.value, rateCur) }} /></Field>
-      {anyEur && <Field label={`1 ${curSign(rateCur)} in zł — NBP, last working day before the invoice`}>
-        <input className="input" inputMode="decimal" value={rate} placeholder={state === 'loading' ? 'Getting the NBP rate…' : 'e.g. 4,3955'} onChange={(e) => { setRate(e.target.value); setTable('typed by hand') }} />
-        <span className="t13 muted">{state === 'loading' ? 'Getting the rate from NBP…' : state === 'fail' ? 'Couldn’t reach NBP — type the rate from the invoice' : table ? `Table ${table}` : ''}</span>
+      {anyEur && <Field label={tr('1 {x} in zł — NBP, last working day before the invoice', { x: curSign(rateCur) })}>
+        <input className="input" inputMode="decimal" value={rate} placeholder={state === 'loading' ? tr('Getting the NBP rate…') : tr('e.g. 4,3955')} onChange={(e) => { setRate(e.target.value); setTable('typed by hand') }} />
+        <span className="t13 muted">{state === 'loading' ? tr('Getting the rate from NBP…') : state === 'fail' ? tr('Couldn’t reach NBP — type the rate from the invoice') : table ? tr('Table {x}', { x: table === 'typed by hand' ? tr(table) : table }) : ''}</span>
       </Field>}
-      {ok ? <div className="card money" style={{ gap: 2, padding: 16 }}><span className="t14 w5">On the invoice</span><span className="mid">{fmtCur(r2(eur * (r ?? 0) + plnPart), 'PLN')}</span></div> : null}
+      {ok ? <div className="card money" style={{ gap: 2, padding: 16 }}><span className="t14 w5">{tr('On the invoice')}</span><span className="mid">{fmtCur(r2(eur * (r ?? 0) + plnPart), 'PLN')}</span></div> : null}
       <button className="btn full" disabled={!ok} onClick={() => {
         if (!fix) copyText(invoiceLines(st, ss), 'Marked invoiced · lines copied for your invoice')
         update((d) => { for (const s of d.sessions) if (ids.includes(s.id)) Object.assign(s, needsRate(d, s) ? { invoiced: true, invoiceDate: date, nbpRate: r, nbpTable: table.split(' (')[0] } : { invoiced: true, invoiceDate: date }) })
         closeSheet()
-      }}>{fix ? 'Save' : 'Mark invoiced (copies the lines)'}</button>
+      }}>{fix ? tr('Save') : tr('Mark invoiced (copies the lines)')}</button>
     </Sheet>
   )
 }
@@ -554,7 +554,7 @@ const ClientSheet = ({ id }: { id: string }) => {
     const old = r2(pln(unpaid.filter((s) => !s.invoiceDate)))
     if (c.kind && c.kind !== 'hourly') {
       update((d) => { for (const s of unpaid) setStatus(d, s.id, { invoiced: true, paid: true, paidDate: today() }) })
-      toast(`${fmt(amount, true)} added to income`)
+      toast(tr('{x} added to income', { x: fmt(amount, true) }))
       return
     }
     update((d) => {
@@ -563,38 +563,38 @@ const ClientSheet = ({ id }: { id: string }) => {
       if (amount - old > 0.004) addIncome(d, key, { label: c.name, amount: r2(amount - old), currency: d.settings.mainCur, date: today(), taxable: false, fromClient: id })
       if (old > 0) addIncome(d, key, { label: c.name, amount: old, currency: d.settings.mainCur, date: today(), taxable: true, fromClient: id })
     })
-    toast(`${fmt(amount, true)} added to income`)
+    toast(tr('{x} added to income', { x: fmt(amount, true) }))
   }
   return (
     <Sheet title={c.name} full>
-      <div className="t15 muted">{c.kind === 'job' ? 'Fixed fee per job' : c.kind === 'fixed' ? `${fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR')} a month, due on the ${ord(c.payDay ?? 1)}` : `${fmtCur(c.rateEur, c.cur ?? 'EUR', c.rateEur % 1 !== 0)} per hour`}</div>
+      <div className="t15 muted">{c.kind === 'job' ? tr('Fixed fee per job') : c.kind === 'fixed' ? tr('{x} a month, due on the {d}', { x: fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR'), d: ord(c.payDay ?? 1) }) : tr('{x} per hour', { x: fmtCur(c.rateEur, c.cur ?? 'EUR', c.rateEur % 1 !== 0) })}</div>
       {unInv.length > 0 && (
         <div className="card work" style={{ gap: 6 }}>
-          <span className="t14 w5">Not invoiced yet</span>
+          <span className="t14 w5">{tr('Not invoiced yet')}</span>
           <span className="mid">{c.kind && c.kind !== 'hourly' ? eur(unInv) : `${fmtHours(unInv.reduce((a, s) => a + hours(s), 0))} · ${eur(unInv)}`}</span>
-          <span className="t14">{fmt(pln(unInv), true)} at today’s rate</span>
-          <button className="btn" onClick={() => openSheet(<InvoiceSheet ids={unInv.map((s) => s.id)} />)}>Mark invoiced…</button>
+          <span className="t14">{tr('{x} at today’s rate', { x: fmt(pln(unInv), true) })}</span>
+          <button className="btn" onClick={() => openSheet(<InvoiceSheet ids={unInv.map((s) => s.id)} />)}>{tr('Mark invoiced…')}</button>
         </div>
       )}
       {unpaid.length > 0 && (
         <div className="card money" style={{ gap: 6 }}>
-          <span className="t14 w5">Invoiced, waiting for payment</span>
+          <span className="t14 w5">{tr('Invoiced, waiting for payment')}</span>
           <span className="mid" style={{ fontSize: fitSize(fmt(pln(unpaid), true), 26.5, 14) }}>{fmt(pln(unpaid), true)}</span>
-          <span className="t14">{eur(unpaid)} · {unpaid.length} entries{tables.length ? ` · NBP ${tables.join(', ')}` : ''}</span>
-          {noRate.length > 0 && <button className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet(<InvoiceSheet ids={noRate.map((s) => s.id)} fix />)}>Set invoice date for the NBP rate</button>}
-          <button className="btn" onClick={markPaid}>They paid → add to income</button>
+          <span className="t14">{eur(unpaid)} · {trn(unpaid.length, '{n} entry', '{n} entries')}{tables.length ? ` · NBP ${tables.join(', ')}` : ''}</span>
+          {noRate.length > 0 && <button className="btn soft sm" style={{ alignSelf: 'flex-start' }} onClick={() => openSheet(<InvoiceSheet ids={noRate.map((s) => s.id)} fix />)}>{tr('Set invoice date for the NBP rate')}</button>}
+          <button className="btn" onClick={markPaid}>{tr('They paid → add to income')}</button>
         </div>
       )}
-      <List title="Hours" right={`${ss.length} entries`} empty="No hours yet">
+      <List title="Hours" right={trn(ss.length, '{n} entry', '{n} entries')} empty="No hours yet">
         {shown.map((s) => (
-          <Row key={s.id} title={s.task} meta={`${fmtDay(toLocalDate(s.start))} · ${timeOf(s.start)}–${timeOf(s.end)} · ${s.paid ? 'paid' : s.invoiced ? 'invoiced' : 'not invoiced'}`}
+          <Row key={s.id} title={s.task} meta={`${fmtDay(toLocalDate(s.start))} · ${timeOf(s.start)}–${timeOf(s.end)} · ${s.paid ? tr('paid') : s.invoiced ? tr('invoiced') : tr('not invoiced')}`}
             trail={s.fee !== undefined ? fmtSum(st, [s]) : `${fmtHours(hours(s))}`} dot={s.paid ? C.ok : s.invoiced ? C.money : C.work} onClick={() => openSheet(<SessionEdit clientId={id} id={s.id} />)} />
         ))}
-        {!all && ss.length > 8 && <Row title={<span className="muted">Show all</span>} onClick={() => setAll(true)} />}
+        {!all && ss.length > 8 && <Row title={<span className="muted">{tr('Show all')}</span>} onClick={() => setAll(true)} />}
       </List>
       <div className="row">
-        <button className="btn soft grow" onClick={() => openSheet(<SessionEdit clientId={id} />)}>{c.kind === 'job' ? '+ Add a job' : c.kind === 'fixed' ? '+ Add extra payment' : '+ Add hours'}</button>
-        <button className="btn soft grow" onClick={() => openSheet(<ClientEdit id={id} />)}>Edit client</button>
+        <button className="btn soft grow" onClick={() => openSheet(<SessionEdit clientId={id} />)}>{tr(c.kind === 'job' ? '+ Add a job' : c.kind === 'fixed' ? '+ Add extra payment' : '+ Add hours')}</button>
+        <button className="btn soft grow" onClick={() => openSheet(<ClientEdit id={id} />)}>{tr('Edit client')}</button>
       </div>
     </Sheet>
   )
@@ -689,7 +689,7 @@ const Taxes = () => {
       )}
       <div className="card" style={{ gap: 10, paddingTop: 16, paddingBottom: 16 }}>
         <div className="between" style={{ alignItems: 'flex-end' }}>
-          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), `${bankAmount(ytd)} copied`)}><span className="t14 w5 muted">{tr('Revenue {y} so far', { y: year })}</span><span className="mid" style={{ fontSize: fitSize(ft(ytd), 26.5, 9) }}>{ft(ytd)}</span></button>
+          <button className="col" style={{ textAlign: 'left' }} onClick={() => copyText(bankAmount(ytd), tr('{x} copied', { x: bankAmount(ytd) }))}><span className="t14 w5 muted">{tr('Revenue {y} so far', { y: year })}</span><span className="mid" style={{ fontSize: fitSize(ft(ytd), 26.5, 9) }}>{ft(ytd)}</span></button>
           <div className="col" style={{ alignItems: 'flex-end' }}><span className="t14 w5 muted">{tr('avg / month')}</span><span className="t17" style={{ fontSize: 17.5 }}>{ft(ytd / nonZero)}</span></div>
         </div>
         <div className="chart">
@@ -799,7 +799,7 @@ export const copyText = (text: string, msg: string) => {
 
 // Tap = copy its amount as 954,54
 const Quota = ({ label, amount, paid }: { label: string; amount: number; paid?: boolean }) => (
-  <button className="quota" onClick={() => copyText(bankAmount(amount), `${bankAmount(amount)} copied`)}>
+  <button className="quota" onClick={() => copyText(bankAmount(amount), tr('{x} copied', { x: bankAmount(amount) }))}>
     <span className="t13 w5">{label}{paid ? ' · ' + tr('paid') : ''}</span>
     <span className="t17" style={paid ? { textDecoration: 'line-through', opacity: 0.6 } : undefined}>{fmtTax(useStore.getState().st.settings, amount, true)}</span>
   </button>

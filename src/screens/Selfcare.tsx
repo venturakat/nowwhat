@@ -4,14 +4,15 @@ import type { SelfCare } from '../types'
 import { fitSize, curOptions, CUR_SIGN, timeSpan, addDays, careInMonth, careInPeriod, careNext, diffDays, fmt, fmtBoth, fmtDay, monthKey, monthName, numText, parseNum, periodOf, today, uid } from '../lib'
 import { C, closeSheet, Field, List, openSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
+import { tr, trn } from '../i18n'
 
 // quick starts for an empty tab (name, every N days)
 const IDEAS: [string, number][] = [['Manicure', 21], ['Pedicure', 42], ['Massage', 30], ['Haircut', 60], ['Gym', 30], ['Yoga class', 7]]
 
-export const everyText = (n: number) => (n === 1 ? 'Every day' : n === 7 ? 'Every week' : n % 7 === 0 ? `Every ${n / 7} weeks` : `Every ${n} days`)
+export const everyText = (n: number) => (n === 1 ? tr('Every day') : n === 7 ? tr('Every week') : n % 7 === 0 ? trn(n / 7, 'Every {n} week', 'Every {n} weeks') : trn(n, 'Every {n} day', 'Every {n} days'))
 const whenText = (d: string, t: string) => {
   const n = diffDays(t, d)
-  return n < 0 ? `${-n} ${n === -1 ? 'day' : 'days'} overdue` : n === 0 ? 'today' : n === 1 ? 'tomorrow' : fmtDay(d)
+  return n < 0 ? trn(-n, '{n} day overdue', '{n} days overdue') : n === 0 ? tr('today') : n === 1 ? tr('tomorrow') : fmtDay(d)
 }
 
 export const Selfcare = () => {
@@ -28,9 +29,9 @@ export const Selfcare = () => {
     <>
       {active.length > 0 && (
         <div className="card closet" style={{ gap: 6 }}>
-          <span className="t15 w5">Selfcare · {monthName(mk, true)} · {month.length} {month.length === 1 ? 'time' : 'times'}</span>
+          <span className="t15 w5">{tr('Selfcare')} · {monthName(mk, true)} · {trn(month.length, '{n} time', '{n} times')}</span>
           <span className="big" style={{ fontSize: fitSize(fmt(month.reduce((a, c) => a + c.pln, 0)), 46, 10) }}>{fmt(month.reduce((a, c) => a + c.pln, 0))}</span>
-          <span className="t14">{half.length ? `${fmt(halfSum)} planned this fortnight · already in your budget` : 'Nothing planned this fortnight'}</span>
+          <span className="t14">{half.length ? tr('{x} planned this fortnight · already in your budget', { x: fmt(halfSum) }) : tr('Nothing planned this fortnight')}</span>
         </div>
       )}
       <List title="Coming up" right="next time" empty="Add what you do for yourself regularly.">
@@ -38,18 +39,18 @@ export const Selfcare = () => {
           const late = diffDays(t, x.next) < 0
           return (
             <Row key={x.id} dot={x.paused ? C.line : late ? C.warn : C.closet} done={x.paused} title={x.name}
-              meta={<>{x.details && <div className="details">{x.details}</div>}{x.paused ? 'Paused' : `${everyText(x.everyDays)} · ${whenText(x.next, t)}${x.time ? ` at ${timeSpan(x.time, x.endTime)}` : ''}${month.filter((c) => c.x.id === x.id).length > 1 ? ` · ${month.filter((c) => c.x.id === x.id).length}× in ${monthName(mk, true)}` : ''}`}</>}
+              meta={<>{x.details && <div className="details">{x.details}</div>}{x.paused ? tr('Paused') : `${everyText(x.everyDays)} · ${whenText(x.next, t)}${x.time ? ' ' + tr('at {t}', { t: timeSpan(x.time, x.endTime) ?? '' }) : ''}${month.filter((c) => c.x.id === x.id).length > 1 ? ' · ' + tr('{n}× in {m}', { n: month.filter((c) => c.x.id === x.id).length, m: monthName(mk, true) }) : ''}`}</>}
               trail={fmtBoth(st.settings, x.price, x.currency)} onClick={() => openSheet(<CareSheet id={x.id} />)} />
           )
         })}
       </List>
       {all.length === 0 && (
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {IDEAS.map(([name, everyDays]) => <button key={name} className="chip" onClick={() => openSheet(<CareEdit preset={{ name, everyDays }} />)}>+ {name}</button>)}
+          {IDEAS.map(([name, everyDays]) => <button key={name} className="chip" onClick={() => openSheet(<CareEdit preset={{ name: tr(name), everyDays }} />)}>+ {tr(name)}</button>)}
         </div>
       )}
-      <button className="btn full soft" onClick={() => openSheet(<CareEdit />)}>+ Add selfcare</button>
-      <div className="t13 muted" style={{ padding: '0 4px' }}>Planned times go into your budget. Tap one when it’s done to log what you paid.</div>
+      <button className="btn full soft" onClick={() => openSheet(<CareEdit />)}>{tr('+ Add selfcare')}</button>
+      <div className="t13 muted" style={{ padding: '0 4px' }}>{tr('Planned times go into your budget. Tap one when it’s done to log what you paid.')}</div>
     </>
   )
 }
@@ -72,33 +73,33 @@ const CareSheet = ({ id }: { id: string }) => {
       y.next = addDays(date, Math.max(1, y.everyDays))
       y.time = undefined; y.endTime = undefined // the booked time was for this visit
     })
-    closeSheet(); toast(`Logged · next time ${fmtDay(addDays(date, Math.max(1, x.everyDays)))}`)
+    closeSheet(); toast(tr('Logged · next time {d}', { d: fmtDay(addDays(date, Math.max(1, x.everyDays))) }))
   }
   const skip = () => {
     const next = addDays(careNext(x, t), Math.max(1, x.everyDays))
     update((d) => { const y = d.selfcare!.find((z) => z.id === id)!; y.next = next; y.time = undefined; y.endTime = undefined })
-    closeSheet(); toast(`Skipped · next time ${fmtDay(next)}`)
+    closeSheet(); toast(tr('Skipped · next time {d}', { d: fmtDay(next) }))
   }
   return (
     <Sheet title={x.name}>
       {x.details && <div className="t17" style={{ marginTop: -4 }}>{x.details}</div>}
-      <div className="t15 muted">{x.paused ? 'Paused' : `${everyText(x.everyDays)} · next ${whenText(x.next, t)}${x.time ? ` at ${timeSpan(x.time, x.endTime)}` : ''}`}{x.lastDone ? ` · last time ${fmtDay(x.lastDone)}` : ''}</div>
+      <div className="t15 muted">{x.paused ? tr('Paused') : `${everyText(x.everyDays)} · ${tr('next {d}', { d: whenText(x.next, t) })}${x.time ? ' ' + tr('at {t}', { t: timeSpan(x.time, x.endTime) ?? '' }) : ''}`}{x.lastDone ? ' · ' + tr('last time {d}', { d: fmtDay(x.lastDone) }) : ''}</div>
       {!x.paused && (
         <div className="card closet" style={{ gap: 10 }}>
-          <span className="t15 w5">Done?</span>
+          <span className="t15 w5">{tr('Done?')}</span>
           <div className="row" style={{ gap: 8 }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Field label={`Paid (${CUR_SIGN[cur]})`}>
+            <div style={{ flex: 1, minWidth: 0 }}><Field label={tr('Paid ({x})', { x: CUR_SIGN[cur] })}>
               <input className="input" type="text" inputMode="decimal" value={paid} onChange={(e) => setPaid(e.target.value.replace(/[^0-9.,\s]/g, ''))} />
             </Field></div>
             <div style={{ flex: 1, minWidth: 0 }}><Field label="When">
               <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
             </Field></div>
           </div>
-          <button className="btn" onClick={done}>Done · log it</button>
+          <button className="btn" onClick={done}>{tr('Done · log it')}</button>
         </div>
       )}
-      {!x.paused && <button className="btn full soft" onClick={skip}>Skip this time</button>}
-      <button className="btn full soft" onClick={() => openSheet(<CareEdit id={x.id} />)}>Edit</button>
+      {!x.paused && <button className="btn full soft" onClick={skip}>{tr('Skip this time')}</button>}
+      <button className="btn full soft" onClick={() => openSheet(<CareEdit id={x.id} />)}>{tr('Edit')}</button>
     </Sheet>
   )
 }
