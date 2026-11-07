@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
 import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
-import { SpendSheet } from './Money'
+import { copyText, SpendSheet } from './Money'
 import { RecipeSheet } from './Recipes'
 import { ShipmentLog } from './Shipments'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
@@ -287,11 +287,31 @@ const NoteSheet = ({ id }: { id?: string }) => {
     })
     setNid(newId); setTitle(h ?? ''); setText(t); setEditing(false)
   }
+  // auto-save: the keyboard's Done tick (field loses focus) and pulling the sheet down both save
+  const latest = useRef(save); latest.current = save
+  useEffect(() => () => latest.current(), [])
+  const onBlur = (e: FocusEvent) => {
+    const to = e.relatedTarget as Node | null
+    if (to && (to as HTMLElement).matches?.('[data-note-field]')) return // hopping between title and text
+    if (document.visibilityState !== 'visible') return
+    save()
+  }
+  // view mode: one tap copies, two taps open editing
+  const tapT = useRef<number>()
+  const tap = () => {
+    if (tapT.current) { clearTimeout(tapT.current); tapT.current = undefined; setEditing(true); return }
+    tapT.current = window.setTimeout(() => {
+      tapT.current = undefined
+      const c = n?.text || n?.title
+      if (c) copyText(c, tr('Note copied'))
+    }, 280)
+  }
+  useEffect(() => () => clearTimeout(tapT.current), [])
   const round = (bg: string, on: boolean) => ({ width: 40, height: 40, borderRadius: '50%', background: bg, color: '#1d1d1f', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0.45 })
   return (
     <Sheet full={!!n} title={editing
       // the title is typed right into the header; empty = just "Note"
-      ? <input value={title} placeholder={tr(n ? 'Note' : 'New note')} onChange={(e) => setTitle(e.target.value)} aria-label={tr('Title')} style={{ font: 'inherit', letterSpacing: 'inherit', color: 'inherit', background: 'none', border: 0, outline: 'none', padding: 0, width: '100%' }} />
+      ? <input value={title} placeholder={tr(n ? 'Note' : 'New note')} onChange={(e) => setTitle(e.target.value)} onBlur={onBlur} data-note-field="" aria-label={tr('Title')} style={{ font: 'inherit', letterSpacing: 'inherit', color: 'inherit', background: 'none', border: 0, outline: 'none', padding: 0, width: '100%' }} />
       : n?.title || tr('Note')} actions={
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
         {n && <button aria-label={tr('Edit')} style={round('#E3D2FF', !editing)} onClick={() => setEditing(true)}><Icon.edit /></button>}
@@ -300,9 +320,9 @@ const NoteSheet = ({ id }: { id?: string }) => {
     }>
       {editing
         ? <>
-            <textarea className="input" autoFocus={!n} rows={11} value={text} placeholder={tr('Whatever’s on your mind')} onChange={(e) => setText(e.target.value)} style={{ resize: 'none', minHeight: 'calc(min(52vh, 420px) - 3 * 1.35em)', lineHeight: 1.35 }} />
+            <textarea className="input" autoFocus={!n} rows={11} value={text} placeholder={tr('Whatever’s on your mind')} onChange={(e) => setText(e.target.value)} onBlur={onBlur} data-note-field="" style={{ resize: 'none', minHeight: 'calc(min(52vh, 420px) - 3 * 1.35em)', lineHeight: 1.35 }} />
           </>
-        : n && <div style={{ padding: '4px 0 12px' }}>
+        : n && <div onClick={tap} style={{ padding: '4px 0 12px', minHeight: '40vh', touchAction: 'manipulation', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
             <div className="t13 muted">{fmtWeekday(localDay(n.at))}</div>
             {n.text && <div style={{ fontSize: 14, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 14 }}>{n.text}</div>}
           </div>}

@@ -47,7 +47,7 @@ export const uk: Record<string, string> = {
   'What to cook today': 'Що приготувати сьогодні', 'Nothing has everything at home right now.': 'Зараз немає рецепта, для якого все є вдома.',
   '{n} min': '{n} хв', 'all at home': 'усе є вдома', 'cooked {d}': 'востаннє {d}',
   'Brain dump': 'Нотатки', 'Delete note': 'Видалити нотатку', 'Note deleted': 'Нотатку видалено', 'Add a note': 'Додати нотатку',
-  'Note': 'Нотатка', 'New note': 'Нова нотатка', 'Whatever’s on your mind': 'Усе, що крутиться в голові',
+  'Note': 'Нотатка', 'New note': 'Нова нотатка', 'Note copied': 'Нотатку скопійовано', 'Whatever’s on your mind': 'Усе, що крутиться в голові',
   // shipments
   'Shipment log': 'Посилки', 'Add a shipment': 'Додати посилку', 'Shipment': 'Посилка', 'New shipment': 'Нова посилка',
   'no date yet': 'ще без дати', 'expected {d}': 'очікувалась {d}', 'arrives today': 'прибуде сьогодні', 'arrives tomorrow': 'прибуде завтра', 'arrives {d}': 'прибуде {d}',
