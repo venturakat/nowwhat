@@ -185,6 +185,8 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
 // Monday first; names in the app language
 const WD = () => { const w = weekdayNames(); return [...w.slice(1), w[0]] }
 const LONG_WD = () => weekdayNames(true)
+// the month title above the grid starts with a capital (Ukrainian month names are lowercase elsewhere)
+const cap = (s: string) => s.charAt(0).toLocaleUpperCase() + s.slice(1)
 
 export const CalendarPage = () => {
   const st = useSt()
@@ -238,7 +240,7 @@ export const CalendarPage = () => {
       <Header sub={`${LONG_WD()[parse(t).getDay()]}, ${fmtDay(t)}`} title="Calendar" right={<button className="hdr-gear" aria-label={tr('Calendar settings')} onClick={() => openSheet(<CalendarSettings />)}><Icon.gear /></button>} />
       <div className="between" style={{ alignItems: 'center' }}>
         <button className="cal-nav" aria-label={tr('Previous month')} onClick={() => slide(-1)}><Icon.chevL /></button>
-        <button className="mid" onClick={() => go(t.slice(0, 7))}>{monthNames(true)[+mk.slice(5, 7) - 1]}{mk.slice(0, 4) !== t.slice(0, 4) ? ` ${mk.slice(0, 4)}` : ''}</button>
+        <button className="mid" onClick={() => go(t.slice(0, 7))}>{cap(monthNames(true)[+mk.slice(5, 7) - 1])}{mk.slice(0, 4) !== t.slice(0, 4) ? ` ${mk.slice(0, 4)}` : ''}</button>
         <button className="cal-nav" aria-label={tr('Next month')} onClick={() => slide(1)}><Icon.chevR /></button>
       </div>
       <div className="cal-view noswipe" ref={view}
