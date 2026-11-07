@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { update, useSt } from '../store'
 import type { CleanMode, CleanRepeat } from '../types'
 import { addDays, diffDays, fmtDay, fmtWeekday, today, uid } from '../lib'
@@ -200,8 +200,31 @@ const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
     same.splice(to, 0, x)
     slots.forEach((i, k) => { d.cleanTasks[i] = same[k] })
   })
+  // swipe left / right anywhere on the sheet to go to the next / previous list
+  const mark = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const page = mark.current?.closest<HTMLElement>('.page') ?? mark.current?.parentElement
+    if (!page) return
+    let g: { x: number; y: number; t: number } | null = null
+    const start = (e: TouchEvent) => {
+      const t = e.target as HTMLElement
+      g = e.touches.length === 1 && !t.closest('.noswipe, input, textarea') ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null
+    }
+    const end = (e: TouchEvent) => {
+      if (!g) return
+      const c = e.changedTouches[0], dx = c.clientX - g.x, dy = c.clientY - g.y, fast = Date.now() - g.t < 600
+      g = null
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || (!fast && Math.abs(dx) < 90)) return
+      setMode((m) => { const i = MODES.indexOf(m) + (dx < 0 ? 1 : -1); return i < 0 || i >= MODES.length ? m : MODES[i] })
+      setArmed(null)
+    }
+    page.addEventListener('touchstart', start, { passive: true })
+    page.addEventListener('touchend', end)
+    return () => { page.removeEventListener('touchstart', start); page.removeEventListener('touchend', end) }
+  }, [])
   return (
     <Sheet title="Cleaning lists">
+      <span ref={mark} hidden />
       <Chips items={[['1', 'Light'], ['2', 'Regular'], ['3', 'Extra']]} value={String(mode)} onChange={(v) => { setMode(Number(v) as CleanMode); setArmed(null) }} />
       <List>
         <Row title={schedLabel(s)} meta={s.every === 'season' ? 'You pick the date on the Cleaning screen' : next ? `Next: ${fmtWeekday(next)}` : 'Set the day and how often'} trail="→" onClick={() => pushSheet(<ScheduleSheet mode={mode} />)} />
