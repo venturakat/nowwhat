@@ -31,6 +31,9 @@ export const buySupply = (id: string, qty?: number) =>
     sp.enoughUntil = addDays(from, Math.round((sp.lastsDays * q) / Math.max(1, sp.buyQty)))
   })
 
+// the dock's Supplies button turns into "Add new" while Supplies is open: adds to the list on screen
+export const addSupply = () => openSheet(<SupplyEdit cat={(useUi.getState().sub.supplies || CATS[0][0]) as SupplyCat} />)
+
 export const Supplies = () => {
   const st = useSt()
   const cat = useUi((u) => u.sub.supplies) as SupplyCat
@@ -73,7 +76,6 @@ export const Supplies = () => {
           {paused.map((s) => <Row key={s.id} dot={C.line} title={<span className="muted">{s.name}</span>} meta={s.details} onClick={() => openSheet(<SupplySheet id={s.id} />)} />)}
         </List>
       )}
-      <button className="btn full soft" onClick={() => openSheet(<SupplyEdit cat={cat} />)}>+ Add to {CAT_LABEL[cat]}</button>
     </div>
   )
 }
@@ -142,7 +144,7 @@ const SupplySheet = ({ id }: { id: string }) => {
   )
 }
 
-const SupplyEdit = ({ id, cat }: { id?: string; cat: SupplyCat }) => {
+export const SupplyEdit = ({ id, cat }: { id?: string; cat: SupplyCat }) => {
   const st = useSt()
   const s = st.supplies.find((x) => x.id === id)
   const init: Partial<Supply> = s ?? { cat, buyQty: 1, lastsDays: 30, enoughUntil: addDays(today(), 14) }

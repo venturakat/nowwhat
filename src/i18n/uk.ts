@@ -4,7 +4,7 @@ export const uk: Record<string, string> = {
   // ---- tabs, header, shared ----
   'Today': 'Сьогодні', 'Money': 'Гроші', 'Supplies': 'Запаси', 'Home': 'Дім', 'Closet': 'Гардероб',
   'Settings': 'Налаштування', 'Calendar': 'Календар', 'Back': 'Назад', 'Close': 'Закрити',
-  'Save': 'Зберегти', 'Delete': 'Видалити', 'Edit': 'Редагувати', 'Add': 'Додати', 'Change': 'Змінити',
+  'Save': 'Зберегти', 'Delete': 'Видалити', 'Edit': 'Редагувати', 'Add': 'Додати', 'Add new': 'Додати', 'Change': 'Змінити',
   'Yes': 'Так', 'No': 'Ні', 'Clear': 'Очистити', 'Not yet': 'Ще ні', 'Other day': 'Інший день', 'Other': 'Інше',
   'Starts': 'Початок', 'Ends': 'Кінець', 'Date': 'Дата', 'Name': 'Назва', 'Title': 'Назва',
   'today': 'сьогодні', 'tomorrow': 'завтра',

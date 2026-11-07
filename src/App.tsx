@@ -6,7 +6,7 @@ import { closeCal, openCal } from './calpage'
 import { SettingsSheet } from './settings'
 import { Today } from './screens/Today'
 import { Money, SpendSheet, StartTimerSheet, stopTimer } from './screens/Money'
-import { Supplies } from './screens/Supplies'
+import { Supplies, addSupply } from './screens/Supplies'
 import { Home } from './screens/Home'
 import { Closet } from './screens/Closet'
 import { fmtClock } from './lib'
@@ -118,12 +118,17 @@ export const App = () => {
       {/* on every tab: tap or pull it to lay the calendar over the page (only Today also opens it with a swipe) */}
       {!cal && <button className="cal-tab open" aria-label={tr('Calendar')} onClick={openCal}><Icon.calendar /></button>}
       <nav className="tabbar">
-        {TABS.map(([k, label, I]) => (
-          <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => go(k)}>
-            <I />
-            {tr(label)}
-          </button>
-        ))}
+        {TABS.map(([k, label, I]) => {
+          // on Supplies its own button becomes "Add new" for the list that's open
+          const add = k === 'supplies' && tab === 'supplies'
+          const B = add ? Icon.plus : I
+          return (
+            <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => add ? addSupply() : go(k)}>
+              <B />
+              {tr(add ? 'Add new' : label)}
+            </button>
+          )
+        })}
       </nav>
       {sheet && (
         <div className="scrim" onClick={close} style={area ? { top: area.top, bottom: 'auto', height: area.h } : undefined}>
