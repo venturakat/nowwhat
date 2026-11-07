@@ -46,7 +46,7 @@ export const nextMonth = (mk: string) => {
   if (m === 13) { m = 1; y += 1 }
   return `${y}-${pad(m)}`
 }
-export const relDays = (n: number) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday' : n < 0 ? `${-n} days ago` : `in ${n} days`)
+export const relDays = (n: number) => (n === 0 ? tr('today') : n === 1 ? tr('tomorrow') : n === -1 ? tr('yesterday') : n < 0 ? trn(-n, '{n} day ago', '{n} days ago') : trn(n, 'in {n} day', 'in {n} days'))
 
 // ---------- money ----------
 // amounts in the main currency (Settings › Currencies)
