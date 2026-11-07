@@ -185,7 +185,7 @@ export const uk: Record<string, string> = {
   'Today’s rate': 'Сьогоднішній курс', 'I type it when paying': 'Введу під час оплати', 'Now about {x} a class': 'Зараз приблизно {x} за заняття',
   'Transfer fee each time': 'Комісія за переказ щоразу', 'Class days': 'Дні занять', 'I pay': 'Оплата',
   'Per class': 'За заняття', 'Per month': 'Щомісяця', 'Payment day': 'День оплати',
-  'First class you haven’t paid for yet': 'Перше ще не оплачене заняття', 'About {x} a class': 'Приблизно {x} за заняття', 'Remove this class': 'Видалити це заняття',
+  'First class you haven’t paid for yet': 'Перше ще не оплачене заняття', 'About {x} a class': 'Приблизно {x} за заняття', 'Remove this class': 'Видалити це заняття', 'Home supplies': 'Для дому',
   '{n} credit|{n} credits': '{n} кредит|{n} кредити|{n} кредитів', 'Still to repay': 'Ще повернути', '{a} left to pay this month · all clear by {d}': '{a} ще сплатити цього місяця · усе закрито до {d}',
   'Next {d}': 'Наступний {d}', '{n} left': 'лишилось {n}', '+ Add a credit': '+ Додати кредит',
   'Closed early {d}': 'Закрито достроково {d}', 'All payments done': 'Усі платежі зроблено', 'Each payment shows up in the Budget’s fixed list for its fortnight, until the credit is paid off.': 'Кожен платіж зʼявляється серед постійних витрат бюджету за свої два тижні, доки кредит не буде виплачено.',
