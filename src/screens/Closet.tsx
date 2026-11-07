@@ -4,6 +4,7 @@ import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
 import { curOptions, curSign, mainCur, diffDays, fmt, fmtBoth, fmtCur, fmtDay, toMain, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet } from '../form'
+import { tr } from '../i18n'
 import { Travel } from './Travel'
 import { useTodayWeather, type Wx } from '../weather'
 
@@ -416,7 +417,7 @@ const Outfits = () => {
         <span className="t17">Try on next</span>
         {plan.length ? <div className="hscroll">{plan.map((p) => <Tile key={p.id} it={p} meta={CAT1[p.cat]} size={72} onClick={() => setPlan(planIds.filter((x) => x !== p.id))} />)}</div> : <span className="t14">Build an outfit above and tap “Try on next”.</span>}
         <div className="btn2">
-          <button className="btn" disabled={!plan.length} onClick={() => openSheet(<FormSheet title="Save outfit" fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Office day' }, { key: 'tempMin', label: 'Temperature of comfort: from (°C)', type: 'number', step: 1 }, { key: 'tempMax', label: 'to (°C)', type: 'number', step: 1 }]} onSave={(v) => update((d) => { d.outfits.push({ id: uid(), name: v.name, itemIds: plan.map((x) => x.id), tempMin: num(v.tempMin), tempMax: num(v.tempMax) }) })} />)}>Save outfit</button>
+          <button className="btn" disabled={!plan.length} onClick={() => { const dup = sameOutfit(st.outfits, plan.map((x) => x.id)); if (dup) { openSheet(<DupSheet id={dup.id} onPlan={setPlan} />); return } openSheet(<FormSheet title="Save outfit" fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Office day' }, { key: 'tempMin', label: 'Temperature of comfort: from (°C)', type: 'number', step: 1 }, { key: 'tempMax', label: 'to (°C)', type: 'number', step: 1 }]} onSave={(v) => update((d) => { d.outfits.push({ id: uid(), name: v.name, itemIds: plan.map((x) => x.id), tempMin: num(v.tempMin), tempMax: num(v.tempMax) }) })} />) }}>Save outfit</button>
           <button className="btn ghost" disabled={!plan.length} onClick={() => setPlan([])}>Delete outfit</button>
         </div>
       </div>
@@ -432,8 +433,30 @@ const Outfits = () => {
   )
 }
 
+// the same pieces as an already saved outfit (order doesn't matter); `skip` = the outfit being edited
+const sameOutfit = (outfits: { id: ID; name: string; itemIds: ID[] }[], ids: ID[], skip?: ID) => {
+  const key = [...new Set(ids)].sort().join('|')
+  return outfits.find((o) => o.id !== skip && [...new Set(o.itemIds)].sort().join('|') === key)
+}
+
+// shown instead of saving a duplicate: the outfit already exists → open it
+const DupSheet = ({ id, onPlan, back }: { id: ID; onPlan?: (ids: ID[]) => void; back?: boolean }) => {
+  const st = useSt()
+  const o = st.outfits.find((x) => x.id === id)
+  if (!o) return null
+  const its = byFormula(o.itemIds.map((i) => st.closet.find((x) => x.id === i)).filter(Boolean) as ClosetItem[])
+  return (
+    <Sheet title="Already saved" onBack={back ? popSheet : undefined}>
+      <span className="t15 muted" style={{ marginTop: -4 }}>{tr('This outfit is already saved as “{name}”.', { name: o.name })}</span>
+      <div className="hscroll">{its.map((i) => <Tile key={i.id} it={i} size={72} />)}</div>
+      <button className="btn full" onClick={() => openSheet(<OutfitSheet id={o.id} onPlan={onPlan} />)}>{tr('Open it')}</button>
+      <button className="btn full soft" onClick={() => (back ? popSheet() : closeSheet())}>{tr(back ? 'Keep editing' : 'Cancel')}</button>
+    </Sheet>
+  )
+}
+
 // a saved outfit: plan it, edit it (name + pieces) or delete it
-const OutfitSheet = ({ id, onPlan }: { id: ID; onPlan: (ids: ID[]) => void }) => {
+const OutfitSheet = ({ id, onPlan }: { id: ID; onPlan?: (ids: ID[]) => void }) => {
   const st = useSt()
   const o = st.outfits.find((x) => x.id === id)
   if (!o) return null
@@ -442,7 +465,7 @@ const OutfitSheet = ({ id, onPlan }: { id: ID; onPlan: (ids: ID[]) => void }) =>
     <Sheet title={o.name}>
       {tempText(o) && <span className="t15 muted" style={{ marginTop: -4 }}>Comfortable at {tempText(o)}</span>}
       <div className="hscroll">{its.map((i) => <Tile key={i.id} it={i} size={72} />)}</div>
-      <button className="btn full" onClick={() => { onPlan(o.itemIds); closeSheet() }}>Try it on next</button>
+      <button className="btn full" onClick={() => { if (onPlan) onPlan(o.itemIds); else update((d) => { d.planned = { date: today(), itemIds: o.itemIds } }); closeSheet() }}>Try it on next</button>
       <button className="btn full soft" onClick={() => pushSheet(<OutfitEdit id={o.id} />)}>Edit</button>
       <button className="btn full soft" onClick={() => { if (confirm(`Delete ${o.name}?`)) { update((d) => { d.outfits = d.outfits.filter((x) => x.id !== o.id) }); closeSheet() } }}>Delete</button>
     </Sheet>
@@ -481,6 +504,8 @@ const OutfitEdit = ({ id }: { id: ID }) => {
       })}
       <div className="sheet-foot">
         <button className="btn full" disabled={!name.trim() || !ids.length} onClick={() => {
+          const dup = sameOutfit(st.outfits, ids, id)
+          if (dup) { pushSheet(<DupSheet id={dup.id} back />); return }
           update((d) => { const x = d.outfits.find((y) => y.id === id); if (x) { x.name = name.trim(); x.itemIds = ids; x.tempMin = num(tMin); x.tempMax = num(tMax) } })
           popSheet(); toast('Outfit saved')
         }}>Save</button>

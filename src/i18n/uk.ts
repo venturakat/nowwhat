@@ -13,6 +13,7 @@ export const uk: Record<string, string> = {
   'Budget': 'Бюджет', 'Work': 'Робота', 'Taxes': 'Податки', 'Selfcare': 'Догляд', 'Classes': 'Заняття', 'Subscriptions': 'Підписки', 'Credits': 'Кредити',
   'Meds': 'Ліки', 'Groceries': 'Продукти', 'Pets': 'Тварини', 'Care': 'Гігієна',
   'Cleaning': 'Прибирання', 'Projects': 'Проєкти', 'Recipes': 'Рецепти',
+  'Already saved': 'Вже збережено', 'Cancel': 'Скасувати', 'This outfit is already saved as “{name}”.': 'Цей аутфіт уже збережено як «{name}».', 'Open it': 'Відкрити', 'Keep editing': 'Редагувати далі',
   'I own': 'Моє', 'To buy': 'Купити', 'Outfits': 'Аутфіти', 'Travel': 'Подорожі',
   // cleaning kinds
   'Light': 'Легке', 'Regular': 'Звичайне', 'Extra': 'Генеральне',
