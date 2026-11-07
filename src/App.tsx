@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { cloneElement, isValidElement, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSt, useStore } from './store'
 import { Icon, openSheet, registerSettings, useUi, type Tab } from './ui'
 import { CalendarPage } from './calendar'
@@ -12,7 +12,6 @@ import { Closet } from './screens/Closet'
 import { fmtClock } from './lib'
 import { Splash } from './Splash'
 import { resolveLang, tr } from './i18n'
-import { Fragment } from 'react'
 
 registerSettings(() => <SettingsSheet />)
 
@@ -87,6 +86,20 @@ const useVisibleArea = () => {
   return v
 }
 
+// sheets are kept as ready-made elements, which React wouldn't redraw on its own;
+// a fresh copy of each (and of the elements inside its props) makes them pick up a new language in place
+const refresh = (n: ReactNode): ReactNode => {
+  if (Array.isArray(n)) return n.map(refresh)
+  if (!isValidElement(n)) return n
+  const props = n.props as Record<string, unknown>
+  const next: Record<string, unknown> = {}
+  for (const k in props) {
+    const v = props[k]
+    if (isValidElement(v) || (Array.isArray(v) && v.some(isValidElement))) next[k] = refresh(v as ReactNode)
+  }
+  return cloneElement(n, next)
+}
+
 export const App = () => {
   const ready = useStore((s) => s.ready)
   const { tab, sheet, under, pushed, toast, go, close, cal } = useUi()
@@ -104,12 +117,12 @@ export const App = () => {
     if (sheetEl.current) lastH.current = sheetEl.current.offsetHeight
   })
   const [splash, setSplash] = useState(true) // the loading animation, once per app start
-  // a new language redraws everything (open sheets included)
+  // a new language redraws the text in place (open sheets included), nothing is rebuilt
   const lang = useStore((s) => resolveLang(s.st.settings.lang))
+  const pages = useMemo(() => (sheet ? [...under, sheet] : []).map(refresh), [under, sheet, lang])
   return (
     <div className="app">
       {splash && <Splash onDone={() => setSplash(false)} />}
-      <Fragment key={lang}>
       {tab === 'today' && <Today />}
       {tab === 'money' && <Money />}
       {tab === 'supplies' && <Supplies />}
@@ -147,7 +160,7 @@ export const App = () => {
           <div className="sheet" ref={sheetEl} onClick={(e) => e.stopPropagation()} style={{ ...(area ? { maxHeight: area.h - 24 } : {}), ...(minH ? { minHeight: `min(${minH}px, ${area ? area.h - 24 + 'px' : '92vh'})` } : {}) }}>
             {/* pages stay mounted underneath (same key), so going back finds them as you left them */}
             {/* one list, so a page keeps its state when something is opened on top of it and closed again */}
-            {[...under, sheet].map((n, i) => i < under.length
+            {pages.map((n, i) => i < under.length
               ? <div key={i} className={'page under' + (i === under.length - 1 ? ' below' : '')} aria-hidden>{n}</div>
               : <div key={i} className={'page top' + (under.length ? ' pushed' : '') + (pushed ? ' slide' : '')}>{n}</div>)}
           </div>
@@ -156,7 +169,6 @@ export const App = () => {
       {/* the sheet's background carries on behind the keyboard, so the page underneath doesn't show through it */}
       {sheet && area && <div className="kb-fill" style={{ top: area.top + area.h }} />}
       {toast && <div className="toast">{tr(toast)}</div>}
-      </Fragment>
     </div>
   )
 }
