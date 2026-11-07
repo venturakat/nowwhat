@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { update, useSt } from '../store'
 import type { CleanMode, CleanRepeat } from '../types'
 import { addDays, diffDays, fmtDay, fmtWeekday, today, uid } from '../lib'
@@ -204,27 +205,60 @@ const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
     same.splice(to, 0, x)
     slots.forEach((i, k) => { d.cleanTasks[i] = same[k] })
   })
-  // swipe left / right anywhere on the sheet to go to the next / previous list
+  // swipe left / right anywhere on the sheet to go to the next / previous list — the content follows the finger,
+  // slides away and the next list slides in, like the tab swipes (swipe.ts); at the first / last list it just springs back
   const mark = useRef<HTMLSpanElement>(null)
+  const modeRef = useRef(mode)
+  modeRef.current = mode
   useEffect(() => {
     const page = mark.current?.closest<HTMLElement>('.page') ?? mark.current?.parentElement
     if (!page) return
-    let g: { x: number; y: number; t: number } | null = null
+    const els = () => { const k = [...page.children] as HTMLElement[]; const i = k.findIndex((x) => x.classList.contains('chips')); return k.slice(i + 1) }
+    const put = (xs: HTMLElement[], x: number, o: number, tr = 'none') => { for (const el of xs) { el.style.transition = tr; el.style.transform = x ? `translateX(${x}px)` : ''; el.style.opacity = o === 1 ? '' : String(o) } }
+    const can = (dir: 1 | -1) => { const i = MODES.indexOf(modeRef.current) + dir; return i >= 0 && i < MODES.length }
+    let g: { x: number; y: number; t: number; dx: number; lock?: 'h' | 'v'; xs: HTMLElement[] } | null = null
     const start = (e: TouchEvent) => {
       const t = e.target as HTMLElement
-      g = e.touches.length === 1 && !t.closest('.noswipe, input, textarea') ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null
+      g = e.touches.length === 1 && !t.closest('.noswipe, input, textarea, .chips') && page.classList.contains('top') ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dx: 0, xs: [] } : null
     }
-    const end = (e: TouchEvent) => {
+    const move = (e: TouchEvent) => {
       if (!g) return
-      const c = e.changedTouches[0], dx = c.clientX - g.x, dy = c.clientY - g.y, fast = Date.now() - g.t < 600
-      g = null
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || (!fast && Math.abs(dx) < 90)) return
-      setMode((m) => { const i = MODES.indexOf(m) + (dx < 0 ? 1 : -1); return i < 0 || i >= MODES.length ? m : MODES[i] })
-      setArmed(null)
+      const dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y
+      if (!g.lock) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+        g.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v'
+        if (g.lock === 'h') g.xs = els()
+      }
+      if (g.lock !== 'h') return
+      e.preventDefault()
+      g.dx = dx
+      const ok = can(dx < 0 ? 1 : -1)
+      put(g.xs, ok ? dx : dx * 0.22, ok ? 1 - Math.min(0.4, Math.abs(dx) / 800) : 1)
+    }
+    const end = () => {
+      const s = g; g = null
+      if (!s || s.lock !== 'h') return
+      const dir: 1 | -1 = s.dx < 0 ? 1 : -1, w = page.offsetWidth
+      const speed = Math.abs(s.dx) / Math.max(1, Date.now() - s.t)
+      if (!can(dir) || !(Math.abs(s.dx) > w * 0.2 || (speed > 0.35 && Math.abs(s.dx) > 30))) {
+        put(s.xs, 0, 1, 'transform .22s cubic-bezier(.2,.9,.3,1.2), opacity .16s')
+        return
+      }
+      put(s.xs, -dir * w, 0, 'transform .11s ease-in, opacity .11s ease-in')
+      setTimeout(() => {
+        put(s.xs, 0, 1)
+        flushSync(() => { setMode(MODES[MODES.indexOf(modeRef.current) + dir]); setArmed(null) })
+        const next = els()
+        put(next, dir * w * 0.35, 0)
+        requestAnimationFrame(() => requestAnimationFrame(() => put(next, 0, 1, 'transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease-out')))
+        setTimeout(() => put(next, 0, 1, ''), 270)
+      }, 100)
     }
     page.addEventListener('touchstart', start, { passive: true })
+    page.addEventListener('touchmove', move, { passive: false })
     page.addEventListener('touchend', end)
-    return () => { page.removeEventListener('touchstart', start); page.removeEventListener('touchend', end) }
+    page.addEventListener('touchcancel', end)
+    return () => { page.removeEventListener('touchstart', start); page.removeEventListener('touchmove', move); page.removeEventListener('touchend', end); page.removeEventListener('touchcancel', end) }
   }, [])
   return (
     <Sheet title="Cleaning lists">
