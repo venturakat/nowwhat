@@ -204,14 +204,23 @@ export interface CleanTask {
   minutes?: number
 }
 
+export type CleanRepeat = 'off' | 'week' | '2weeks' | '3weeks' | '4weeks' | 'month' | 'season' // season: planned by hand, once a season
+export interface CleanSchedule {
+  every: CleanRepeat
+  day: number // weekday, 0 = Sunday
+  from: string // the first one (sets which weeks for every 2–4 weeks, and which week of the month for monthly)
+}
+
 export interface CleanPlan {
-  anchor: string // a Sunday
-  anchorMode: 1 | 2 // what that Sunday is; Light and Regular alternate weekly from there
-  moves: Record<string, string> // scheduled Sunday -> date it was moved to
-  extras: string[] // dates of planned Extra cleans (once a season)
-  skips: string[] // scheduled Sundays that were skipped
-  times?: Record<string, { start: string; end?: string }> // a clean's time, by its key (the scheduled Sunday, or x-<date> for an Extra)
-  start: string // nothing before this date counts (when the rotation was set up)
+  sched?: Partial<Record<CleanMode, CleanSchedule>> // when each list comes round (set by the person)
+  once?: Partial<Record<CleanMode, string[]>> // cleans planned by hand on a date (once-a-season lists)
+  moves: Record<string, string> // scheduled date -> date it was moved to
+  skips: string[] // scheduled dates that were skipped
+  times?: Record<string, { start: string; end?: string }> // a clean's time, by its key (the scheduled date, or x-<date> for one planned by hand)
+  start: string // nothing before this date counts (when cleaning was set up)
+  extras: string[] // old: Extra dates, now in once[3]
+  anchor?: string // old: the Sunday Light/Regular alternated from
+  anchorMode?: 1 | 2
 }
 
 export interface CleanDone {

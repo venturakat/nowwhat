@@ -1,13 +1,16 @@
-import type { CleanMode, CleanPlan, CleanTask, State } from './types'
+import type { CleanMode, CleanPlan, CleanRepeat, CleanSchedule, CleanTask, State } from './types'
 import { addDays, diffDays, parse, today, uid, ymd } from './lib'
+import { weekdayNames } from './i18n'
 
 export const MODE_NAME: Record<CleanMode, string> = { 1: 'Light', 2: 'Regular', 3: 'Extra' }
 export const MODE_HOURS: Record<CleanMode, number> = { 1: 2, 2: 4, 3: 8 } // how long each kind of clean takes
+export const MODES: CleanMode[] = [1, 2, 3]
 export { addHours } from './lib'
 
-const LIGHT = ['Kitchen sink', 'Window boards', 'Table', 'Bedsheets change', 'Bedsheets laundry', 'Ironing', 'WC', 'Bathroom sink', 'Vacuuming', 'Floors', 'Towels laundry', 'Trash out']
-const REGULAR = ['Vacuuming', 'Rugs laundry', 'Showering plants', 'Dusting the kitchen', 'Kitchen surfaces', 'Kitchen sink', 'Window boards', 'Table', 'Mirrors', 'Lamps', 'Dusting the rooms', 'Bedsheets change', 'Bedsheets laundry', 'Baseboards', 'Ironing', 'WC', 'Litter boxes', 'Shower', 'Vanity area', 'Bathroom sink', 'Vacuuming extra', 'Floors', 'Towels laundry', 'Trash out']
-const EXTRA = ['Vacuuming', 'Rugs laundry', 'Showering plants', 'Curtains laundry', 'Cat bed laundry', 'Decorative textile laundry', 'Dusting the kitchen', 'Wine glasses wash', 'Kitchen cabinets', 'Under the sink cabinets', 'Fridge', 'Airfryer', 'Toaster', 'Coffee maker', 'Kitchen surfaces', 'Kitchen sink', 'Window boards', 'Table', 'Mirrors', 'Lamps', 'Dusting the rooms', 'Dusting the books', 'Bedsheets change', 'Bedsheets laundry', 'Baseboards', 'Ironing', 'WC', 'Litter boxes', 'Washing machine', 'Shower', 'Vanity area', 'Bathroom sink', 'Vacuuming extra', 'Floors', 'Towels laundry', 'Trash out']
+// starter lists for any home — people edit them to fit theirs
+const LIGHT = ['Tidy up and put things away', 'Wash the dishes', 'Wipe the kitchen counters', 'Clean the kitchen sink', 'Wipe the table', 'Clean the bathroom sink', 'Clean the toilet', 'Vacuum', 'Take out the trash']
+const REGULAR = ['Tidy up and put things away', 'Change the bedsheets', 'Wash the towels', 'Dust the surfaces', 'Clean the mirrors', 'Wipe the kitchen counters', 'Clean the stove top', 'Clean the microwave', 'Clean the kitchen sink', 'Wipe the table', 'Clean the shower or bath', 'Clean the bathroom sink', 'Clean the toilet', 'Vacuum', 'Mop the floors', 'Take out the trash']
+const EXTRA = ['Declutter one area', 'Change the bedsheets', 'Wash the towels', 'Wash the curtains', 'Wash rugs and throws', 'Wash the windows', 'Dust lamps and light fittings', 'Dust the surfaces', 'Wipe doors and light switches', 'Clean the mirrors', 'Clean inside the fridge', 'Clean the oven', 'Wipe the kitchen cabinets', 'Descale the kettle', 'Wipe the kitchen counters', 'Clean the stove top', 'Clean the microwave', 'Clean the kitchen sink', 'Clean the washing machine', 'Clean the shower or bath', 'Clean the bathroom sink', 'Clean the toilet', 'Wipe the baseboards', 'Vacuum under the furniture', 'Vacuum', 'Mop the floors', 'Take out the trash']
 
 export const defaultCleanTasks = (): CleanTask[] => [
   ...LIGHT.map((name) => ({ id: uid(), name, mode: 1 as CleanMode })),
@@ -15,25 +18,56 @@ export const defaultCleanTasks = (): CleanTask[] => [
   ...EXTRA.map((name) => ({ id: uid(), name, mode: 3 as CleanMode }))
 ]
 
-export const isSunday = (d: string) => parse(d).getDay() === 0
-export const sundayOnOrAfter = (d: string) => {
-  const x = parse(d)
-  x.setDate(x.getDate() + ((7 - x.getDay()) % 7))
-  return ymd(x)
-}
-export const defaultCleanPlan = (): CleanPlan => ({ anchor: sundayOnOrAfter(today()), anchorMode: 1, moves: {}, extras: [], skips: [], start: today() })
+const off = (): CleanSchedule => ({ every: 'off', day: 6, from: today() })
+// nothing is planned until people say when they clean
+export const defaultCleanPlan = (): CleanPlan => ({ sched: { 1: off(), 2: off(), 3: off() }, once: {}, moves: {}, extras: [], skips: [], start: today() })
 
-// Light/Regular for a scheduled Sunday, alternating weekly from the anchor
-export const modeForSunday = (p: CleanPlan, sunday: string): 1 | 2 => {
-  const weeks = Math.round(diffDays(p.anchor, sunday) / 7)
-  return Math.abs(weeks) % 2 === 0 ? p.anchorMode : p.anchorMode === 1 ? 2 : 1
+export const onOrAfter = (d: string, day: number) => addDays(d, (day - parse(d).getDay() + 7) % 7)
+export const schedOf = (p: CleanPlan, m: CleanMode): CleanSchedule => p.sched?.[m] ?? off()
+const WEEKS: Partial<Record<CleanRepeat, number>> = { week: 1, '2weeks': 2, '3weeks': 3, '4weeks': 4 }
+const nthOf = (d: string) => Math.min(4, Math.ceil(parse(d).getDate() / 7))
+// the nth <weekday> of the month mk ('YYYY-MM')
+const nthWeekday = (y: number, m: number, day: number, n: number) => addDays(onOrAfter(ymd(new Date(y, m, 1)), day), 7 * (n - 1))
+
+// the dates a schedule puts a clean on, in [from, to]
+export const schedDates = (s: CleanSchedule, from: string, to: string): string[] => {
+  const out: string[] = []
+  const first = onOrAfter(s.from, s.day)
+  const w = WEEKS[s.every]
+  if (w) {
+    const step = 7 * w
+    let d = first
+    if (d < from) d = addDays(d, Math.ceil(diffDays(d, from) / step) * step)
+    for (; d <= to; d = addDays(d, step)) out.push(d)
+  } else if (s.every === 'month') {
+    const n = nthOf(first), a = parse(from < first ? first : from)
+    for (let y = a.getFullYear(), m = a.getMonth(); ; m++) {
+      const d = nthWeekday(y, m, s.day, n)
+      if (d > to) break
+      if (d >= from && d >= first) out.push(d)
+    }
+  }
+  return out
 }
+
+const ORD = ['1st', '2nd', '3rd', '4th']
+export const schedLabel = (s: CleanSchedule) => {
+  const wd = weekdayNames(true)[s.day]
+  const w = WEEKS[s.every]
+  if (w === 1) return `Every ${wd}`
+  if (w) return `Every ${w} weeks · ${wd}`
+  if (s.every === 'month') return `Monthly · ${ORD[nthOf(onOrAfter(s.from, s.day)) - 1]} ${wd}`
+  if (s.every === 'season') return 'Once a season'
+  return 'Not planned'
+}
+
+export const onceKey = (m: CleanMode, date: string) => (m === 3 ? 'x-' : `x${m}-`) + date
 
 export interface Occurrence {
-  key: string // stable id: the scheduled Sunday, or x-<date> for an Extra
+  key: string // stable id: the scheduled date, or x-<date> (x2-<date>…) for one planned by hand
   date: string // when it actually happens (after moves)
   mode: CleanMode
-  sunday?: string
+  sched?: string // the date the schedule put it on (missing for one planned by hand)
   start?: string // HH:MM, when it's planned
   end?: string
 }
@@ -42,16 +76,19 @@ export interface Occurrence {
 export const occurrences = (st: State, from: string, to: string): Occurrence[] => {
   const p = st.cleanPlan
   const out: Occurrence[] = []
-  const extraDates = new Set(p.extras)
-  // look a bit wider so moved Sundays are found too
-  for (let s = sundayOnOrAfter(addDays(from, -21)); s <= addDays(to, 21); s = addDays(s, 7)) {
+  const handDates = new Set(MODES.flatMap((m) => p.once?.[m] ?? []))
+  // the bigger clean wins when two lists fall on the same day
+  const byDate = new Map<string, CleanMode>()
+  // look a bit wider so moved ones are found too
+  for (const m of MODES) for (const s of schedDates(schedOf(p, m), addDays(from, -21), addDays(to, 21))) if ((byDate.get(s) ?? 0) < m) byDate.set(s, m)
+  for (const [s, mode] of byDate) {
     if (p.skips.includes(s) || s < (p.start ?? '')) continue
     const date = p.moves[s] ?? s
     if (date < from || date > to) continue
-    if (extraDates.has(date)) continue // an Extra on that day replaces the usual clean
-    out.push({ key: s, date, mode: modeForSunday(p, s), sunday: s, ...p.times?.[s] })
+    if (handDates.has(date)) continue // one planned by hand on that day takes the place of the scheduled one
+    out.push({ key: s, date, mode, sched: s, ...p.times?.[s] })
   }
-  for (const x of p.extras) if (x >= from && x <= to) out.push({ key: 'x-' + x, date: x, mode: 3, ...p.times?.['x-' + x] })
+  for (const m of MODES) for (const x of p.once?.[m] ?? []) if (x >= from && x <= to) out.push({ key: onceKey(m, x), date: x, mode: m, ...p.times?.[onceKey(m, x)] })
   return out.sort((a, b) => a.date.localeCompare(b.date))
 }
 
@@ -70,7 +107,7 @@ export const currentClean = (st: State) => {
   const recent = occurrences(st, addDays(t, -6), t).filter((o) => !progress(st, o).finished)
   const open = recent[recent.length - 1]
   if (open) return { occ: open, due: true }
-  const next = occurrences(st, addDays(t, 1), addDays(t, 60))[0]
+  const next = occurrences(st, addDays(t, 1), addDays(t, 120))[0]
   return next ? { occ: next, due: false } : null
 }
 
@@ -85,9 +122,23 @@ export const seasonOf = (d: string) => {
   return { name: 'autumn', start: `${y}-09-01`, end: `${y}-11-30` }
 }
 
-export const extraStatus = (st: State) => {
+// a once-a-season list: done this season? planned?
+export const seasonStatus = (st: State, mode: CleanMode) => {
   const s = seasonOf(today())
-  const doneThis = Object.entries(st.cleanDone).filter(([, r]) => r.mode === 3 && r.finished && r.date >= s.start && r.date <= s.end).map(([, r]) => r.date).sort()
-  const planned = st.cleanPlan.extras.filter((d) => d >= today() && d <= s.end).sort()
+  const doneThis = Object.entries(st.cleanDone).filter(([, r]) => r.mode === mode && r.finished && r.date >= s.start && r.date <= s.end).map(([, r]) => r.date).sort()
+  const planned = (st.cleanPlan.once?.[mode] ?? []).filter((d) => d >= today() && d <= s.end).sort()
   return { season: s, doneOn: doneThis[doneThis.length - 1], plannedOn: planned[0], daysLeft: diffDays(today(), s.end) }
+}
+
+// before schedules: Light and Regular took turns every Sunday from `anchor`, Extra was planned by hand once a season
+export const migrateCleanPlan = (p: CleanPlan) => {
+  if (!p.once) { p.once = { 3: [...(p.extras ?? [])] }; p.extras = [] }
+  if (p.sched) return
+  if (!p.anchor) { p.sched = defaultCleanPlan().sched; return }
+  const start = p.start || today()
+  const back = (d: string) => { while (d > start) d = addDays(d, -14); return d }
+  const a = back(p.anchor), b = back(addDays(p.anchor, 7))
+  const [light, regular] = p.anchorMode === 2 ? [b, a] : [a, b]
+  p.sched = { 1: { every: '2weeks', day: 0, from: light }, 2: { every: '2weeks', day: 0, from: regular }, 3: { every: 'season', day: 0, from: start } }
+  delete p.anchor; delete p.anchorMode
 }

@@ -243,3 +243,63 @@ export const TimeRange = ({ start, end, hours = 1, onChange }: { start: string; 
     </div>
   )
 }
+
+// Reorder by dragging the grip (six dots) up or down. Other rows slide out of the way; onMove(from, to) on release.
+const GRIP = [6, 12, 18].flatMap((y) => [9, 15].map((x) => <circle key={x + '-' + y} cx={x} cy={y} r="1.6" />))
+export const DragList = ({ ids, onMove, children }: { ids: string[]; onMove: (from: number, to: number) => void; children: (id: string, grip: ReactNode) => ReactNode }) => {
+  const box = useRef<HTMLDivElement>(null)
+  const at = useRef<{ y0: number; mids: number[]; i: number; h: number; pid: number } | null>(null)
+  const [drag, setDrag] = useState<{ i: number; to: number; dy: number; h: number } | null>(null)
+  const down = (i: number) => (e: React.PointerEvent<HTMLElement>) => {
+    if (at.current || !box.current) return
+    const rects = [...box.current.children].map((x) => x.getBoundingClientRect())
+    at.current = { y0: e.clientY, mids: rects.map((r) => r.top + r.height / 2), i, h: rects[i].height, pid: e.pointerId }
+    e.currentTarget.setPointerCapture(e.pointerId)
+    e.preventDefault()
+    setDrag({ i, to: i, dy: 0, h: rects[i].height })
+  }
+  const move = (e: React.PointerEvent) => {
+    const a = at.current
+    if (!a || e.pointerId !== a.pid) return
+    const dy = e.clientY - a.y0, y = a.mids[a.i] + dy
+    let to = a.i
+    while (to < a.mids.length - 1 && y > a.mids[to + 1]) to++
+    while (to > 0 && y < a.mids[to - 1]) to--
+    setDrag({ i: a.i, to, dy, h: a.h })
+  }
+  const end = (commit: boolean) => (e: React.PointerEvent) => {
+    const a = at.current
+    if (!a || e.pointerId !== a.pid) return
+    at.current = null
+    const d = drag
+    setDrag(null)
+    if (commit && d && d.to !== d.i) onMove(d.i, d.to)
+  }
+  return (
+    <div ref={box} className="col" style={{ gap: 0 }}>
+      {ids.map((id, j) => {
+        let y = 0
+        if (drag) {
+          if (j === drag.i) y = drag.dy
+          else if (j > drag.i && j <= drag.to) y = -drag.h
+          else if (j < drag.i && j >= drag.to) y = drag.h
+        }
+        const lifted = drag?.i === j
+        const grip = (
+          <span className="noswipe" aria-label={tr('Drag to reorder')} onPointerDown={down(j)} onPointerMove={move} onPointerUp={end(true)} onPointerCancel={end(false)}
+            style={{ touchAction: 'none', padding: '10px 6px 10px 12px', color: 'var(--ink2)', display: 'flex', cursor: 'grab' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">{GRIP}</svg>
+          </span>
+        )
+        return (
+          <div key={id} style={{
+            transform: y ? `translateY(${y}px)` : undefined, transition: drag && !lifted ? 'transform .15s ease' : 'none', position: 'relative', zIndex: lifted ? 2 : undefined,
+            background: lifted ? 'var(--card, #fff)' : undefined, boxShadow: lifted ? '0 6px 18px rgba(0,0,0,.12)' : undefined, borderRadius: 12, userSelect: 'none', WebkitUserSelect: 'none'
+          }}>
+            {children(id, grip)}
+          </div>
+        )
+      })}
+    </div>
+  )
+}

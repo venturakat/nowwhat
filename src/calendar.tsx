@@ -4,10 +4,10 @@ import { update, useSt, useStore } from './store'
 import type { CalEvent, CalKey, State } from './types'
 import { DayWeather, PlaceSheet } from './weather'
 import {
-  addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, monthName, nextBuy, nextMonth, pad, parse,
+  addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, fmtWeekday, monthName, nextBuy, nextMonth, pad, parse,
   prevMonth, diffDays, subDate, taxPays, fmtTax, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
 } from './lib'
-import { MODE_HOURS, MODE_NAME, occurrences, type Occurrence } from './cleaning'
+import { MODE_HOURS, MODE_NAME, occurrences, onceKey, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
 import { C, Check, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi, type Tab as UiTab } from './ui'
 import { ShipmentSheet } from './screens/Shipments'
@@ -167,7 +167,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
       toggle: { on: !!x.deliveredAt, run: () => update((s) => { const y = s.shipments?.find((z) => z.id === x.id); if (y) y.deliveredAt = y.deliveredAt ? undefined : today() }) }
     })
   }
-  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, time: timeSpan(o.start, o.end), title: `${MODE_NAME[o.mode]} clean`, meta: o.sunday && o.sunday !== o.date ? `Cleaning · moved from ${fmtDay(o.sunday)}` : 'Cleaning', dot: C.home, go: ['home', 'cleaning'], edit: () => <CleanWhen occ={o} /> })
+  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, time: timeSpan(o.start, o.end), title: `${MODE_NAME[o.mode]} clean`, meta: o.sched && o.sched !== o.date ? `Cleaning · moved from ${fmtDay(o.sched)}` : 'Cleaning', dot: C.home, go: ['home', 'cleaning'], edit: () => <CleanWhen occ={o} /> })
   return out.sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '99').localeCompare(b.time ?? '99') || a.title.localeCompare(b.title))
 }
 
@@ -410,7 +410,7 @@ const ClassWhen = ({ id, date }: { id: string; date: string }) => {
   )
 }
 
-// this one clean: its day and time (the rotation stays as it is)
+// this one clean: its day and time (the schedule stays as it is)
 const CleanWhen = ({ occ }: { occ: Occurrence }) => {
   const hours = MODE_HOURS[occ.mode]
   const [d, setD] = useState(occ.date)
@@ -418,7 +418,7 @@ const CleanWhen = ({ occ }: { occ: Occurrence }) => {
   const [end, setEnd] = useState(occ.end ?? '')
   const save = () => {
     moveOcc(occ, d)
-    const key = occ.sunday ?? 'x-' + d
+    const key = occ.sched ?? onceKey(occ.mode, d)
     update((s) => {
       const tm = (s.cleanPlan.times ??= {})
       if (start) tm[key] = { start, end: end || undefined }
@@ -428,10 +428,10 @@ const CleanWhen = ({ occ }: { occ: Occurrence }) => {
   }
   return (
     <Sheet title={`${MODE_NAME[occ.mode]} clean`} onBack={popSheet}>
-      <span className="t15 muted">Just this clean — the Sunday rotation stays as it is. A {MODE_NAME[occ.mode]} clean takes about {hours} hours.</span>
+      <span className="t15 muted">Just this clean — the schedule stays as it is. A {MODE_NAME[occ.mode]} clean takes about {hours} hours.</span>
       <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || occ.date)} /></Field>
       <TimeRange start={start} end={end} hours={hours} onChange={(a, b) => { setStart(a); setEnd(b) }} />
-      {occ.sunday && occ.sunday !== occ.date && <button className="btn full soft" onClick={() => setD(occ.sunday!)}>Back to Sunday {fmtDay(occ.sunday)}</button>}
+      {occ.sched && occ.sched !== occ.date && <button className="btn full soft" onClick={() => setD(occ.sched!)}>Back to {fmtWeekday(occ.sched)}</button>}
       <button className="btn full" onClick={save}>Save</button>
       <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'cleaning') }}>Open Cleaning</button>
     </Sheet>
