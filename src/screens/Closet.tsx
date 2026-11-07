@@ -4,7 +4,7 @@ import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
 import { curOptions, curSign, mainCur, diffDays, fmt, fmtBoth, fmtCur, fmtDay, toMain, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet } from '../form'
-import { tr } from '../i18n'
+import { tr, trn } from '../i18n'
 import { Travel } from './Travel'
 import { useTodayWeather, type Wx } from '../weather'
 
@@ -28,7 +28,7 @@ registerSubs('closet', SUBTABS.map((x) => x[0]))
 
 // "10–18 °C", "from 10 °C", "up to 18 °C"
 const tempText = (o: { tempMin?: number; tempMax?: number }) =>
-  o.tempMin !== undefined && o.tempMax !== undefined ? `${o.tempMin}–${o.tempMax} °C` : o.tempMin !== undefined ? `from ${o.tempMin} °C` : o.tempMax !== undefined ? `up to ${o.tempMax} °C` : ''
+  o.tempMin !== undefined && o.tempMax !== undefined ? `${o.tempMin}–${o.tempMax} °C` : o.tempMin !== undefined ? tr('from {t} °C', { t: o.tempMin }) : o.tempMax !== undefined ? tr('up to {t} °C', { t: o.tempMax }) : ''
 // saved outfits by how well they suit today's weather: the day's mean temperature inside the
 // outfit's comfort range first, then the nearest ranges; same range → by name; no range → last
 type Ranged = { name: string; tempMin?: number; tempMax?: number }
@@ -76,7 +76,7 @@ export const Closet = () => {
   const st = useSt()
   return (
     <div className="screen">
-      <Header sub={sub === 'own' ? `Closet · ${st.closet.length} things` : 'Closet'} title={sub === 'own' ? 'Wardrobe' : sub === 'buy' ? 'To buy' : sub === 'travel' ? 'Travel' : 'Outfits'} />
+      <Header sub={sub === 'own' ? `${tr('Closet')} · ${trn(st.closet.length, '{n} thing', '{n} things')}` : 'Closet'} title={sub === 'own' ? 'Wardrobe' : sub === 'buy' ? 'To buy' : sub === 'travel' ? 'Travel' : 'Outfits'} />
       <Chips items={SUBTABS} value={sub as any} onChange={setSub} swipe />
       {sub === 'own' && <Own />}
       {sub === 'buy' && <ToBuy />}
@@ -104,31 +104,31 @@ const Own = () => {
     <>
       {st.closet.length > 0 && (
         <div className="row catrow" style={{ gap: 16, padding: '8px 4px' }}>
-          <button className="t15 w5" style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }} onClick={flipSort} aria-label="Sort">
-            <Icon.arrowDown />{sort === 'cat' ? 'Category' : 'Most worn'}
+          <button className="t15 w5" style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }} onClick={flipSort} aria-label={tr('Sort')}>
+            <Icon.arrowDown />{tr(sort === 'cat' ? 'Category' : 'Most worn')}
           </button>
           <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)' }} />
           {[['all', 'All', st.closet.length] as const, ...counts, ...(away ? [['away', 'Out of season', away] as const] : [])].map(([k, l, n]) => (
-            <button key={k} className="t15" style={{ fontWeight: cat === k ? 600 : 400, color: cat === k ? 'var(--ink)' : 'var(--ink2)', whiteSpace: 'nowrap' }} onClick={() => setCat(k as any)}>{l} {n}</button>
+            <button key={k} className="t15" style={{ fontWeight: cat === k ? 600 : 400, color: cat === k ? 'var(--ink)' : 'var(--ink2)', whiteSpace: 'nowrap' }} onClick={() => setCat(k as any)}>{tr(l)} {n}</button>
           ))}
         </div>
       )}
       {items.length === 0 ? (
         <div className="card" style={{ alignItems: 'center', textAlign: 'center', padding: 28 }}>
           <Garment cat="base" size={48} />
-          <span className="t17">Start with what you wear most</span>
-          <span className="t14 muted">Snap a photo or just type a name. 10 things is plenty to start.</span>
+          <span className="t17">{tr('Start with what you wear most')}</span>
+          <span className="t14 muted">{tr('Snap a photo or just type a name. 10 things is plenty to start.')}</span>
         </div>
       ) : (
         <div className="grid3">
-          {items.map((i) => <Tile key={i.id} it={i} meta={i.offSeason ? `${CAT1[i.cat]} · out of season` : `${CAT1[i.cat]} · worn ${i.worn}×`} onClick={() => openSheet(<ItemSheet id={i.id} />)} />)}
+          {items.map((i) => <Tile key={i.id} it={i} meta={i.offSeason ? `${tr(CAT1[i.cat])} · ${tr('out of season')}` : `${tr(CAT1[i.cat])} · ${tr('worn {n}×', { n: i.worn })}`} onClick={() => openSheet(<ItemSheet id={i.id} />)} />)}
         </div>
       )}
-      <button className="btn full soft" onClick={() => openSheet(<ItemEdit />)}><Icon.camera /> Add something</button>
+      <button className="btn full soft" onClick={() => openSheet(<ItemEdit />)}><Icon.camera /> {tr('Add something')}</button>
       {stale.length > 0 && (
         <div className="card closet" style={{ gap: 4, padding: 16 }}>
-          <span className="t14 w5">Haven’t worn in 3 months</span>
-          <span className="t17">{stale.length} {stale.length === 1 ? 'thing' : 'things'} — wear, sell or let go? {stale.slice(0, 3).map((s) => s.name).join(', ')}{stale.length > 3 ? '…' : ''}</span>
+          <span className="t14 w5">{tr('Haven’t worn in 3 months')}</span>
+          <span className="t17">{trn(stale.length, '{n} thing — wear, sell or let go?', '{n} things — wear, sell or let go?')} {stale.slice(0, 3).map((s) => s.name).join(', ')}{stale.length > 3 ? '…' : ''}</span>
         </div>
       )}
     </>
@@ -140,10 +140,10 @@ const PhotoField = ({ value, onChange }: { value?: string; onChange: (v?: string
     <div className="row" style={{ gap: 12 }}>
       <div className="sw" style={{ width: 72 }}>{value ? <img src={value} alt="" /> : <Icon.camera />}</div>
       <label className="btn soft sm" style={{ cursor: 'pointer' }}>
-        {value ? 'Change' : 'Take / choose'}
+        {tr(value ? 'Change' : 'Take / choose')}
         <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => { const f = e.target.files?.[0]; if (f) onChange(await compress(f)) }} />
       </label>
-      {value && <button className="link" onClick={() => onChange(undefined)}>Remove</button>}
+      {value && <button className="link" onClick={() => onChange(undefined)}>{tr('Remove')}</button>}
     </div>
   </Field>
 )
@@ -181,20 +181,20 @@ const ItemSheet = ({ id }: { id: ID }) => {
       <div className="row" style={{ gap: 14, alignItems: 'flex-start' }}>
         <div style={{ width: 120 }}><Tile it={{ ...it, name: '' }} /></div>
         <div className="col grow" style={{ gap: 6 }}>
-          <span className="t15 muted">{CAT1[it.cat]}{it.size ? ` · size ${it.size}` : ''} · worn {it.worn}×{it.lastWorn ? ` · last ${fmtDay(it.lastWorn)}` : ''}</span>
-          <button className="btn closet" onClick={() => { wear([it.id]); toast('Counted') }}>Wore it today</button>
+          <span className="t15 muted">{tr(CAT1[it.cat])}{it.size ? ` · ${tr('size {x}', { x: it.size })}` : ''} · {tr('worn {n}×', { n: it.worn })}{it.lastWorn ? ` · ${tr('last {d}', { d: fmtDay(it.lastWorn) })}` : ''}</span>
+          <button className="btn closet" onClick={() => { wear([it.id]); toast('Counted') }}>{tr('Wore it today')}</button>
         </div>
       </div>
       <button className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: '14px 16px' }} onClick={() => update((d) => { const x = d.closet.find((y) => y.id === it.id)!; x.offSeason = x.offSeason ? undefined : true })}>
         <div className="col grow" style={{ gap: 2, textAlign: 'left' }}>
-          <span className="t17">In season</span>
-          <span className="t13 muted">{it.offSeason ? 'Put away for now — not offered when you build outfits' : 'Offered when you build outfits'}</span>
+          <span className="t17">{tr('In season')}</span>
+          <span className="t13 muted">{tr(it.offSeason ? 'Put away for now — not offered when you build outfits' : 'Offered when you build outfits')}</span>
         </div>
         <span className={'switch' + (it.offSeason ? '' : ' on')} role="switch" aria-checked={!it.offSeason}><i /></span>
       </button>
-      <div className="between"><span className="t17">Goes well with</span><button className="link" onClick={() => openSheet(<PairsSheet id={it.id} />)}>Edit pairs</button></div>
-      {pairs.length ? <div className="hscroll">{pairs.map((p) => <Tile key={p.id} it={p} size={72} onClick={() => openSheet(<ItemSheet id={p.id} />)} />)}</div> : <span className="t14 muted">No pairs yet — you decide what goes together.</span>}
-      <button className="btn full soft" onClick={() => openSheet(<ItemEdit id={it.id} />)}>Edit</button>
+      <div className="between"><span className="t17">{tr('Goes well with')}</span><button className="link" onClick={() => openSheet(<PairsSheet id={it.id} />)}>{tr('Edit pairs')}</button></div>
+      {pairs.length ? <div className="hscroll">{pairs.map((p) => <Tile key={p.id} it={p} size={72} onClick={() => openSheet(<ItemSheet id={p.id} />)} />)}</div> : <span className="t14 muted">{tr('No pairs yet — you decide what goes together.')}</span>}
+      <button className="btn full soft" onClick={() => openSheet(<ItemEdit id={it.id} />)}>{tr('Edit')}</button>
     </Sheet>
   )
 }
@@ -206,9 +206,9 @@ const PairsSheet = ({ id, back }: { id: ID; back?: () => void }) => {
   const others = byFormula(st.closet.filter((x) => x.id !== id))
   return (
     <Sheet title="Goes well with">
-      <span className="t15 muted">Tap what goes with <b>{it.name}</b>. Pairs work both ways.</span>
+      <span className="t15 muted">{tr('Tap what goes with')} <b>{it.name}</b>. {tr('Pairs work both ways.')}</span>
       <div className="grid3">{others.map((o) => <Tile key={o.id} it={o} sel={sel.includes(o.id)} onClick={() => setSel(sel.includes(o.id) ? sel.filter((x) => x !== o.id) : [...sel, o.id])} />)}</div>
-      {!others.length && <span className="t14 muted">Add more things to your wardrobe first.</span>}
+      {!others.length && <span className="t14 muted">{tr('Add more things to your wardrobe first.')}</span>}
       <button className="btn full" onClick={() => {
         update((d) => {
           for (const x of d.closet) {
@@ -218,7 +218,7 @@ const PairsSheet = ({ id, back }: { id: ID; back?: () => void }) => {
           }
         })
         back ? back() : openSheet(<ItemSheet id={id} />)
-      }}>Save pairs</button>
+      }}>{tr('Save pairs')}</button>
     </Sheet>
   )
 }
@@ -232,13 +232,13 @@ const ToBuy = () => {
     <>
       <List title="Need" right="real gaps" empty="Nothing missing right now.">
         {st.needs.map((n) => (
-          <Row key={n.id} dot={n.urgent ? C.alert : C.closet} title={n.name} meta={[n.size ? `Size ${n.size}` : '', n.note, n.maxPrice ? `up to ${fmt(n.maxPrice)}` : ''].filter(Boolean).join(' · ') || undefined} trail={n.urgent ? 'Soon' : '→'} onClick={() => openSheet(<NeedEdit id={n.id} />)} />
+          <Row key={n.id} dot={n.urgent ? C.alert : C.closet} title={n.name} meta={[n.size ? tr('Size {x}', { x: n.size }) : '', n.note, n.maxPrice ? tr('up to {x}', { x: fmt(n.maxPrice) }) : ''].filter(Boolean).join(' · ') || undefined} trail={n.urgent ? tr('Soon') : '→'} onClick={() => openSheet(<NeedEdit id={n.id} />)} />
         ))}
-        <Row title={<span className="muted">+ Add a need</span>} onClick={() => openSheet(<NeedEdit />)} />
+        <Row title={<span className="muted">{tr('+ Add a need')}</span>} onClick={() => openSheet(<NeedEdit />)} />
       </List>
       <div className="col" style={{ padding: '0 4px', gap: 4 }}>
-        <span className="t17">Saved, maybe</span>
-        <span className="t14 muted">Every saved thing waits here until you decide</span>
+        <span className="t17">{tr('Saved, maybe')}</span>
+        <span className="t14 muted">{tr('Every saved thing waits here until you decide')}</span>
       </div>
       {saved.map((s) => {
         const age = diffDays(s.savedAt, t)
@@ -246,9 +246,9 @@ const ToBuy = () => {
           <div key={s.id} className="card" style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: '18px 16px 18px 14px' }}>
             <div style={{ width: 72, flex: 'none' }} onClick={() => openSheet(<SavedEdit id={s.id} />)}><Tile it={{ ...s, name: '' }} /></div>
             <div className="col grow" style={{ gap: 3 }} onClick={() => openSheet(<SavedEdit id={s.id} />)}>
-              <span className="t17">{s.name}{s.size && <span className="t14 muted"> · size {s.size}</span>}</span>
+              <span className="t17">{s.name}{s.size && <span className="t14 muted"> · {tr('size {x}', { x: s.size })}</span>}</span>
               <span className="t15 w5">{fmtBoth(st.settings, s.price, s.currency)}{fitsNote(st, toMain(st.settings, s.price, s.currency))}</span>
-              <span className="t13 muted">{age === 0 ? 'Saved today' : age === 1 ? 'Saved yesterday' : `Saved ${age} days ago`}</span>
+              <span className="t13 muted">{age === 0 ? tr('Saved today') : age === 1 ? tr('Saved yesterday') : trn(age, 'Saved {n} day ago', 'Saved {n} days ago')}</span>
               <div className="row" style={{ paddingTop: 6, gap: 6 }} onClick={(e) => e.stopPropagation()}>
                   <button className="btn sm" onClick={() => {
                     update((d) => {
@@ -257,15 +257,15 @@ const ToBuy = () => {
                       ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name}`, amount: s.price, currency: s.currency ?? d.settings.mainCur, date: today(), oneOff: true })
                     })
                     toast('Enjoy it · in your wardrobe, with its photo, and in the budget')
-                  }}>Bought it</button>
-                  <LetGo onGo={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(`Let go · ${fmtCur(s.price, s.currency)} saved`) }} />
-                  {s.link && <a className="btn ghost sm" style={{ textDecoration: 'none', color: 'inherit' }} href={s.link} target="_blank" rel="noreferrer">Link</a>}
+                  }}>{tr('Bought it')}</button>
+                  <LetGo onGo={() => { update((d) => { d.saved = d.saved.filter((x) => x.id !== s.id) }); toast(tr('Let go · {x} saved', { x: fmtCur(s.price, s.currency) })) }} />
+                  {s.link && <a className="btn ghost sm" style={{ textDecoration: 'none', color: 'inherit' }} href={s.link} target="_blank" rel="noreferrer">{tr('Link')}</a>}
                 </div>
             </div>
           </div>
         )
       })}
-      <button className="btn full dashed" onClick={() => openSheet(<SavedEdit />)}>+ Save something I want</button>
+      <button className="btn full dashed" onClick={() => openSheet(<SavedEdit />)}>{tr('+ Save something I want')}</button>
     </>
   )
 }
@@ -274,7 +274,7 @@ const ToBuy = () => {
 const LetGo = ({ onGo }: { onGo: () => void }) => {
   const [armed, setArmed] = useState(false)
   useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(t) }, [armed])
-  return <button className="btn ghost sm" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => (armed ? onGo() : setArmed(true))}>{armed ? 'Delete' : 'Let it go'}</button>
+  return <button className="btn ghost sm" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => (armed ? onGo() : setArmed(true))}>{tr(armed ? 'Delete' : 'Let it go')}</button>
 }
 
 const fitsNote = (st: ReturnType<typeof useSt>, price: number) => {
@@ -282,10 +282,10 @@ const fitsNote = (st: ReturnType<typeof useSt>, price: number) => {
   let key = periodOf(today(), st.settings).key
   for (let i = 0; i < 3; i++) {
     const s = summarize(st, key)
-    if (s.left >= price) return ` · fits ${s.info.label}`
+    if (s.left >= price) return ` · ${tr('fits {x}', { x: s.info.label })}`
     key = shiftPeriod(key, 1)
   }
-  return ' · no room in the next 3 fortnights'
+  return ` · ${tr('no room in the next 3 fortnights')}`
 }
 
 const NeedEdit = ({ id }: { id?: string }) => {
@@ -293,8 +293,8 @@ const NeedEdit = ({ id }: { id?: string }) => {
   const n = st.needs.find((x) => x.id === id)
   return (
     <FormSheet title={n ? 'Need' : 'Something I need'} initial={n ?? {}}
-      fields={[{ key: 'name', label: 'What', type: 'text', placeholder: 'Black ankle boots' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'note', label: 'Why / note', type: 'text', placeholder: 'Current pair is worn out' }, { key: 'maxPrice', label: `Up to (${curSign(mainCur())})`, type: 'number' }, { key: 'urgent', label: 'Soon?', type: 'toggle' }]}
-      extra={n && <button className="btn full closet" onClick={() => pushSheet(<GotNeed id={n.id} />)}>Got it → budget and wardrobe</button>}
+      fields={[{ key: 'name', label: 'What', type: 'text', placeholder: 'Black ankle boots' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'note', label: 'Why / note', type: 'text', placeholder: 'Current pair is worn out' }, { key: 'maxPrice', label: tr('Up to ({x})', { x: curSign(mainCur()) }), type: 'number' }, { key: 'urgent', label: 'Soon?', type: 'toggle' }]}
+      extra={n && <button className="btn full closet" onClick={() => pushSheet(<GotNeed id={n.id} />)}>{tr('Got it → budget and wardrobe')}</button>}
       onSave={(v) => update((d) => {
         const data = { name: v.name, size: v.size?.trim() || undefined, note: v.note, maxPrice: v.maxPrice, urgent: !!v.urgent }
         if (n) Object.assign(d.needs.find((x) => x.id === n.id)!, data)
@@ -318,19 +318,19 @@ const GotNeed = ({ id }: { id: string }) => {
       d.needs = d.needs.filter((x) => x.id !== n.id)
       if (log && paid > 0) ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${n.name}`, amount: paid, currency: cur, date: today(), oneOff: true })
     })
-    toast(log && paid > 0 ? `${fmtCur(paid, cur)} added to spending` : 'Off the list')
+    toast(log && paid > 0 ? tr('{x} added to spending', { x: fmtCur(paid, cur) }) : 'Off the list')
     openSheet(<ItemEdit from={{ name: n.name, cat: 'other', size: n.size }} />)
   }
   return (
-    <Sheet title={`Got ${n.name}`} onBack={popSheet}>
+    <Sheet title={tr('Got {x}', { x: n.name })} onBack={popSheet}>
       <Field label="Paid">
         <div className="col" style={{ gap: 8 }}>
           <input className="input" inputMode="decimal" autoFocus value={price} placeholder="0" onChange={(e) => setPrice(e.target.value.replace(/[^0-9.,\s]/g, ''))} />
           <div className="seg">{curOptions(useStore.getState().st.settings).map(([k, l]) => <button key={k} type="button" className={'chip' + (cur === k ? ' on' : '')} onClick={() => setCur(k)}>{l}</button>)}</div>
         </div>
       </Field>
-      <button className="btn full" disabled={!(paid > 0)} onClick={() => done(true)}>Add to spending · then to wardrobe</button>
-      <button className="btn full soft" onClick={() => done(false)}>It was a gift / already logged</button>
+      <button className="btn full" disabled={!(paid > 0)} onClick={() => done(true)}>{tr('Add to spending · then to wardrobe')}</button>
+      <button className="btn full soft" onClick={() => done(false)}>{tr('It was a gift / already logged')}</button>
     </Sheet>
   )
 }
@@ -342,7 +342,7 @@ const SavedEdit = ({ id }: { id?: string }) => {
   return (
     <FormSheet title={s ? 'Saved' : 'Save for later'} initial={s ? { currency: useStore.getState().st.settings.mainCur, ...s } : { cat: 'base', currency: useStore.getState().st.settings.mainCur }}
       fields={[{ key: 'name', label: 'What', type: 'text' }, { key: 'size', label: 'Size', type: 'text', placeholder: 'M, 38, 27/32…' }, { key: 'price', label: 'Price', type: 'number' }, { key: 'currency', label: 'Currency', type: 'select', options: curOptions(useStore.getState().st.settings, s?.currency) }, { key: 'link', label: 'Link (optional)', type: 'url' }, { key: 'cat', label: 'Type', type: 'select', options: CATS }]}
-      extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">Saved {fmtDay(s.savedAt)}</span>}</>}
+      extra={<><PhotoField value={photo} onChange={setPhoto} />{s && <span className="t13 muted">{tr('Saved {d}', { d: fmtDay(s.savedAt) })}</span>}</>}
       onSave={(v) => update((d) => {
         const data = { name: v.name, size: v.size?.trim() || undefined, price: v.price ?? 0, currency: v.currency ?? useStore.getState().st.settings.mainCur, link: v.link, cat: v.cat ?? 'base', photo }
         if (s) Object.assign(d.saved.find((x) => x.id === s.id)!, data)
@@ -392,40 +392,40 @@ const Outfits = () => {
     setStartId(s.id); setPick(ids)
   }
   if (!starters.length)
-    return <div className="card" style={{ textAlign: 'center', alignItems: 'center', padding: 28 }}><span className="t17">Add a few things to your wardrobe first</span><button className="btn" onClick={() => useUi.getState().setSub('own')}>Go to wardrobe</button></div>
+    return <div className="card" style={{ textAlign: 'center', alignItems: 'center', padding: 28 }}><span className="t17">{tr('Add a few things to your wardrobe first')}</span><button className="btn" onClick={() => useUi.getState().setSub('own')}>{tr('Go to wardrobe')}</button></div>
   return (
     <>
       <div className="card" style={{ gap: 12, paddingTop: 16, paddingBottom: 16 }}>
         <div className="row" style={{ gap: 14 }}>
           {start && <div style={{ width: 64 }}><Tile it={{ ...start, name: '' }} /></div>}
-          <div className="col grow"><span className="t13 w5 muted">Start from · {start ? CAT1[start.cat] : ''}</span><span className="mid" style={{ fontSize: 19.5 }}>{start?.name}</span></div>
-          <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { choose(id); closeSheet() }} />)}>Change</button>
+          <div className="col grow"><span className="t13 w5 muted">{tr('Start from')} · {start ? tr(CAT1[start.cat]) : ''}</span><span className="mid" style={{ fontSize: 19.5 }}>{start?.name}</span></div>
+          <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { choose(id); closeSheet() }} />)}>{tr('Change')}</button>
         </div>
         <div className="between">
-          <div className="col" style={{ gap: 0 }}><span className="t15 w6">Goes well with</span><span className="t13 muted">{pairs.length ? 'Tap to add · another of the same kind swaps it (accessories add up)' : 'Your pairs'}</span></div>
-          {start && <button className="link" onClick={() => openSheet(<PairsSheet id={start.id} back={closeSheet} />)}>Edit pairs</button>}
+          <div className="col" style={{ gap: 0 }}><span className="t15 w6">{tr('Goes well with')}</span><span className="t13 muted">{tr(pairs.length ? 'Tap to add · another of the same kind swaps it (accessories add up)' : 'Your pairs')}</span></div>
+          {start && <button className="link" onClick={() => openSheet(<PairsSheet id={start.id} back={closeSheet} />)}>{tr('Edit pairs')}</button>}
         </div>
         {pairs.length ? (
-          <div className="hscroll">{pairs.map((p) => <Tile key={p.id} it={p} meta={CAT1[p.cat]} size={72} sel={pick.includes(p.id)} onClick={() => togglePick(p.id)} />)}</div>
-        ) : <span className="t14 muted">{start?.pairs.length ? 'Nothing else to add.' : 'No pairs yet. Tap “Edit pairs”.'}</span>}
+          <div className="hscroll">{pairs.map((p) => <Tile key={p.id} it={p} meta={tr(CAT1[p.cat])} size={72} sel={pick.includes(p.id)} onClick={() => togglePick(p.id)} />)}</div>
+        ) : <span className="t14 muted">{tr(start?.pairs.length ? 'Nothing else to add.' : 'No pairs yet. Tap “Edit pairs”.')}</span>}
         <div className="btn2">
-          <button className="btn" disabled={!start} onClick={() => { setPlan([start!.id, ...pick]); toast('In Try on next') }}>Try on next</button>
-          <button className="btn ghost" onClick={shuffle}>Shuffle my pairs</button>
+          <button className="btn" disabled={!start} onClick={() => { setPlan([start!.id, ...pick]); toast('In Try on next') }}>{tr('Try on next')}</button>
+          <button className="btn ghost" onClick={shuffle}>{tr('Shuffle my pairs')}</button>
         </div>
       </div>
       <div className="card closet" style={{ gap: 12, paddingTop: 16, paddingBottom: 16 }}>
-        <span className="t17">Try on next</span>
-        {plan.length ? <div className="hscroll">{plan.map((p) => <Tile key={p.id} it={p} meta={CAT1[p.cat]} size={72} onClick={() => setPlan(planIds.filter((x) => x !== p.id))} />)}</div> : <span className="t14">Build an outfit above and tap “Try on next”.</span>}
+        <span className="t17">{tr('Try on next')}</span>
+        {plan.length ? <div className="hscroll">{plan.map((p) => <Tile key={p.id} it={p} meta={tr(CAT1[p.cat])} size={72} onClick={() => setPlan(planIds.filter((x) => x !== p.id))} />)}</div> : <span className="t14">{tr('Build an outfit above and tap “Try on next”.')}</span>}
         <div className="btn2">
-          <button className="btn" disabled={!plan.length} onClick={() => { const dup = sameOutfit(st.outfits, plan.map((x) => x.id)); if (dup) { openSheet(<DupSheet id={dup.id} onPlan={setPlan} />); return } openSheet(<FormSheet title="Save outfit" fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Office day' }, { key: 'tempMin', label: 'Temperature of comfort: from (°C)', type: 'number', step: 1 }, { key: 'tempMax', label: 'to (°C)', type: 'number', step: 1 }]} onSave={(v) => update((d) => { d.outfits.push({ id: uid(), name: v.name, itemIds: plan.map((x) => x.id), tempMin: num(v.tempMin), tempMax: num(v.tempMax) }) })} />) }}>Save outfit</button>
-          <button className="btn ghost" disabled={!plan.length} onClick={() => setPlan([])}>Delete outfit</button>
+          <button className="btn" disabled={!plan.length} onClick={() => { const dup = sameOutfit(st.outfits, plan.map((x) => x.id)); if (dup) { openSheet(<DupSheet id={dup.id} onPlan={setPlan} />); return } openSheet(<FormSheet title="Save outfit" fields={[{ key: 'name', label: 'Name', type: 'text', placeholder: 'Office day' }, { key: 'tempMin', label: 'Temperature of comfort: from (°C)', type: 'number', step: 1 }, { key: 'tempMax', label: 'to (°C)', type: 'number', step: 1 }]} onSave={(v) => update((d) => { d.outfits.push({ id: uid(), name: v.name, itemIds: plan.map((x) => x.id), tempMin: num(v.tempMin), tempMax: num(v.tempMax) }) })} />) }}>{tr('Save outfit')}</button>
+          <button className="btn ghost" disabled={!plan.length} onClick={() => setPlan([])}>{tr('Delete outfit')}</button>
         </div>
       </div>
       <List title="Saved outfits" right={String(st.outfits.length)} empty="Nothing saved yet.">
         {byWeather(st.outfits, wx).map((o, i) => {
           const best = wx && i < 3 && (o.tempMin !== undefined || o.tempMax !== undefined)
           const its = byFormula(o.itemIds.map((id) => st.closet.find((x) => x.id === id)).filter(Boolean) as ClosetItem[])
-          return <Row key={o.id} dot={C.closet} title={<>{o.name}{tempText(o) && <span className="t15 muted" style={{ fontWeight: 400 }}> · {tempText(o)}</span>}{best && <span className="t13" style={{ fontWeight: 500, background: C.closet, color: 'var(--ink)', borderRadius: 999, padding: '0 8px', lineHeight: '18px', display: 'inline-block', marginLeft: 6, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>today’s choice</span>}</>} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(`Wearing ${o.name}`) }}>Wear</span>}
+          return <Row key={o.id} dot={C.closet} title={<>{o.name}{tempText(o) && <span className="t15 muted" style={{ fontWeight: 400 }}> · {tempText(o)}</span>}{best && <span className="t13" style={{ fontWeight: 500, background: C.closet, color: 'var(--ink)', borderRadius: 999, padding: '0 8px', lineHeight: '18px', display: 'inline-block', marginLeft: 6, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{tr('today’s choice')}</span>}</>} meta={its.map((i) => i.name).join(' · ')} trail={<span className="t15 w6" onClick={(e) => { e.stopPropagation(); wear(o.itemIds); toast(tr('Wearing {x}', { x: o.name })) }}>{tr('Wear')}</span>}
             onClick={() => openSheet(<OutfitSheet id={o.id} onPlan={setPlan} />)} />
         })}
       </List>
@@ -463,11 +463,11 @@ const OutfitSheet = ({ id, onPlan }: { id: ID; onPlan?: (ids: ID[]) => void }) =
   const its = byFormula(o.itemIds.map((i) => st.closet.find((x) => x.id === i)).filter(Boolean) as ClosetItem[])
   return (
     <Sheet title={o.name}>
-      {tempText(o) && <span className="t15 muted" style={{ marginTop: -4 }}>Comfortable at {tempText(o)}</span>}
+      {tempText(o) && <span className="t15 muted" style={{ marginTop: -4 }}>{tr('Comfortable at {x}', { x: tempText(o) })}</span>}
       <div className="hscroll">{its.map((i) => <Tile key={i.id} it={i} size={72} />)}</div>
-      <button className="btn full" onClick={() => { if (onPlan) onPlan(o.itemIds); else update((d) => { d.planned = { date: today(), itemIds: o.itemIds } }); closeSheet() }}>Try it on next</button>
-      <button className="btn full soft" onClick={() => pushSheet(<OutfitEdit id={o.id} />)}>Edit</button>
-      <button className="btn full soft" onClick={() => { if (confirm(`Delete ${o.name}?`)) { update((d) => { d.outfits = d.outfits.filter((x) => x.id !== o.id) }); closeSheet() } }}>Delete</button>
+      <button className="btn full" onClick={() => { if (onPlan) onPlan(o.itemIds); else update((d) => { d.planned = { date: today(), itemIds: o.itemIds } }); closeSheet() }}>{tr('Try it on next')}</button>
+      <button className="btn full soft" onClick={() => pushSheet(<OutfitEdit id={o.id} />)}>{tr('Edit')}</button>
+      <button className="btn full soft" onClick={() => { if (confirm(tr('Delete {x}?', { x: o.name }))) { update((d) => { d.outfits = d.outfits.filter((x) => x.id !== o.id) }); closeSheet() } }}>{tr('Delete')}</button>
     </Sheet>
   )
 }
@@ -486,18 +486,18 @@ const OutfitEdit = ({ id }: { id: ID }) => {
       <Field label="Name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Temperature of comfort (°C)">
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <input className="input" inputMode="numeric" placeholder="from" value={tMin} onChange={(e) => setTMin(e.target.value.replace(/[^0-9-]/g, ''))} />
+          <input className="input" inputMode="numeric" placeholder={tr('from')} value={tMin} onChange={(e) => setTMin(e.target.value.replace(/[^0-9-]/g, ''))} />
           <span className="muted">–</span>
-          <input className="input" inputMode="numeric" placeholder="to" value={tMax} onChange={(e) => setTMax(e.target.value.replace(/[^0-9-]/g, ''))} />
+          <input className="input" inputMode="numeric" placeholder={tr('to')} value={tMax} onChange={(e) => setTMax(e.target.value.replace(/[^0-9-]/g, ''))} />
         </div>
       </Field>
-      <span className="t14 w5 muted">Pieces · {ids.length} · tap to add or take out</span>
+      <span className="t14 w5 muted">{tr('Pieces · {n} · tap to add or take out', { n: ids.length })}</span>
       {CATS.map(([cat, label]) => {
         const items = st.closet.filter((x) => x.cat === cat && (!x.offSeason || ids.includes(x.id))) // out-of-season only if already in it
         if (!items.length) return null
         return (
           <div key={cat} className="col" style={{ gap: 8 }}>
-            <span className="t14 w5">{label}</span>
+            <span className="t14 w5">{tr(label)}</span>
             <div className="hscroll">{items.map((i) => <Tile key={i.id} it={i} size={72} sel={ids.includes(i.id)} onClick={() => toggle(i.id)} />)}</div>
           </div>
         )
@@ -508,7 +508,7 @@ const OutfitEdit = ({ id }: { id: ID }) => {
           if (dup) { pushSheet(<DupSheet id={dup.id} back />); return }
           update((d) => { const x = d.outfits.find((y) => y.id === id); if (x) { x.name = name.trim(); x.itemIds = ids; x.tempMin = num(tMin); x.tempMax = num(tMax) } })
           popSheet(); toast('Outfit saved')
-        }}>Save</button>
+        }}>{tr('Save')}</button>
       </div>
     </Sheet>
   )
@@ -518,7 +518,7 @@ const PickSheet = ({ title, onPick }: { title: string; onPick: (id: ID) => void 
   const st = useSt()
   return (
     <Sheet title={title}>
-      <div className="grid3">{byFormula(st.closet.filter((i) => !i.offSeason && !NO_START.includes(i.cat))).map((i) => <Tile key={i.id} it={i} meta={CAT1[i.cat]} onClick={() => onPick(i.id)} />)}</div>
+      <div className="grid3">{byFormula(st.closet.filter((i) => !i.offSeason && !NO_START.includes(i.cat))).map((i) => <Tile key={i.id} it={i} meta={tr(CAT1[i.cat])} onClick={() => onPick(i.id)} />)}</div>
     </Sheet>
   )
 }

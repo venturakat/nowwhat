@@ -3,13 +3,14 @@ import { update, useSt } from '../store'
 import type { ID, PackItem, State, Trip } from '../types'
 import { addDays, diffDays, fmtDay, today, travelUsual, uid } from '../lib'
 import { C, Check, closeSheet, Field, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast } from '../ui'
+import { tr, trn } from '../i18n'
 import { byFormula, CATS, Tile } from './Closet'
 
 // Travel (Closet › Travel): packing lists. A list mixes things from the wardrobe, from Supplies › Care
 // and anything typed in by hand. Tick things off as they go into the suitcase.
 
 const dates = (x: Trip) => {
-  if (!x.start) return 'no dates yet'
+  if (!x.start) return tr('no dates yet')
   if (!x.end || x.end === x.start) return fmtDay(x.start)
   return `${fmtDay(x.start)} – ${fmtDay(x.end)}`
 }
@@ -17,12 +18,12 @@ const isPast = (x: Trip, t: string) => !!(x.end ?? x.start) && (x.end ?? x.start
 const when = (x: Trip, t: string) => {
   if (!x.start) return ''
   const n = diffDays(t, x.start)
-  return n > 1 ? ` · in ${n} days` : n === 1 ? ' · tomorrow' : n === 0 ? ' · today' : ''
+  return n > 1 ? ` · ${trn(n, 'in {n} day', 'in {n} days')}` : n === 1 ? ` · ${tr('tomorrow')}` : n === 0 ? ` · ${tr('today')}` : ''
 }
 // the current name of what an item points to (the wardrobe thing or supply may have been renamed)
 const nameOf = (st: State, i: PackItem) =>
   (i.src === 'closet' ? st.closet.find((c) => c.id === i.refId)?.name : i.src === 'care' ? st.supplies.find((s) => s.id === i.refId)?.name : undefined) ?? i.name
-const count = (x: Trip) => `${x.items.filter((i) => i.packed).length} of ${x.items.length} packed`
+const count = (x: Trip) => tr('{a} of {b} packed', { a: x.items.filter((i) => i.packed).length, b: x.items.length })
 
 export const Travel = () => {
   const st = useSt()
@@ -33,7 +34,7 @@ export const Travel = () => {
   const row = (x: Trip, done = false) => {
     return (
       <Row key={x.id} done={done} dot={done ? C.line : C.closet} title={x.name}
-        meta={`${dates(x)}${done ? '' : when(x, t)}${x.items.length ? ` · ${count(x)}` : ' · empty'}`}
+        meta={`${dates(x)}${done ? '' : when(x, t)}${x.items.length ? ` · ${count(x)}` : ` · ${tr('empty')}`}`}
         trail={<Icon.chevR />} onClick={() => openSheet(<TripSheet id={x.id} />)} />
     )
   }
@@ -42,7 +43,7 @@ export const Travel = () => {
       <List title="Packing lists" empty="Make a list for your next trip: clothes from your wardrobe, care things from Supplies, and anything else.">
         {coming.map((x) => row(x))}
       </List>
-      <button className="btn full soft" onClick={() => openSheet(<TripEdit />)}>+ New packing list</button>
+      <button className="btn full soft" onClick={() => openSheet(<TripEdit />)}>{tr('+ New packing list')}</button>
       {past.length > 0 && <List title="Past trips">{past.map((x) => row(x, true))}</List>}
     </>
   )
@@ -84,12 +85,12 @@ const TripEdit = ({ id }: { id?: string }) => {
       {!x && others.length > 0 && (
         <Field label="Start from">
           <div className="seg">
-            <button type="button" className={'chip' + (from === '' ? ' on' : '')} onClick={() => setFrom('')}>Empty list</button>
+            <button type="button" className={'chip' + (from === '' ? ' on' : '')} onClick={() => setFrom('')}>{tr('Empty list')}</button>
             {others.map((y) => <button key={y.id} type="button" className={'chip' + (from === y.id ? ' on' : '')} onClick={() => setFrom(y.id)}>{y.name}</button>)}
           </div>
         </Field>
       )}
-      <button className="btn full" disabled={!name.trim()} onClick={save}>{x ? 'Save' : 'Create'}</button>
+      <button className="btn full" disabled={!name.trim()} onClick={save}>{tr(x ? 'Save' : 'Create')}</button>
     </Sheet>
   )
 }
@@ -123,10 +124,11 @@ const TripSheet = ({ id }: { id: string }) => {
   const own = x.items.filter((i) => i.src === 'own')
   // travel necessities (Settings) not on the list yet, narrowed down by what's typed
   const onList = new Set(own.map((i) => i.name.toLowerCase()))
+  // starter necessities are stored in English and shown in the app language; own ones show as typed
   const q = text.trim().toLowerCase()
-  const options = travelUsual(st.settings).filter((o) => !onList.has(o.toLowerCase()) && o.toLowerCase() !== q && (!q || o.toLowerCase().includes(q)))
+  const options = travelUsual(st.settings).map((o) => tr(o)).filter((o) => !onList.has(o.toLowerCase()) && o.toLowerCase() !== q && (!q || o.toLowerCase().includes(q)))
   const btn = (label: string, onClick: () => void, child: ReactNode) => (
-    <span role="button" aria-label={label} className="qbtn" onClick={(e) => { e.stopPropagation(); onClick() }}>{child}</span>
+    <span role="button" aria-label={tr(label)} className="qbtn" onClick={(e) => { e.stopPropagation(); onClick() }}>{child}</span>
   )
   const item = (i: PackItem) => (
     <Row key={i.id} done={!!i.packed} title={nameOf(st, i)} onClick={() => toggle(i.id)}
@@ -146,15 +148,15 @@ const TripSheet = ({ id }: { id: string }) => {
       <List title="Clothes" right={pieces(clothes.map((c) => c.i))}>
         {groups.map((g) => (
           <div key={g.cat} className="pgroup">
-            <div className="list-sub">{g.label}</div>
+            <div className="list-sub">{tr(g.label)}</div>
             {g.items.map((i) => item(i))}
           </div>
         ))}
-        <Row title={<span className="muted">+ Add from wardrobe</span>} onClick={() => pushSheet(<ClosetPick id={id} />)} />
+        <Row title={<span className="muted">{tr('+ Add from wardrobe')}</span>} onClick={() => pushSheet(<ClosetPick id={id} />)} />
       </List>
       <List title="Care" right={pieces(care)}>
         {care.length > 0 && <div className="pgroup">{care.map((i) => item(i))}</div>}
-        <Row title={<span className="muted">+ Add from Supplies › Care</span>} onClick={() => pushSheet(<CarePick id={id} />)} />
+        <Row title={<span className="muted">{tr('+ Add from Supplies › Care')}</span>} onClick={() => pushSheet(<CarePick id={id} />)} />
       </List>
       <List title="Other" right={pieces(own)}>
         {own.length > 0 && <div className="pgroup">{own.map((i) => item(i))}</div>}
@@ -164,11 +166,11 @@ const TripSheet = ({ id }: { id: string }) => {
               <input className="input" value={text} placeholder="Choose or type your own" enterKeyHint="done"
                 onFocus={() => setDrop(true)} onBlur={() => setDrop(false)}
                 onChange={(e) => { setText(e.target.value); setDrop(true) }} onKeyDown={(e) => { if (e.key === 'Enter') { addOwn(); setDrop(false) } }} />
-              <button type="button" className="combo-arrow" aria-label="Usual things" onPointerDown={(e) => e.preventDefault()} onClick={() => setDrop(!drop)}>
+              <button type="button" className="combo-arrow" aria-label={tr('Usual things')} onPointerDown={(e) => e.preventDefault()} onClick={() => setDrop(!drop)}>
                 <span style={{ display: 'flex', transform: drop ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s' }}><Icon.chevR /></span>
               </button>
             </div>
-            <button className="btn" disabled={!text.trim()} onClick={() => { addOwn(); setDrop(false) }}>Add</button>
+            <button className="btn" disabled={!text.trim()} onClick={() => { addOwn(); setDrop(false) }}>{tr('Add')}</button>
           </div>
           {drop && options.length > 0 && (
             <div className="dropdown noswipe">
@@ -179,9 +181,9 @@ const TripSheet = ({ id }: { id: string }) => {
           )}
         </div>
       </List>
-      {packed > 0 && <button className="btn full soft" onClick={() => { edit((y) => { for (const i of y.items) i.packed = undefined }); toast('Everything unticked') }}>Untick everything</button>}
-      <button className="btn full soft" onClick={() => pushSheet(<TripEdit id={id} />)}>Edit trip</button>
-      <button className="btn full soft" onClick={() => { update((d) => { d.trips = (d.trips ?? []).filter((z) => z.id !== id) }); closeSheet(); toast('Packing list deleted') }}>Delete list</button>
+      {packed > 0 && <button className="btn full soft" onClick={() => { edit((y) => { for (const i of y.items) i.packed = undefined }); toast('Everything unticked') }}>{tr('Untick everything')}</button>}
+      <button className="btn full soft" onClick={() => pushSheet(<TripEdit id={id} />)}>{tr('Edit trip')}</button>
+      <button className="btn full soft" onClick={() => { update((d) => { d.trips = (d.trips ?? []).filter((z) => z.id !== id) }); closeSheet(); toast('Packing list deleted') }}>{tr('Delete list')}</button>
     </Sheet>
   )
 }
@@ -205,10 +207,10 @@ const ClosetPick = ({ id }: { id: ID }) => {
   const outfits = st.outfits.filter((o) => o.itemIds.some((i) => st.closet.some((c) => c.id === i)))
   return (
     <Sheet title="From wardrobe" onBack={() => popSheet()}>
-      {!st.closet.length && <span className="t15 muted">Your wardrobe is empty — add things in Closet › I own.</span>}
+      {!st.closet.length && <span className="t15 muted">{tr('Your wardrobe is empty — add things in Closet › I own.')}</span>}
       {outfits.length > 0 && (
         <div className="col" style={{ gap: 8 }}>
-          <span className="t14 w5">Whole outfits</span>
+          <span className="t14 w5">{tr('Whole outfits')}</span>
           <div className="seg">
             {outfits.map((o) => {
               const its = o.itemIds.filter((i) => st.closet.some((c) => c.id === i))
@@ -223,14 +225,14 @@ const ClosetPick = ({ id }: { id: ID }) => {
         if (!items.length) return null
         return (
           <div key={cat} className="col" style={{ gap: 8 }}>
-            <span className="t14 w5">{label}</span>
+            <span className="t14 w5">{tr(label)}</span>
             <div className="hscroll">{items.map((i) => <Tile key={i.id} it={i} size={72} sel={ids.includes(i.id)} onClick={() => toggle(i.id)} />)}</div>
           </div>
         )
       })}
       <div className="sheet-foot">
         <button className="btn full" onClick={() => { syncRefs(id, 'closet', ids, (r) => st.closet.find((c) => c.id === r)?.name ?? ''); popSheet() }}>
-          {ids.length ? `Pack ${ids.length} ${ids.length === 1 ? 'thing' : 'things'}` : 'Save'}
+          {ids.length ? trn(ids.length, 'Pack {n} thing', 'Pack {n} things') : tr('Save')}
         </button>
       </div>
     </Sheet>
@@ -253,7 +255,7 @@ const CarePick = ({ id }: { id: ID }) => {
       </List>
       <div className="sheet-foot">
         <button className="btn full" onClick={() => { syncRefs(id, 'care', ids, (r) => st.supplies.find((s) => s.id === r)?.name ?? ''); popSheet() }}>
-          {ids.length ? `Pack ${ids.length} ${ids.length === 1 ? 'thing' : 'things'}` : 'Save'}
+          {ids.length ? trn(ids.length, 'Pack {n} thing', 'Pack {n} things') : tr('Save')}
         </button>
       </div>
     </Sheet>

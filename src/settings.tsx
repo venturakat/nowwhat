@@ -203,7 +203,7 @@ const TravelCard = () => {
   return (
     <button className="card" style={{ gap: 4 }} onClick={() => pushSheet(<TravelSheet />)}>
       <span className="t17">{tr('Travel necessities')}</span>
-      <span className="t14 muted">{all.length ? all.slice(0, 4).join(', ') + (all.length > 4 ? ' ' + tr('and {n} more', { n: all.length - 4 }) : '') : tr('What you always take — offered on packing lists')}</span>
+      <span className="t14 muted">{all.length ? all.slice(0, 4).map((x) => tr(x)).join(', ') + (all.length > 4 ? ' ' + tr('and {n} more', { n: all.length - 4 }) : '') : tr('What you always take — offered on packing lists')}</span>
     </button>
   )
 }
@@ -215,7 +215,7 @@ const TravelSheet = () => {
   const [text, setText] = useState('')
   const set = (xs: string[]) => update((d) => { d.settings = { ...d.settings, travelUsual: xs } })
   const add = () => {
-    const have = new Set(all.map((x) => x.toLowerCase()))
+    const have = new Set(all.flatMap((x) => [x.toLowerCase(), tr(x).toLowerCase()]))
     const names = text.split(',').map((x) => x.trim()).filter((x) => x && !have.has(x.toLowerCase())).map((x) => x[0].toUpperCase() + x.slice(1))
     if (names.length) set([...all, ...new Set(names)])
     setText('')
@@ -226,8 +226,8 @@ const TravelSheet = () => {
       <List empty="Nothing yet — add what you always take.">
         {all.map((x) => (
           <div key={x} className="lrow" style={{ paddingTop: 9, paddingBottom: 9 }}>
-            <span className="grow"><div className="title">{x}</div></span>
-            <button aria-label={tr('Remove {x}', { x })} className="muted" style={{ display: 'flex', padding: 4, margin: -4 }} onClick={() => set(all.filter((y) => y !== x))}><Icon.x /></button>
+            <span className="grow"><div className="title">{tr(x)}</div></span>
+            <button aria-label={tr('Remove {x}', { x: tr(x) })} className="muted" style={{ display: 'flex', padding: 4, margin: -4 }} onClick={() => set(all.filter((y) => y !== x))}><Icon.x /></button>
           </div>
         ))}
       </List>
