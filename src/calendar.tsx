@@ -2,13 +2,14 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { flushSync } from 'react-dom'
 import { update, useSt, useStore } from './store'
 import type { CalEvent, CalKey, State } from './types'
-import { DayWeather, PlaceSheet } from './weather'
+import { DayWeather, PlaceSheet, placeName } from './weather'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, fmtWeekday, monthName, nextBuy, nextMonth, pad, parse,
   prevMonth, diffDays, subDate, taxPays, fmtTax, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, onceKey, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
+import { getLang, monthNames, tr, trn, weekdayNames } from './i18n'
 import { C, Check, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi, type Tab as UiTab } from './ui'
 import { ShipmentSheet } from './screens/Shipments'
 import { dotOf, TaskSheet } from './screens/Today'
@@ -16,6 +17,10 @@ import { dotOf, TaskSheet } from './screens/Today'
 // Calendar (its own page, to the left of Today): your own appointments, plus whatever you chose in
 // its settings (the gear on the page) from the tabs. It only shows the tabs' things — they still live in their tabs,
 // so it's never out of date. Tap one to go there; deliveries and classes can be ticked / cancelled here.
+
+// 'Period' and 'Name' mean something else elsewhere in the dictionary (tax period, a thing's name)
+const perWord = () => (getLang() === 'en' ? 'Period' : tr('Period (cycle)'))
+const cleanName = (m: 1 | 2 | 3) => tr(`${MODE_NAME[m]} clean`)
 
 export const CAL_OPTIONS: [CalKey, string][] = [
   ['taxes', 'Taxes payments'], ['subs', 'Subscription charges'], ['credits', 'Credit payments'], ['classes', 'Classes'],
@@ -86,34 +91,34 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     const d = late ? t : x.date
     if (d < from || d > to) continue
     out.push({
-    id: 'task-' + x.id, date: d, title: x.text, time: timeSpan(x.time, x.end), meta: late ? `Parking lot · overdue` : 'Parking lot', dot: dotOf(x.color), done: !!x.doneAt,
+    id: 'task-' + x.id, date: d, title: x.text, time: timeSpan(x.time, x.end), meta: late ? `${tr('Parking lot')} · ${tr('overdue')}` : tr('Parking lot'), dot: dotOf(x.color), done: !!x.doneAt,
     edit: () => <TaskSheet id={x.id} back={1} />,
     toggle: { on: !!x.doneAt, run: () => update((s) => { const y = s.tasks?.find((z) => z.id === x.id); if (!y) return; if (late) y.date = d; y.doneAt = y.doneAt ? undefined : today() }) }
   }) }
   // birthdays: every year on their day (29 Feb falls on the 28th in other years)
   for (const b of st.birthdays ?? []) for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) {
     const d = dayIn(`${y}-${b.md.slice(0, 2)}`, +b.md.slice(3))
-    if (d >= from && d <= to) out.push({ id: `bd-${b.id}-${y}`, date: d, title: `${b.name}’s birthday`, meta: b.year && y > b.year ? `Turns ${y - b.year}` : 'Birthday', dot: C.warn, edit: () => <BirthdayEdit id={b.id} /> })
+    if (d >= from && d <= to) out.push({ id: `bd-${b.id}-${y}`, date: d, title: tr('{name}’s birthday', { name: b.name }), meta: b.year && y > b.year ? tr('Turns {n}', { n: y - b.year }) : tr('Birthday'), dot: C.warn, edit: () => <BirthdayEdit id={b.id} /> })
   }
   if (st.settings.period?.on) {
-    for (const d of st.periodStarts ?? []) if (d >= from && d <= to) out.push({ id: 'per-' + d, date: d, title: 'Period', meta: 'First day', dot: PERIOD, edit: () => <PeriodEdit date={d} /> })
-    for (const d of predictedPeriods(st, to)) if (d >= from) out.push({ id: 'perp-' + d, date: d, title: 'Period', meta: 'Predicted', dot: PERIOD, edit: () => <PeriodEdit date={d} predicted /> })
+    for (const d of st.periodStarts ?? []) if (d >= from && d <= to) out.push({ id: 'per-' + d, date: d, title: perWord(), meta: tr('First day'), dot: PERIOD, edit: () => <PeriodEdit date={d} /> })
+    for (const d of predictedPeriods(st, to)) if (d >= from) out.push({ id: 'perp-' + d, date: d, title: perWord(), meta: tr('Predicted'), dot: PERIOD, edit: () => <PeriodEdit date={d} predicted /> })
   }
   for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.note, dot: C.ink, event: e })
   if (on.taxes) for (const mk of monthsIn(from, to)) {
     for (const x of taxPays(st, mk)) {
       if (x.amount <= 0) continue
       const paidPart = x.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
-      if (x.pay >= from && x.pay <= to) out.push({ id: `tax-${x.pay}`, date: x.pay, title: x.paid ? x.name : x.leftName, meta: `for ${x.forName} · ${fmtTax(st.settings, x.paid ? x.amount : x.left, true)}${x.paid ? ' · paid' : paidPart ? ` · ${paidPart} paid` : ''}`, dot: C.money, done: x.paid, go: ['money', 'taxes'] })
-      if (!x.paid && x.due !== x.pay && x.due >= from && x.due <= to) out.push({ id: `taxdl-${x.pay}`, date: x.due, title: 'Tax deadline', meta: `${x.leftName} for ${x.forName}`, dot: C.alert, go: ['money', 'taxes'] })
+      if (x.pay >= from && x.pay <= to) out.push({ id: `tax-${x.pay}`, date: x.pay, title: x.paid ? x.name : x.leftName, meta: `${tr('for {x}', { x: x.forName })} · ${fmtTax(st.settings, x.paid ? x.amount : x.left, true)}${x.paid ? ` · ${tr('paid')}` : paidPart ? ` · ${tr('{x} paid', { x: paidPart })}` : ''}`, dot: C.money, done: x.paid, go: ['money', 'taxes'] })
+      if (!x.paid && x.due !== x.pay && x.due >= from && x.due <= to) out.push({ id: `taxdl-${x.pay}`, date: x.due, title: tr('Tax deadline'), meta: tr('{x} for {y}', { x: x.leftName, y: x.forName }), dot: C.alert, go: ['money', 'taxes'] })
     }
   }
   if (on.subs) for (const s of st.subscriptions.filter((x) => !x.paused)) for (const mk of monthsIn(from, to)) {
     const d = subDate(s, mk)
-    if (d >= from && d <= to) out.push({ id: `sub-${s.id}-${d}`, date: d, title: s.name, meta: `Subscription · ${fmtCur(s.amount, s.currency)}`, dot: C.money, go: ['money', 'subs'] })
+    if (d >= from && d <= to) out.push({ id: `sub-${s.id}-${d}`, date: d, title: s.name, meta: `${tr('Subscription')} · ${fmtCur(s.amount, s.currency)}`, dot: C.money, go: ['money', 'subs'] })
   }
   if (on.credits) for (const c of st.credits ?? []) for (const x of creditSchedule(c)) {
-    if (x.date >= from && x.date <= to) out.push({ id: `cr-${c.id}-${x.n}`, date: x.date, title: c.name, meta: `Credit · payment ${x.n} of ${c.count} · ${fmtCur(x.amount, c.currency)}`, dot: C.money, done: x.date < t, go: ['money', 'credits'] })
+    if (x.date >= from && x.date <= to) out.push({ id: `cr-${c.id}-${x.n}`, date: x.date, title: c.name, meta: `${tr('Credit · payment {n} of {c}', { n: x.n, c: c.count })} · ${fmtCur(x.amount, c.currency)}`, dot: C.money, done: x.date < t, go: ['money', 'credits'] })
   }
   if (on.classes) for (const c of st.classes ?? []) {
     const paid = new Set(c.pays.flatMap((p) => p.dates))
@@ -126,14 +131,14 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
       const off = c.skips.includes(d)
       out.push({
         id: `cl-${c.id}-${d}`, date: d, title: c.name, time: classTime(c, d), dot: C.money, done: off, go: ['money', 'classes'],
-        meta: ['Class', c.moved?.[d] ? `moved from ${fmtDay(c.moved[d])}` : c.extra.includes(d) ? 'extra' : '', off ? 'cancelled' : paid.has(d) ? 'paid' : ''].filter(Boolean).join(' · '),
+        meta: [tr('Class'), c.moved?.[d] ? tr('moved from {d}', { d: fmtDay(c.moved[d]) }) : c.extra.includes(d) ? tr('extra') : '', off ? tr('cancelled') : paid.has(d) ? tr('paid') : ''].filter(Boolean).join(' · '),
         edit: off ? undefined : () => <ClassWhen id={c.id} date={d} />,
-        toggle: paid.has(d) ? undefined : { on: !off, label: ['Cancel', 'Bring back'], run: () => update((s) => { const L = s.classes?.find((y) => y.id === c.id); if (L) toggleClass(L, d) }) }
+        toggle: paid.has(d) ? undefined : { on: !off, label: [tr('Cancel'), tr('Bring back')], run: () => update((s) => { const L = s.classes?.find((y) => y.id === c.id); if (L) toggleClass(L, d) }) }
       })
     }
     if (c.payEvery !== 'class') {
       const b = classBatch(st, c)
-      if (b && b.due >= from && b.due <= to) out.push({ id: `clpay-${c.id}`, date: b.due, title: `Pay for ${c.name}`, meta: `${b.dates.length} ${b.dates.length === 1 ? 'class' : 'classes'} · ${monthName(b.month, true)}`, dot: C.money, go: ['money', 'classes'] })
+      if (b && b.due >= from && b.due <= to) out.push({ id: `clpay-${c.id}`, date: b.due, title: tr('Pay for {x}', { x: c.name }), meta: `${trn(b.dates.length, '{n} class', '{n} classes')} · ${monthName(b.month, true)}`, dot: C.money, go: ['money', 'classes'] })
     }
   }
   if (on.selfcare) {
@@ -141,7 +146,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     for (const x of st.selfcare ?? []) {
       if (x.paused) continue
       const d = careNext(x, t)
-      if (d >= from && d <= to) out.push({ id: `care-${x.id}`, date: d, title: x.name, time: timeSpan(x.time, x.endTime), meta: x.next < t ? 'Selfcare · overdue' : 'Selfcare', dot: C.closet, go: ['money', 'selfcare'], edit: () => <CareWhen id={x.id} /> })
+      if (d >= from && d <= to) out.push({ id: `care-${x.id}`, date: d, title: x.name, time: timeSpan(x.time, x.endTime), meta: x.next < t ? `${tr('Selfcare')} · ${tr('overdue')}` : tr('Selfcare'), dot: C.closet, go: ['money', 'selfcare'], edit: () => <CareWhen id={x.id} /> })
     }
   }
   if (on.shopping) {
@@ -159,7 +164,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
       const plan = st.shopPlans?.[key]
       const d = plan?.date ?? r.date
       if (d < from || d > to) continue
-      const title = `Shopping · ${CAT_LABEL[r.cat]}`
+      const title = `${tr('Shopping')} · ${tr(CAT_LABEL[r.cat])}`
       out.push({ id: 'shop-' + key, date: d, time: timeSpan(plan?.time, plan?.end), title, meta: r.names.slice(0, 3).join(', ') + (r.names.length > 3 ? ` +${r.names.length - 3}` : ''), dot: C.supplies, go: ['supplies', r.cat], edit: () => <ShopWhen k={key} planned={r.date} title={title} cat={r.cat} /> })
     }
   }
@@ -169,17 +174,17 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     const d = late ? t : x.eta ?? x.deliveredAt
     if (!d || d < from || d > to) continue
     out.push({
-      id: 'sh-' + x.id, date: d, title: x.name, meta: `Delivery · ${x.courier || 'courier'}${x.deliveredAt ? ' · delivered' : late ? ' · overdue' : ''}`, dot: C.supplies, done: !!x.deliveredAt, go: ['today'], edit: () => <ShipmentSheet id={x.id} back={1} />,
+      id: 'sh-' + x.id, date: d, title: x.name, meta: `${tr('Delivery')} · ${x.courier || tr('courier')}${x.deliveredAt ? ` · ${tr('delivered')}` : late ? ` · ${tr('overdue')}` : ''}`, dot: C.supplies, done: !!x.deliveredAt, go: ['today'], edit: () => <ShipmentSheet id={x.id} back={1} />,
       toggle: { on: !!x.deliveredAt, run: () => update((s) => { const y = s.shipments?.find((z) => z.id === x.id); if (y) y.deliveredAt = y.deliveredAt ? undefined : today() }) }
     })
   }
-  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, time: timeSpan(o.start, o.end), title: `${MODE_NAME[o.mode]} clean`, meta: o.sched && o.sched !== o.date ? `Cleaning · moved from ${fmtDay(o.sched)}` : 'Cleaning', dot: C.home, go: ['home', 'cleaning'], edit: () => <CleanWhen occ={o} /> })
+  if (on.cleaning) for (const o of occurrences(st, from, to)) out.push({ id: 'cln-' + o.key, date: o.date, time: timeSpan(o.start, o.end), title: cleanName(o.mode), meta: o.sched && o.sched !== o.date ? `${tr('Cleaning')} · ${tr('moved from {d}', { d: fmtDay(o.sched) })}` : tr('Cleaning'), dot: C.home, go: ['home', 'cleaning'], edit: () => <CleanWhen occ={o} /> })
   return out.sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '99').localeCompare(b.time ?? '99') || a.title.localeCompare(b.title))
 }
 
-const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const LONG_WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const MONTH_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+// Monday first; names in the app language
+const WD = () => { const w = weekdayNames(); return [...w.slice(1), w[0]] }
+const LONG_WD = () => weekdayNames(true)
 
 export const CalendarPage = () => {
   const st = useSt()
@@ -230,11 +235,11 @@ export const CalendarPage = () => {
   const sd = parse(sel)
   return (
     <div className="calscreen">
-      <Header sub={`${LONG_WD[parse(t).getDay()]}, ${fmtDay(t)}`} title="Calendar" right={<button className="hdr-gear" aria-label="Calendar settings" onClick={() => openSheet(<CalendarSettings />)}><Icon.gear /></button>} />
+      <Header sub={`${LONG_WD()[parse(t).getDay()]}, ${fmtDay(t)}`} title="Calendar" right={<button className="hdr-gear" aria-label={tr('Calendar settings')} onClick={() => openSheet(<CalendarSettings />)}><Icon.gear /></button>} />
       <div className="between" style={{ alignItems: 'center' }}>
-        <button className="cal-nav" aria-label="Previous month" onClick={() => slide(-1)}><Icon.chevL /></button>
-        <button className="mid" onClick={() => go(t.slice(0, 7))}>{MONTH_LONG[+mk.slice(5, 7) - 1]}{mk.slice(0, 4) !== t.slice(0, 4) ? ` ${mk.slice(0, 4)}` : ''}</button>
-        <button className="cal-nav" aria-label="Next month" onClick={() => slide(1)}><Icon.chevR /></button>
+        <button className="cal-nav" aria-label={tr('Previous month')} onClick={() => slide(-1)}><Icon.chevL /></button>
+        <button className="mid" onClick={() => go(t.slice(0, 7))}>{monthNames(true)[+mk.slice(5, 7) - 1]}{mk.slice(0, 4) !== t.slice(0, 4) ? ` ${mk.slice(0, 4)}` : ''}</button>
+        <button className="cal-nav" aria-label={tr('Next month')} onClick={() => slide(1)}><Icon.chevR /></button>
       </div>
       <div className="cal-view noswipe" ref={view}
         onTouchStart={(e) => { if (!busy.current) drag.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), dx: 0 } }}
@@ -258,7 +263,7 @@ export const CalendarPage = () => {
             const { start, weeks } = span(m)
             return (
               <div key={m} className="cal">
-                {WD.map((w) => <span key={w} className="cal-wd">{w}</span>)}
+                {WD().map((w) => <span key={w} className="cal-wd">{w}</span>)}
                 {Array.from({ length: weeks * 7 }, (_, i) => {
                   const d = addDays(start, i)
                   const dots = [...new Set((byDay.get(d) ?? []).filter((x) => !x.done).map((x) => x.dot))].slice(0, 3)
@@ -274,7 +279,7 @@ export const CalendarPage = () => {
           })}
         </div>
       </div>
-      <List title={`${LONG_WD[sd.getDay()]}, ${fmtDay(sel)}`} right={sel === t ? 'today' : undefined}
+      <List title={`${LONG_WD()[sd.getDay()]}, ${fmtDay(sel)}`} right={sel === t ? 'today' : undefined}
         empty={dayItems.length ? undefined : 'Nothing planned.'}>
         {dayItems.map((i) => (
           <Row key={i.id} dot={i.dot} done={i.done} title={i.title}
@@ -286,11 +291,11 @@ export const CalendarPage = () => {
               : i.go || i.event || i.edit ? <Icon.chevR /> : undefined}
             onClick={i.go || i.event || i.edit ? () => open(i) : undefined} />
         ))}
-        <Row title={<span className="muted">+ Add on {fmtDay(sel)}</span>} onClick={() => pushSheet(<AddSheet date={sel} />)} />
+        <Row title={<span className="muted">{tr('+ Add on {d}', { d: fmtDay(sel) })}</span>} onClick={() => pushSheet(<AddSheet date={sel} />)} />
       </List>
       <CyclePhase date={sel} />
       <DayWeather date={sel} />
-      {!anyOn && <span className="t13 muted" style={{ padding: '0 4px' }}>Want taxes, classes, deliveries and more here too? Choose them with the gear above.</span>}
+      {!anyOn && <span className="t13 muted" style={{ padding: '0 4px' }}>{tr('Want taxes, classes, deliveries and more here too? Choose them with the gear above.')}</span>}
     </div>
   )
 }
@@ -300,18 +305,18 @@ const AddSheet = ({ date }: { date: string }) => {
   const st = useSt()
   const classes = st.classes ?? []
   const open = (st.tasks ?? []).filter((x) => !x.doneAt && x.date !== date)
-  const opt = (title: ReactNode, meta: string, run: () => void) => <Row title={title} meta={meta} trail={<Icon.chevR />} onClick={run} />
+  const opt = (title: string, meta: string, run: () => void) => <Row title={tr(title)} meta={tr(meta)} trail={<Icon.chevR />} onClick={run} />
   return (
-    <Sheet title={`Add on ${fmtDay(date)}`} onBack={popSheet}>
+    <Sheet title={tr('Add on {d}', { d: fmtDay(date) })} onBack={popSheet}>
       <List>
         {opt('Appointment', 'Your own — not tied to any tab', () => pushSheet(<EventEdit date={date} />))}
         {opt('Parking lot task', 'New, or one already on the Parking lot', () => pushSheet(open.length ? <TaskPick date={date} /> : <TaskSheet date={date} back={2} />))}
         {opt('Birthday', 'Here every year on that day', () => pushSheet(<BirthdayEdit date={date} />))}
         {st.settings.period?.on && opt('Period started', 'First day — the predictions move with it', () => pushSheet(<PeriodEdit date={date} add />))}
         {opt('Delivery', 'Goes on the Shipment log', () => pushSheet(<ShipmentSheet eta={date} back={2} />))}
-        {classes.map((c) => opt(`Extra ${c.name} class`, c.time ? `At ${timeSpan(c.time, classEnd(c))}` : 'One extra class that day', () => {
+        {classes.map((c) => opt(tr('Extra {x} class', { x: c.name }), c.time ? tr('At {t}', { t: timeSpan(c.time, classEnd(c)) ?? '' }) : 'One extra class that day', () => {
           update((d) => { const L = d.classes?.find((y) => y.id === c.id); if (!L) return; L.skips = L.skips.filter((y) => y !== date); if (!L.extra.includes(date)) L.extra.push(date) })
-          popSheet(); toast(`Extra ${c.name} class on ${fmtDay(date)}`)
+          popSheet(); toast(tr('Extra {x} class on {d}', { x: c.name, d: fmtDay(date) }))
         }))}
       </List>
     </Sheet>
@@ -325,13 +330,13 @@ const TaskPick = ({ date }: { date: string }) => {
   const put = (id: string) => {
     update((s) => { const y = s.tasks?.find((z) => z.id === id); if (y) y.date = date })
     popSheet(false); popSheet(false)
-    toast(`On ${fmtDay(date)}`)
+    toast(tr('On {d}', { d: fmtDay(date) }))
   }
   return (
     <Sheet title="Parking lot task" onBack={popSheet}>
       <List>
-        {open.map((x) => <Row key={x.id} dot={dotOf(x.color)} title={x.text} meta={x.date ? `On ${fmtDay(x.date)}` : undefined} onClick={() => put(x.id)} />)}
-        <Row title={<span className="muted">+ New task</span>} onClick={() => pushSheet(<TaskSheet date={date} back={3} />)} />
+        {open.map((x) => <Row key={x.id} dot={dotOf(x.color)} title={x.text} meta={x.date ? tr('On {d}', { d: fmtDay(x.date) }) : undefined} onClick={() => put(x.id)} />)}
+        <Row title={<span className="muted">{tr('+ New task')}</span>} onClick={() => pushSheet(<TaskSheet date={date} back={3} />)} />
       </List>
     </Sheet>
   )
@@ -360,17 +365,17 @@ const BirthdayEdit = ({ id, date }: { id?: string; date?: string }) => {
   }
   return (
     <Sheet title={b ? 'Birthday' : 'New birthday'} onBack={popSheet}>
-      <Field label="Whose"><input className="input" autoFocus={!b} value={name} placeholder="Name" onChange={(x) => setName(x.target.value)} /></Field>
+      <Field label="Whose"><input className="input" autoFocus={!b} value={name} placeholder={getLang() === 'en' ? 'Name' : tr('Name (person)')} onChange={(x) => setName(x.target.value)} /></Field>
       <Field label="Date"><input className="input" type="date" value={d} onChange={(x) => setD(x.target.value)} /></Field>
       <button className="row" style={{ gap: 12, padding: '4px 0' }} onClick={() => setAge(!age)}>
-        <span className="t15 grow" style={{ textAlign: 'left' }}>Show their age (the year above is the year they were born)</span>
-        <span className={'switch' + (age ? ' on' : '')} role="switch" aria-checked={age} aria-label="Show their age"><i /></span>
+        <span className="t15 grow" style={{ textAlign: 'left' }}>{tr('Show their age (the year above is the year they were born)')}</span>
+        <span className={'switch' + (age ? ' on' : '')} role="switch" aria-checked={age} aria-label={tr('Show their age')}><i /></span>
       </button>
-      <button className="btn full" disabled={!name.trim() || !d} onClick={save}>Save</button>
+      <button className="btn full" disabled={!name.trim() || !d} onClick={save}>{tr('Save')}</button>
       {b && <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
         if (!armed) { setArmed(true); return }
         update((s) => { s.birthdays = (s.birthdays ?? []).filter((y) => y.id !== id) }); popSheet()
-      }}>Delete</button>}
+      }}>{tr('Delete')}</button>}
     </Sheet>
   )
 }
@@ -385,11 +390,11 @@ const CareWhen = ({ id }: { id: string }) => {
   if (!x) return null
   return (
     <Sheet title={x.name} onBack={popSheet}>
-      <span className="t15 muted">Next time — changing it here changes it in Selfcare too.</span>
+      <span className="t15 muted">{tr('Next time — changing it here changes it in Selfcare too.')}</span>
       <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value)} /></Field>
       <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
-      <button className="btn full" disabled={!d} onClick={() => { update((s) => { const y = s.selfcare?.find((z) => z.id === id); if (y) { y.next = d; y.time = time || undefined; y.endTime = (time && end) || undefined } }); popSheet() }}>Save</button>
-      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'selfcare') }}>Open in Selfcare</button>
+      <button className="btn full" disabled={!d} onClick={() => { update((s) => { const y = s.selfcare?.find((z) => z.id === id); if (y) { y.next = d; y.time = time || undefined; y.endTime = (time && end) || undefined } }); popSheet() }}>{tr('Save')}</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'selfcare') }}>{tr('Open in Selfcare')}</button>
     </Sheet>
   )
 }
@@ -406,12 +411,12 @@ const ClassWhen = ({ id, date }: { id: string; date: string }) => {
   const own = c.moved?.[date]
   return (
     <Sheet title={c.name} onBack={popSheet}>
-      <span className="t15 muted">Just this class — the weekly schedule stays as it is.{paid ? ' It’s paid for already, so it keeps its date.' : ''}</span>
+      <span className="t15 muted">{tr('Just this class — the weekly schedule stays as it is.')}{paid ? ' ' + tr('It’s paid for already, so it keeps its date.') : ''}</span>
       <Field label="Date"><input className="input" type="date" value={d} disabled={paid} onChange={(e) => setD(e.target.value || date)} /></Field>
       <TimeRange start={start} end={end} onChange={(a, b) => { setStart(a); setEnd(b) }} />
-      {own && <button className="btn full soft" onClick={() => { setD(own); setStart(c.time ?? ''); setEnd(classEnd(c) ?? '') }}>Back to {fmtDay(own)}{c.time ? ` at ${c.time}` : ''}</button>}
-      <button className="btn full" onClick={() => { update((s) => { const L = s.classes?.find((y) => y.id === id); if (L) rescheduleClass(L, date, d, start, end) }); popSheet() }}>Save</button>
-      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'classes') }}>Open Classes</button>
+      {own && <button className="btn full soft" onClick={() => { setD(own); setStart(c.time ?? ''); setEnd(classEnd(c) ?? '') }}>{c.time ? tr('Back to {d} at {t}', { d: fmtDay(own), t: c.time }) : tr('Back to {d}', { d: fmtDay(own) })}</button>}
+      <button className="btn full" onClick={() => { update((s) => { const L = s.classes?.find((y) => y.id === id); if (L) rescheduleClass(L, date, d, start, end) }); popSheet() }}>{tr('Save')}</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('money', 'classes') }}>{tr('Open Classes')}</button>
     </Sheet>
   )
 }
@@ -433,13 +438,13 @@ const CleanWhen = ({ occ }: { occ: Occurrence }) => {
     popSheet()
   }
   return (
-    <Sheet title={`${MODE_NAME[occ.mode]} clean`} onBack={popSheet}>
-      <span className="t15 muted">Just this clean — the schedule stays as it is. A {MODE_NAME[occ.mode]} clean takes about {hours} hours.</span>
+    <Sheet title={cleanName(occ.mode)} onBack={popSheet}>
+      <span className="t15 muted">{tr('Just this clean — the schedule stays as it is.')} {trn(hours, 'A {m} takes about {n} hour.', 'A {m} takes about {n} hours.', { m: cleanName(occ.mode) })}</span>
       <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || occ.date)} /></Field>
       <TimeRange start={start} end={end} hours={hours} onChange={(a, b) => { setStart(a); setEnd(b) }} />
-      {occ.sched && occ.sched !== occ.date && <button className="btn full soft" onClick={() => setD(occ.sched!)}>Back to {fmtWeekday(occ.sched)}</button>}
-      <button className="btn full" onClick={save}>Save</button>
-      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'cleaning') }}>Open Cleaning</button>
+      {occ.sched && occ.sched !== occ.date && <button className="btn full soft" onClick={() => setD(occ.sched!)}>{tr('Back to {d}', { d: fmtWeekday(occ.sched) })}</button>}
+      <button className="btn full" onClick={save}>{tr('Save')}</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('home', 'cleaning') }}>{tr('Open Cleaning')}</button>
     </Sheet>
   )
 }
@@ -462,12 +467,12 @@ const ShopWhen = ({ k, planned, title, cat }: { k: string; planned: string; titl
   }
   return (
     <Sheet title={title} onBack={popSheet}>
-      <span className="t15 muted">Planned for {fmtDay(planned)}. Moving it here is just for planning your day — Supplies stays as it is.</span>
+      <span className="t15 muted">{tr('Planned for {d}. Moving it here is just for planning your day — Supplies stays as it is.', { d: fmtDay(planned) })}</span>
       <Field label="Date"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value || planned)} /></Field>
       <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
-      {(d !== planned || time) && <button className="btn full soft" onClick={() => { setD(planned); setTime(''); setEnd('') }}>Back to {fmtDay(planned)}, no time</button>}
-      <button className="btn full" onClick={save}>Save</button>
-      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('supplies', cat) }}>Open in Supplies</button>
+      {(d !== planned || time) && <button className="btn full soft" onClick={() => { setD(planned); setTime(''); setEnd('') }}>{tr('Back to {d}, no time', { d: fmtDay(planned) })}</button>}
+      <button className="btn full" onClick={save}>{tr('Save')}</button>
+      <button className="btn full soft" onClick={() => { closeSheet(); useUi.getState().go('supplies', cat) }}>{tr('Open in Supplies')}</button>
     </Sheet>
   )
 }
@@ -498,18 +503,18 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
   }
   return (
     <Sheet title={e ? 'Appointment' : 'New appointment'} onBack={popSheet}>
-      <Field label="What"><input className="input" autoFocus={!e} value={title} placeholder="Dentist, call with Ana…" onChange={(x) => setTitle(x.target.value)} /></Field>
+      <Field label="What"><input className="input" autoFocus={!e} value={title} placeholder={tr('Dentist, call with Ana…')} onChange={(x) => setTitle(x.target.value)} /></Field>
       <Field label="Date"><input className="input" type="date" value={d} onChange={(x) => setD(x.target.value)} /></Field>
       <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
       <Field label="Repeats">
-        <div className="seg">{REPEATS.map(([k, l]) => <button key={l} type="button" className={'chip' + (repeat === k ? ' on' : '')} onClick={() => setRepeat(k)}>{l}</button>)}</div>
+        <div className="seg">{REPEATS.map(([k, l]) => <button key={l} type="button" className={'chip' + (repeat === k ? ' on' : '')} onClick={() => setRepeat(k)}>{tr(l)}</button>)}</div>
       </Field>
-      <Field label="Note"><input className="input" value={note} placeholder="Address, what to bring…" onChange={(x) => setNote(x.target.value)} /></Field>
-      <button className="btn full" disabled={!title.trim() || !d} onClick={save}>Save</button>
+      <Field label="Note"><input className="input" value={note} placeholder={tr('Address, what to bring…')} onChange={(x) => setNote(x.target.value)} /></Field>
+      <button className="btn full" disabled={!title.trim() || !d} onClick={save}>{tr('Save')}</button>
       {e && <button className="btn full soft" style={armed ? { color: 'var(--alert)' } : undefined} onClick={() => {
         if (!armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return }
         update((s) => { s.events = (s.events ?? []).filter((y) => y.id !== id) }); popSheet()
-      }}>{armed ? 'Tap again to delete' : e.repeat ? 'Delete (every time)' : 'Delete'}</button>}
+      }}>{tr(armed ? 'Tap again to delete' : e.repeat ? 'Delete (every time)' : 'Delete')}</button>}
     </Sheet>
   )
 }
@@ -527,16 +532,16 @@ const PeriodEdit = ({ date, predicted, add }: { date: string; predicted?: boolea
     if (add) { popSheet(false); popSheet(false) } else popSheet()
   }
   return (
-    <Sheet title={add ? 'Period started' : 'Period'} onBack={popSheet}>
+    <Sheet title={add ? tr('Period started') : perWord()} onBack={popSheet}>
       <span className="t15 muted">{predicted
-        ? `Predicted from your last period and a ${periodCycle(st)}-day cycle. If it starts earlier or later, set the day it started — the next ones move with it.`
-        : 'The first day of your period. The next ones are predicted from your latest one.'}</span>
+        ? trn(periodCycle(st), 'Predicted from your last period and a {n}-day cycle. If it starts earlier or later, set the day it started — the next ones move with it.', 'Predicted from your last period and a {n}-day cycle. If it starts earlier or later, set the day it started — the next ones move with it.')
+        : tr('The first day of your period. The next ones are predicted from your latest one.')}</span>
       <Field label="First day"><input className="input" type="date" value={d} onChange={(e) => setD(e.target.value)} /></Field>
-      <button className="btn full" disabled={!d} onClick={save}>{predicted ? 'It started on this day' : 'Save'}</button>
+      <button className="btn full" disabled={!d} onClick={save}>{tr(predicted ? 'It started on this day' : 'Save')}</button>
       {logged && <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
         if (!armed) { setArmed(true); return }
         update((s) => { s.periodStarts = (s.periodStarts ?? []).filter((x) => x !== date) }); popSheet()
-      }}>Delete</button>}
+      }}>{tr('Delete')}</button>}
     </Sheet>
   )
 }
@@ -553,14 +558,14 @@ const CyclePhase = ({ date }: { date: string }) => {
   const n = diffDays(start, date) + 1
   const pd = periodDays(st)
   const ov = Math.max(pd + 2, c - 14) // ovulation day
-  const [name, words] = n <= pd ? ['Menstrual phase', 'Period']
+  const [name, words] = n <= pd ? ['Menstrual phase', perWord()]
     : n < ov - 1 ? ['Follicular phase', 'Energy building up']
     : n <= ov + 1 ? ['Ovulation', 'Peak energy']
     : ['Luteal phase', 'Winding down']
   const next = all.find((x) => x > date)
   return (
     <List>
-      <Row dot={PERIOD} title={name} meta={[`Day ${n} of ${c}`, words, next ? `next period ${fmtDay(next)}` : ''].filter(Boolean).join(' · ')} />
+      <Row dot={PERIOD} title={tr(name)} meta={[tr('Day {n} of {c}', { n, c }), tr(words), next ? tr('next period {d}', { d: fmtDay(next) }) : ''].filter(Boolean).join(' · ')} />
     </List>
   )
 }
@@ -572,21 +577,21 @@ export const CalendarSettings = () => {
   const flip = (k: CalKey) => update((d) => { d.settings = { ...d.settings, calendar: { ...(d.settings.calendar ?? {}), [k]: !on[k] || undefined } } })
   return (
     <Sheet title="Calendar settings">
-      <span className="t15 muted">Your own appointments and birthdays are always there. Choose what else the calendar shows from the tabs.</span>
+      <span className="t15 muted">{tr('Your own appointments and birthdays are always there. Choose what else the calendar shows from the tabs.')}</span>
       <div className="list">
         {CAL_OPTIONS.map(([k, label]) => (
           <button key={k} className="lrow" onClick={() => flip(k)}>
-            <span className="grow" style={{ textAlign: 'left' }}><div className="title">{label}</div></span>
-            <span className={'switch' + (on[k] ? ' on' : '')} role="switch" aria-checked={!!on[k]} aria-label={label}><i /></span>
+            <span className="grow" style={{ textAlign: 'left' }}><div className="title">{tr(label)}</div></span>
+            <span className={'switch' + (on[k] ? ' on' : '')} role="switch" aria-checked={!!on[k]} aria-label={tr(label)}><i /></span>
           </button>
         ))}
       </div>
       <div className="list">
         <button className="lrow" onClick={() => update((d) => { d.settings = { ...d.settings, weatherOff: d.settings.weatherOff ? undefined : true } })}>
-          <span className="grow" style={{ textAlign: 'left' }}><div className="title">Weather</div>{st.settings.weather && <div className="meta">{st.settings.weather.name}</div>}</span>
-          <span className={'switch' + (!st.settings.weatherOff ? ' on' : '')} role="switch" aria-checked={!st.settings.weatherOff} aria-label="Weather"><i /></span>
+          <span className="grow" style={{ textAlign: 'left' }}><div className="title">{tr('Weather')}</div>{st.settings.weather && <div className="meta">{placeName(st.settings.weather)}</div>}</span>
+          <span className={'switch' + (!st.settings.weatherOff ? ' on' : '')} role="switch" aria-checked={!st.settings.weatherOff} aria-label={tr('Weather')}><i /></span>
         </button>
-        {!st.settings.weatherOff && <Row title={st.settings.weather ? 'Change city' : 'Choose your city'} trail={<Icon.chevR />} onClick={() => pushSheet(<PlaceSheet />)} />}
+        {!st.settings.weatherOff && <Row title={tr(st.settings.weather ? 'Change city' : 'Choose your city')} trail={<Icon.chevR />} onClick={() => pushSheet(<PlaceSheet />)} />}
       </div>
       <PeriodSettings />
     </Sheet>
@@ -603,8 +608,8 @@ const PeriodSettings = () => {
   const [len, setLen] = useState(String(periodDays(st)))
   const sw = (on: boolean, label: string, run: () => void, meta?: string) => (
     <button className="lrow" onClick={run}>
-      <span className="grow" style={{ textAlign: 'left' }}><div className="title">{label}</div>{meta && <div className="meta">{meta}</div>}</span>
-      <span className={'switch' + (on ? ' on' : '')} role="switch" aria-checked={on} aria-label={label}><i /></span>
+      <span className="grow" style={{ textAlign: 'left' }}><div className="title">{tr(label)}</div>{meta && <div className="meta">{tr(meta)}</div>}</span>
+      <span className={'switch' + (on ? ' on' : '')} role="switch" aria-checked={on} aria-label={tr(label)}><i /></span>
     </button>
   )
   return (

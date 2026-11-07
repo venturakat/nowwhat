@@ -1,3 +1,4 @@
+import { getLang, tr } from './i18n'
 import { useEffect, useState, type ReactNode } from 'react'
 import { update, useSt } from './store'
 import type { Place } from './types'
@@ -45,6 +46,9 @@ export const useTodayWeather = (): Wx | null => {
   return days?.[today()] ?? null
 }
 
+// the place's name to show ('Where I am' is stored in English)
+export const placeName = (p: Place) => (p.name === 'Where I am' ? tr('Where I am') : p.name)
+
 // WMO weather codes → words + a picture
 type Kind = 'sun' | 'part' | 'cloud' | 'fog' | 'drizzle' | 'rain' | 'snow' | 'storm'
 const kindOf = (c: number): [Kind, string] =>
@@ -77,14 +81,14 @@ export const DayWeather = ({ date }: { date: string }) => {
   if (st.settings.weatherOff) return null
   const t = today()
   if (date < addDays(t, -PAST) || date > addDays(t, AHEAD - 1)) return null
-  if (!p) return <List><Row title="Weather" meta="Choose your city" trail={<Icon.chevR />} onClick={() => pushSheet(<PlaceSheet />)} /></List>
+  if (!p) return <List><Row title={tr('Weather')} meta={tr('Choose your city')} trail={<Icon.chevR />} onClick={() => pushSheet(<PlaceSheet />)} /></List>
   const w = days?.[date]
   if (!w) return null
   const [k, words] = kindOf(w.code)
   return (
     <List>
-      <Row lead={<span style={{ display: 'flex' }}>{PIC[k]}</span>} title={words}
-        meta={[p.name, w.rain != null && w.rain > 0 ? `rain ${w.rain}%` : ''].filter(Boolean).join(' · ')}
+      <Row lead={<span style={{ display: 'flex' }}>{PIC[k]}</span>} title={words === 'Clear' && getLang() !== 'en' ? tr('Clear (weather)') : tr(words)}
+        meta={[placeName(p), w.rain != null && w.rain > 0 ? tr('rain {x}%', { x: w.rain }) : ''].filter(Boolean).join(' · ')}
         trail={`${Math.round(w.max)}° / ${Math.round(w.min)}°`} onClick={() => pushSheet(<PlaceSheet />)} />
     </List>
   )
@@ -98,7 +102,7 @@ export const PlaceSheet = () => {
   useEffect(() => {
     if (q.trim().length < 2) { setFound(null); return }
     const t = setTimeout(() => {
-      fetch(`https://geocoding-api.open-meteo.com/v1/search?count=8&language=en&name=${encodeURIComponent(q.trim())}`)
+      fetch(`https://geocoding-api.open-meteo.com/v1/search?count=8&language=${getLang()}&name=${encodeURIComponent(q.trim())}`)
         .then((r) => r.json())
         .then((j) => setFound((j.results ?? []).map((x: { name: string; latitude: number; longitude: number; admin1?: string; country?: string }) => ({ name: x.name, lat: x.latitude, lon: x.longitude, where: [x.admin1, x.country].filter(Boolean).join(', ') }))))
         .catch(() => setFound([]))
@@ -108,17 +112,17 @@ export const PlaceSheet = () => {
   const pick = (p: Place) => { update((s) => { s.settings = { ...s.settings, weather: p, weatherOff: undefined } }); popSheet() }
   const here = () => navigator.geolocation?.getCurrentPosition(
     (g) => pick({ name: 'Where I am', lat: g.coords.latitude, lon: g.coords.longitude }),
-    () => toast('Couldn’t get your location'))
+    () => toast(tr('Couldn’t get your location')))
   return (
     <Sheet title="Weather" onBack={popSheet}>
-      {st.settings.weather && <span className="t15 muted">Now for {st.settings.weather.name}.</span>}
-      <input className="input" autoFocus value={q} placeholder="City" onChange={(e) => setQ(e.target.value)} />
+      {st.settings.weather && <span className="t15 muted">{tr('Now for {x}.', { x: placeName(st.settings.weather) })}</span>}
+      <input className="input" autoFocus value={q} placeholder={tr('City')} onChange={(e) => setQ(e.target.value)} />
       {found && (
         <List empty={found.length ? undefined : 'No city by that name.'}>
           {found.map((x) => <Row key={`${x.lat},${x.lon}`} title={x.name} meta={x.where || undefined} onClick={() => pick(x)} />)}
         </List>
       )}
-      <button className="btn full soft" onClick={here}>Use where I am</button>
+      <button className="btn full soft" onClick={here}>{tr('Use where I am')}</button>
     </Sheet>
   )
 }
