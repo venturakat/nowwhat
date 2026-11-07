@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom'
 import { update, useSt } from '../store'
 import type { CleanMode, CleanRepeat } from '../types'
 import { addDays, diffDays, fmtDay, fmtWeekday, today, uid } from '../lib'
-import { tr, weekdayNames } from '../i18n'
+import { tr, trn, weekdayNames } from '../i18n'
 import { C, Check, Chips, closeSheet, DragList, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
 import { currentClean, MODE_NAME, MODES, occurrences, onceKey, onOrAfter, progress, schedDates, schedLabel, schedOf, seasonStatus, tasksFor, type Occurrence } from '../cleaning'
@@ -11,8 +11,8 @@ import { currentClean, MODE_NAME, MODES, occurrences, onceKey, onOrAfter, progre
 const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1)
 const when = (o: Occurrence) => {
   const n = diffDays(today(), o.date)
-  const day = n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday' : n < 0 ? `${fmtWeekday(o.date)} · still open` : fmtWeekday(o.date)
-  const moved = o.sched && o.sched !== o.date ? ` (moved from ${fmtDay(o.sched)})` : ''
+  const day = n === 0 ? tr('today') : n === 1 ? tr('tomorrow') : n === -1 ? tr('yesterday') : n < 0 ? `${fmtWeekday(o.date)} · ${tr('still open')}` : fmtWeekday(o.date)
+  const moved = o.sched && o.sched !== o.date ? ` (${tr('moved from {d}', { d: fmtDay(o.sched) })})` : ''
   return day + (o.start ? ` · ${o.start}${o.end ? `–${o.end}` : ''}` : '') + moved
 }
 
@@ -27,15 +27,15 @@ export const Cleaning = () => {
     <>
       {cur ? <Current occ={cur.occ} /> : (
         <div className="card" style={{ gap: 6, padding: 16 }}>
-          <span className="t17">No cleans planned</span>
-          {!planned && <span className="t15 muted">Pick the day and how often for each list.</span>}
-          {!planned && <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => openSheet(<ListsSheet />)}>Plan cleaning</button>}
+          <span className="t17">{tr('No cleans planned')}</span>
+          {!planned && <span className="t15 muted">{tr('Pick the day and how often for each list.')}</span>}
+          {!planned && <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => openSheet(<ListsSheet />)}>{tr('Plan cleaning')}</button>}
         </div>
       )}
       {upcoming.length > 0 && (
         <List title="Coming up">
           {upcoming.map((o) => (
-            <Row key={o.key} dot={o.mode === 3 ? C.ink : C.home} title={`${MODE_NAME[o.mode]} clean`} meta={when(o)} trail="→" onClick={() => openSheet(<OccSheet occ={o} />)} />
+            <Row key={o.key} dot={o.mode === 3 ? C.ink : C.home} title={tr(`${MODE_NAME[o.mode]} clean`)} meta={when(o)} trail="→" onClick={() => openSheet(<OccSheet occ={o} />)} />
           ))}
         </List>
       )}
@@ -54,13 +54,13 @@ const SeasonCard = ({ mode }: { mode: CleanMode }) => {
   const ex = seasonStatus(st, mode)
   return (
     <div className="card" style={{ gap: 6, padding: 16 }}>
-      <span className="t14 w5 muted">{MODE_NAME[mode]} · once a season</span>
+      <span className="t14 w5 muted">{tr(MODE_NAME[mode])} · {tr('once a season')}</span>
       <span className="t17">
-        {ex.doneOn ? `Done this ${ex.season.name} on ${fmtDay(ex.doneOn)}` : ex.plannedOn ? `Planned for ${fmtWeekday(ex.plannedOn)}` : `Not done this ${ex.season.name} yet · ${ex.daysLeft} days left`}
+        {ex.doneOn ? tr('Done this {s} on {d}', { s: ex.season.name, d: fmtDay(ex.doneOn) }) : ex.plannedOn ? tr('Planned for {d}', { d: fmtWeekday(ex.plannedOn) }) : trn(ex.daysLeft, 'Not done this {s} yet · {n} day left', 'Not done this {s} yet · {n} days left', { s: ex.season.name })}
       </span>
       {!ex.doneOn && (
         <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => openSheet(<PlanOnce mode={mode} date={ex.plannedOn} />)}>
-          {ex.plannedOn ? 'Change date' : `Plan the ${MODE_NAME[mode]} clean`}
+          {ex.plannedOn ? tr('Change date') : tr(`Plan the ${MODE_NAME[mode]} clean`)}
         </button>
       )}
     </div>
@@ -83,11 +83,11 @@ const Current = ({ occ }: { occ: Occurrence }) => {
     <>
       <div className="card home" style={{ gap: 4 }}>
         <span className="t15 w5">{cap(when(occ))}</span>
-        <span className="mid">{MODE_NAME[occ.mode]} clean</span>
-        <span className="t15">{finished ? 'All done' : `${done.length} of ${tasks.length} done`}</span>
+        <span className="mid">{tr(`${MODE_NAME[occ.mode]} clean`)}</span>
+        <span className="t15">{finished ? tr('All done') : tr('{n} of {m} done', { n: done.length, m: tasks.length })}</span>
         <div className="btn2" style={{ paddingTop: 8 }}>
-          <button className="btn" onClick={() => openSheet(<MoveSheet occ={occ} />)}>Move date</button>
-          <button className="btn ghost" onClick={() => openSheet(<OccSheet occ={occ} />)}>More</button>
+          <button className="btn" onClick={() => openSheet(<MoveSheet occ={occ} />)}>{tr('Move date')}</button>
+          <button className="btn ghost" onClick={() => openSheet(<OccSheet occ={occ} />)}>{tr('More')}</button>
         </div>
       </div>
       <div className="list" style={{ padding: '6px 16px' }}>
@@ -96,11 +96,11 @@ const Current = ({ occ }: { occ: Occurrence }) => {
           return (
             <button key={t.id} className="row" style={{ width: '100%', padding: '11px 0', gap: 12 }} onClick={() => toggle(t.id)}>
               <Check on={on} />
-              <span className="grow t17" style={{ fontWeight: 500, textDecoration: on ? 'line-through' : undefined, color: on ? 'var(--ink2)' : undefined }}>{t.name}</span>
+              <span className="grow t17" style={{ fontWeight: 500, textDecoration: on ? 'line-through' : undefined, color: on ? 'var(--ink2)' : undefined }}>{tr(t.name)}</span>
             </button>
           )
         })}
-        {!tasks.length && <div className="list-empty">This list is empty — add steps in “Edit lists”.</div>}
+        {!tasks.length && <div className="list-empty">{tr('This list is empty — add steps in “Edit lists”.')}</div>}
       </div>
     </>
   )
@@ -122,21 +122,21 @@ export const moveOcc = (occ: Occurrence, date: string) =>
   })
 
 const MoveSheet = ({ occ }: { occ: Occurrence }) => (
-  <FormSheet title={`Move ${MODE_NAME[occ.mode]} clean`} initial={{ date: occ.date }} saveLabel="Move"
+  <FormSheet title={tr(`Move ${MODE_NAME[occ.mode]} clean`)} initial={{ date: occ.date }} saveLabel="Move"
     fields={[{ key: 'date', label: 'New date', type: 'date' }]}
-    extra={occ.sched && occ.sched !== occ.date ? <button className="btn full soft" onClick={() => { moveOcc(occ, occ.sched!); closeSheet() }}>Back to {fmtWeekday(occ.sched)}</button> : undefined}
-    onSave={(v) => { if (v.date) { moveOcc(occ, v.date); toast(`Moved to ${fmtWeekday(v.date)}`) } }}
+    extra={occ.sched && occ.sched !== occ.date ? <button className="btn full soft" onClick={() => { moveOcc(occ, occ.sched!); closeSheet() }}>{tr('Back to {d}', { d: fmtWeekday(occ.sched) })}</button> : undefined}
+    onSave={(v) => { if (v.date) { moveOcc(occ, v.date); toast(tr('Moved to {d}', { d: fmtWeekday(v.date) })) } }}
   />
 )
 
 const OccSheet = ({ occ }: { occ: Occurrence }) => (
-  <Sheet title={`${MODE_NAME[occ.mode]} clean`}>
+  <Sheet title={tr(`${MODE_NAME[occ.mode]} clean`)}>
     <span className="t15 muted">{when(occ)}</span>
-    <button className="btn full" onClick={() => openSheet(<MoveSheet occ={occ} />)}>Move date</button>
+    <button className="btn full" onClick={() => openSheet(<MoveSheet occ={occ} />)}>{tr('Move date')}</button>
     {occ.sched ? (
-      <button className="btn full soft" onClick={() => { update((d) => { d.cleanPlan.skips.push(occ.sched!) }); closeSheet(); toast('Skipped this one') }}>Skip this one</button>
+      <button className="btn full soft" onClick={() => { update((d) => { d.cleanPlan.skips.push(occ.sched!) }); closeSheet(); toast('Skipped this one') }}>{tr('Skip this one')}</button>
     ) : (
-      <button className="btn full soft" onClick={() => { update((d) => { const o = d.cleanPlan.once ?? {}; o[occ.mode] = (o[occ.mode] ?? []).filter((x) => x !== occ.date) }); closeSheet() }}>Remove this one</button>
+      <button className="btn full soft" onClick={() => { update((d) => { const o = d.cleanPlan.once ?? {}; o[occ.mode] = (o[occ.mode] ?? []).filter((x) => x !== occ.date) }); closeSheet() }}>{tr('Remove this one')}</button>
     )}
   </Sheet>
 )
@@ -144,7 +144,7 @@ const OccSheet = ({ occ }: { occ: Occurrence }) => (
 const PlanOnce = ({ mode, date }: { mode: CleanMode; date?: string }) => {
   const drop = (d: { cleanPlan: { once?: Partial<Record<CleanMode, string[]>> } }) => { const o = (d.cleanPlan.once ??= {}); o[mode] = (o[mode] ?? []).filter((x) => x !== date); return o }
   return (
-    <FormSheet title={`Plan the ${MODE_NAME[mode]} clean`} initial={{ date: date ?? addDays(today(), 1) }} saveLabel="Plan it"
+    <FormSheet title={tr(`Plan the ${MODE_NAME[mode]} clean`)} initial={{ date: date ?? addDays(today(), 1) }} saveLabel="Plan it"
       fields={[{ key: 'date', label: 'Date (on a cleaning day it takes that clean’s place)', type: 'date' }]}
       onSave={(v) => { if (v.date) update((d) => { const o = drop(d); o[mode] = o[mode]!.concat(v.date) }) }}
       onDelete={date ? () => update((d) => { drop(d) }) : undefined}
@@ -160,7 +160,7 @@ const ScheduleSheet = ({ mode }: { mode: CleanMode }) => {
   const s = schedOf(st.cleanPlan, mode)
   const wd = weekdayNames(true)
   return (
-    <FormSheet title={`${MODE_NAME[mode]} clean`} onBack={() => popSheet()} full={false}
+    <FormSheet title={tr(`${MODE_NAME[mode]} clean`)} onBack={() => popSheet()} full={false}
       initial={{ every: s.every, day: String(s.day), from: s.from < today() ? today() : s.from }}
       fields={[
         { key: 'every', label: 'Repeats', type: 'select', options: REPEATS },
@@ -186,7 +186,7 @@ const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
   const edit = (id?: string) => {
     const t = st.cleanTasks.find((x) => x.id === id)
     pushSheet(
-      <FormSheet title={t ? 'Edit step' : `New step in ${MODE_NAME[mode]}`} initial={t ?? {}} onBack={() => popSheet()} full={false}
+      <FormSheet title={t ? tr('Edit step') : tr('New step in {x}', { x: tr(MODE_NAME[mode]) })} initial={t ? { ...t, name: tr(t.name) } : {}} onBack={() => popSheet()} full={false}
         fields={[{ key: 'name', label: 'Step', type: 'text' }]}
         onSave={(v) => update((d) => { if (t) d.cleanTasks.find((x) => x.id === t.id)!.name = v.name; else d.cleanTasks.push({ id: uid(), name: v.name, mode }) })}
       />
@@ -265,9 +265,9 @@ const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
       <span ref={mark} hidden />
       <Chips items={[['1', 'Light'], ['2', 'Regular'], ['3', 'Extra']]} value={String(mode)} onChange={(v) => { setMode(Number(v) as CleanMode); setArmed(null) }} />
       <List>
-        <Row title={schedLabel(s)} meta={s.every === 'season' ? 'You pick the date on the Cleaning screen' : next ? `Next: ${fmtWeekday(next)}` : 'Set the day and how often'} trail="→" onClick={() => pushSheet(<ScheduleSheet mode={mode} />)} />
+        <Row title={schedLabel(s)} meta={s.every === 'season' ? tr('You pick the date on the Cleaning screen') : next ? tr('Next: {x}', { x: fmtWeekday(next) }) : tr('Set the day and how often')} trail="→" onClick={() => pushSheet(<ScheduleSheet mode={mode} />)} />
       </List>
-      <List roomy title={MODE_NAME[mode]} right={tr('{n} steps', { n: tasks.length })} empty="No steps yet">
+      <List roomy title={MODE_NAME[mode]} right={trn(tasks.length, '{n} step', '{n} steps')} empty="No steps yet">
         {tasks.length > 0 && (
           <DragList ids={tasks.map((t) => t.id)} onMove={move}>
             {(id, grip) => {
@@ -277,7 +277,7 @@ const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
                 <div className="row" style={{ paddingRight: 8 }}>
                   {grip}
                   <button className="lrow grow" style={{ paddingLeft: 4, paddingRight: 8 }} onClick={() => edit(id)}>
-                    <span className="grow title" style={{ textAlign: 'left' }}>{t.name}</span>
+                    <span className="grow title" style={{ textAlign: 'left' }}>{tr(t.name)}</span>
                   </button>
                   <button aria-label={tr('Delete')} onClick={() => bin(id)} style={{ padding: 6, color: on ? 'var(--alert)' : 'var(--ink2)' }}><Icon.trash /></button>
                 </div>
@@ -286,8 +286,8 @@ const ListsSheet = ({ start = 1 }: { start?: CleanMode }) => {
           </DragList>
         )}
       </List>
-      <button className="btn full" onClick={() => edit()}>+ Add step to {MODE_NAME[mode]}</button>
-      <button className="btn full soft" onClick={closeSheet}>Done</button>
+      <button className="btn full" onClick={() => edit()}>+ {tr('Add step to {x}', { x: tr(MODE_NAME[mode]) })}</button>
+      <button className="btn full soft" onClick={closeSheet}>{tr('Done')}</button>
     </Sheet>
   )
 }

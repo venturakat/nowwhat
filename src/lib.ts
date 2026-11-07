@@ -787,24 +787,30 @@ export const leftToDurations = (steps: CookStep[]): CookStep[] => {
 export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
   const clean = (l: string) => l.replace(/\*\*|__|`/g, '').replace(/^#+\s*/, '').trim()
   const lines = text.split(/\r?\n/).map(clean).filter(Boolean)
-  const name = (lines.shift() ?? 'New recipe').replace(/[:.]$/, '')
+  const name = (lines.shift() ?? tr('New recipe')).replace(/[:.]$/, '')
   const H: [RegExp, Sec][] = [
     [/^(ingredients|you('ll)? need|what you need|shopping list)\b/i, 'ing'],
     [/^(stove|stovetop|pan|pot|hob|on the stove)\b/i, 'stove'],
     [/^(aero ?grill|air ?fryer|airfryer|air-fryer|air fry|air-fry)\b/i, 'air'],
     [/^(glaze|sauce|marinade|dressing|glaze\s*\/\s*sauce)\b/i, 'sauce'],
     [/^(steps|method|instructions|directions|how to( make| cook)?|preparation|cooking)\b/i, 'stove'],
-    [/^(notes?|tips?|serving|to serve)\b/i, 'note']
+    [/^(notes?|tips?|serving|to serve)\b/i, 'note'],
+    [/^(інгредієнти|складники|продукти|що потрібно)(?=$|[\s:/–—-])/iu, 'ing'],
+    [/^(плита|на плиті|сковорідка|каструля)(?=$|[\s:/–—-])/iu, 'stove'],
+    [/^(аерогриль|аерофритюрниця)(?=$|[\s:/–—-])/iu, 'air'],
+    [/^(глазур\s*\/\s*соус|глазур|соус|маринад|заправка)(?=$|[\s:/–—-])/iu, 'sauce'],
+    [/^(кроки|приготування|як приготувати|спосіб приготування)(?=$|[\s:/–—-])/iu, 'stove'],
+    [/^(примітки|нотатки|поради|подача)(?=$|[\s:/–—-])/iu, 'note']
   ]
   type Sec = 'none' | 'ing' | 'stove' | 'air' | 'sauce' | 'note'
-  const bullet = /^([-•*–—]|\d+[.)]|step\s*\d+[:.)]?)\s*/i
+  const bullet = /^([-•*–—]|\d+[.)]|(?:step|крок)\s*\d+[:.)]?)\s*/i
   let sec: Sec = 'none'
   const r = { ingredients: [] as string[], stove: [] as CookStep[], air: [] as CookStep[], sauce: [] as string[], notes: [] as string[] }
   let minutes: number | undefined, airTemp: number | undefined, airLeft = false
   const step = (b: string): CookStep => {
-    const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(min|mins|minutes)\b/i)
+    const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?)(?![a-zа-яіїєґ])/i)
     // the time moves to the timeline, so drop "– 12 min" / ", 8 min left" / "(5 min)" from the end of the text
-    const text = b.replace(/\s*[,–—-]?\s*\(?(?:for\s+)?\d+\s*(?:-\s*\d+\s*)?(?:min|mins|minutes)(?:\s+left)?\)?\.?\s*$/i, '').trim() || b
+    const text = b.replace(/\s*[,–—-]?\s*\(?(?:for\s+)?\d+\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?)(?![a-zа-яіїєґ])(?:\s+(?:left|залишилось|лишилось))?\)?\.?\s*$/i, '').trim() || b
     return { text, min: m ? Number(m[1]) : undefined }
   }
   for (const l of lines) {
@@ -812,7 +818,7 @@ export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
     if (h && l.length < 40) {
       sec = h[1]
       const rest = l.replace(h[0], '').replace(/^[\s:/–—-]+/, '')
-      if (sec === 'air') { const t = l.match(/(\d{3})\s*°?\s*C/i); if (t) airTemp = Number(t[1]) }
+      if (sec === 'air') { const t = l.match(/(\d{3})\s*°?\s*[CС]/i); if (t) airTemp = Number(t[1]) }
       if (sec === 'note' && rest) r.notes.push(rest)
       continue
     }

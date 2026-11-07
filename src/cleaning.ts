@@ -1,6 +1,6 @@
 import type { CleanMode, CleanPlan, CleanRepeat, CleanSchedule, CleanTask, State } from './types'
 import { addDays, diffDays, parse, today, uid, ymd } from './lib'
-import { weekdayNames } from './i18n'
+import { tr, weekdayNames } from './i18n'
 
 export const MODE_NAME: Record<CleanMode, string> = { 1: 'Light', 2: 'Regular', 3: 'Extra' }
 export const MODE_HOURS: Record<CleanMode, number> = { 1: 2, 2: 4, 3: 8 } // how long each kind of clean takes
@@ -54,11 +54,11 @@ const ORD = ['1st', '2nd', '3rd', '4th']
 export const schedLabel = (s: CleanSchedule) => {
   const wd = weekdayNames(true)[s.day]
   const w = WEEKS[s.every]
-  if (w === 1) return `Every ${wd}`
-  if (w) return `Every ${w} weeks · ${wd}`
-  if (s.every === 'month') return `Monthly · ${ORD[nthOf(onOrAfter(s.from, s.day)) - 1]} ${wd}`
-  if (s.every === 'season') return 'Once a season'
-  return 'Not planned'
+  if (w === 1) return tr('Every {wd}', { wd })
+  if (w) return tr('Every {n} weeks · {wd}', { n: w, wd })
+  if (s.every === 'month') { const n = nthOf(onOrAfter(s.from, s.day)); return tr('Monthly · {o} {wd}', { o: ORD[n - 1], n, wd }) }
+  if (s.every === 'season') return tr('Once a season')
+  return tr('Not planned')
 }
 
 export const onceKey = (m: CleanMode, date: string) => (m === 3 ? 'x-' : `x${m}-`) + date
