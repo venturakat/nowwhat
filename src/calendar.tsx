@@ -78,12 +78,18 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
   const on = st.settings.calendar ?? {}
   const out: Item[] = []
   const t = today()
-  // Parking lot tasks given a day (always shown, like your own appointments)
-  for (const x of st.tasks ?? []) if (x.date && x.date >= from && x.date <= to) out.push({
-    id: 'task-' + x.id, date: x.date, title: x.text, time: timeSpan(x.time, x.end), meta: 'Parking lot', dot: dotOf(x.color), done: !!x.doneAt,
+  // Parking lot tasks given a day (always shown, like your own appointments);
+  // not ticked done and its day has passed → it rolls on to today, day by day, until ticked
+  for (const x of st.tasks ?? []) {
+    if (!x.date) continue
+    const late = !x.doneAt && x.date < t
+    const d = late ? t : x.date
+    if (d < from || d > to) continue
+    out.push({
+    id: 'task-' + x.id, date: d, title: x.text, time: timeSpan(x.time, x.end), meta: late ? `Parking lot · overdue` : 'Parking lot', dot: dotOf(x.color), done: !!x.doneAt,
     edit: () => <TaskSheet id={x.id} back={1} />,
-    toggle: { on: !!x.doneAt, run: () => update((s) => { const y = s.tasks?.find((z) => z.id === x.id); if (y) y.doneAt = y.doneAt ? undefined : today() }) }
-  })
+    toggle: { on: !!x.doneAt, run: () => update((s) => { const y = s.tasks?.find((z) => z.id === x.id); if (!y) return; if (late) y.date = d; y.doneAt = y.doneAt ? undefined : today() }) }
+  }) }
   // birthdays: every year on their day (29 Feb falls on the 28th in other years)
   for (const b of st.birthdays ?? []) for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) {
     const d = dayIn(`${y}-${b.md.slice(0, 2)}`, +b.md.slice(3))
