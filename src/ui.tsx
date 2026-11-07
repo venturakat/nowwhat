@@ -188,7 +188,7 @@ export const Row = (p: { title: ReactNode; meta?: ReactNode; trail?: ReactNode; 
 export const List = ({ title, right, children, empty, roomy }: { title?: ReactNode; right?: ReactNode; children?: ReactNode; empty?: string; roomy?: boolean }) => {
   const has = Array.isArray(children) ? children.flat().filter(Boolean).length > 0 : !!children
   return (
-    <div className="list">
+    <div className={'list' + (title ? '' : ' bare')}>
       {title && (
         <div className="list-h" style={roomy ? { paddingBottom: 12 } : undefined}>
           <span className="t17">{t(title)}</span>
