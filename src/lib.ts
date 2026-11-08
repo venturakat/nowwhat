@@ -800,17 +800,23 @@ export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
     [/^(аерогриль|аерофритюрниця)(?=$|[\s:/–—-])/iu, 'air'],
     [/^(глазур\s*\/\s*соус|глазур|соус|маринад|заправка)(?=$|[\s:/–—-])/iu, 'sauce'],
     [/^(кроки|приготування|як приготувати|спосіб приготування)(?=$|[\s:/–—-])/iu, 'stove'],
-    [/^(примітки|нотатки|поради|подача)(?=$|[\s:/–—-])/iu, 'note']
+    [/^(примітки|нотатки|поради|подача)(?=$|[\s:/–—-])/iu, 'note'],
+    [/^(ингредиенты|продукты|что нужно|понадобится)(?=$|[\s:/–—-])/iu, 'ing'],
+    [/^(плита|на плите|сковорода|сковородка|кастрюля)(?=$|[\s:/–—-])/iu, 'stove'],
+    [/^(аэрогриль|аэрофритюрница)(?=$|[\s:/–—-])/iu, 'air'],
+    [/^(глазурь\s*\/\s*соус|глазурь|соус|маринад|заправка)(?=$|[\s:/–—-])/iu, 'sauce'],
+    [/^(шаги|приготовление|как приготовить|способ приготовления)(?=$|[\s:/–—-])/iu, 'stove'],
+    [/^(примечания|заметки|советы|подача)(?=$|[\s:/–—-])/iu, 'note']
   ]
   type Sec = 'none' | 'ing' | 'stove' | 'air' | 'sauce' | 'note'
-  const bullet = /^([-•*–—]|\d+[.)]|(?:step|крок)\s*\d+[:.)]?)\s*/i
+  const bullet = /^([-•*–—]|\d+[.)]|(?:step|крок|шаг)\s*\d+[:.)]?)\s*/i
   let sec: Sec = 'none'
   const r = { ingredients: [] as string[], stove: [] as CookStep[], air: [] as CookStep[], sauce: [] as string[], notes: [] as string[] }
   let minutes: number | undefined, airTemp: number | undefined, airLeft = false
   const step = (b: string): CookStep => {
-    const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?)(?![a-zа-яіїєґ])/i)
+    const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?|мин(?:ут[аы]?)?)(?![a-zа-яёіїєґ])/i)
     // the time moves to the timeline, so drop "– 12 min" / ", 8 min left" / "(5 min)" from the end of the text
-    const text = b.replace(/\s*[,–—-]?\s*\(?(?:for\s+)?\d+\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?)(?![a-zа-яіїєґ])(?:\s+(?:left|залишилось|лишилось))?\)?\.?\s*$/i, '').trim() || b
+    const text = b.replace(/\s*[,–—-]?\s*\(?(?:for\s+)?\d+\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?|мин(?:ут[аы]?)?)(?![a-zа-яёіїєґ])(?:\s+(?:left|залишилось|лишилось|осталось))?\)?\.?\s*$/i, '').trim() || b
     return { text, min: m ? Number(m[1]) : undefined }
   }
   for (const l of lines) {

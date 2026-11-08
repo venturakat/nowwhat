@@ -56,7 +56,7 @@ export interface Settings {
   pitRate?: number
   dra?: number
   rca?: number
-  lang?: string // 'auto' (follows the phone, default) | 'en' | 'uk'
+  lang?: string // 'auto' (follows the phone, default) | 'en' | 'uk' | 'ru'
   splitDay: number // second half starts on this day (15)
   taxDueDay?: number // before v10
   taxPayDay?: number // before v10

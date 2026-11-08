@@ -5,7 +5,7 @@ import { FormSheet } from '../form'
 import { getLang, tr, trn } from '../i18n'
 
 // '5th' (Ukrainian: '5-го', used as '5-го числа')
-export const ord = (n: number) => getLang() === 'uk' ? `${n}-го` : n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th')
+export const ord = (n: number) => getLang() !== 'en' ? `${n}-го` : n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th')
 
 export const Subscriptions = () => {
   const st = useSt()

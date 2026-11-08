@@ -10,7 +10,7 @@ import { getLang, tr, trn } from '../i18n'
 const CATS: [SupplyCat, string][] = [['meds', 'Meds'], ['groceries', 'Groceries'], ['pets', 'Pets'], ['home', 'Home'], ['care', 'Care']]
 registerSubs('supplies', CATS.map((x) => x[0]))
 // in Ukrainian «Дім» is the Home tab, so the supplies list says «Для дому»
-const catItems = (): [SupplyCat, string][] => CATS.map(([k, l]) => [k, k === 'home' && getLang() === 'uk' ? tr('Home supplies') : l])
+const catItems = (): [SupplyCat, string][] => CATS.map(([k, l]) => [k, k === 'home' && getLang() !== 'en' ? tr('Home supplies') : l])
 const EMPTY: Record<SupplyCat, string> = {
   meds: 'Add your meds with price and how long a pack lasts.',
   groceries: 'Add staples that run out: coffee, oats, oil…',
