@@ -2,20 +2,21 @@
 // tr('Pay {x}', { x: 'ZUS' }) → 'Pay ZUS'. The app name / logo "now what" is never translated.
 import { uk } from './i18n/uk'
 import { ru } from './i18n/ru'
+import { es } from './i18n/es'
 
-export type Lang = 'en' | 'uk' | 'ru'
+export type Lang = 'en' | 'uk' | 'ru' | 'es'
 type Dict = Record<string, string>
-const DICTS: Partial<Record<Lang, Dict>> = { uk, ru }
+const DICTS: Partial<Record<Lang, Dict>> = { uk, ru, es }
 // Settings › Language. Until one is picked, the app starts in the phone's language if it has it, else English
-export const LANGS: [string, string][] = [['en', 'English'], ['uk', 'Українська'], ['ru', 'Русский']]
+export const LANGS: [string, string][] = [['en', 'English'], ['uk', 'Українська'], ['ru', 'Русский'], ['es', 'Español']]
 let lang: Lang = 'en'
 export const getLang = () => lang
 export const phoneLang = (): Lang => {
   const ls = typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language]
-  const hit = ls.map((x) => x?.toLowerCase().slice(0, 2)).find((x) => x === 'uk' || x === 'ru')
+  const hit = ls.map((x) => x?.toLowerCase().slice(0, 2)).find((x) => x === 'uk' || x === 'ru' || x === 'es')
   return (hit as Lang | undefined) ?? 'en'
 }
-export const resolveLang = (pick?: string): Lang => (pick === 'en' || pick === 'uk' || pick === 'ru' ? pick : phoneLang())
+export const resolveLang = (pick?: string): Lang => (pick === 'en' || pick === 'uk' || pick === 'ru' || pick === 'es' ? pick : phoneLang())
 export const setLang = (l: Lang) => {
   lang = l
   if (typeof document !== 'undefined') document.documentElement.lang = l
@@ -57,6 +58,12 @@ const NAMES: Record<Lang, { m: string[]; ml: string[]; wd: string[]; wdl: string
     ml: ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'],
     wd: ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'],
     wdl: ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
+  },
+  es: {
+    m: ['ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.', 'jul.', 'ago.', 'sept.', 'oct.', 'nov.', 'dic.'],
+    ml: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+    wd: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+    wdl: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
   }
 }
 export const monthNames = (long = false) => (long ? NAMES[lang].ml : NAMES[lang].m)

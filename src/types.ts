@@ -56,7 +56,7 @@ export interface Settings {
   pitRate?: number
   dra?: number
   rca?: number
-  lang?: string // 'en' | 'uk' | 'ru'; unset = start in the phone's language if the app has it, else English
+  lang?: string // 'en' | 'uk' | 'ru' | 'es'; unset = start in the phone's language if the app has it, else English
   splitDay: number // second half starts on this day (15)
   taxDueDay?: number // before v10
   taxPayDay?: number // before v10

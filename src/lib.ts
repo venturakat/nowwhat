@@ -806,17 +806,23 @@ export const parseRecipe = (text: string): Omit<Recipe, 'id'> => {
     [/^(аэрогриль|аэрофритюрница)(?=$|[\s:/–—-])/iu, 'air'],
     [/^(глазурь\s*\/\s*соус|глазурь|соус|маринад|заправка)(?=$|[\s:/–—-])/iu, 'sauce'],
     [/^(шаги|приготовление|как приготовить|способ приготовления)(?=$|[\s:/–—-])/iu, 'stove'],
-    [/^(примечания|заметки|советы|подача)(?=$|[\s:/–—-])/iu, 'note']
+    [/^(примечания|заметки|советы|подача)(?=$|[\s:/–—-])/iu, 'note'],
+    [/^(ingredientes|lo que necesitás|qué necesitás|necesitás)(?=$|[\s:/–—-])/iu, 'ing'],
+    [/^(hornalla|cocina|en la hornalla|sartén|olla)(?=$|[\s:/–—-])/iu, 'stove'],
+    [/^(freidora de aire|freidora|airfryer)(?=$|[\s:/–—-])/iu, 'air'],
+    [/^(glaseado\s*\/\s*salsa|glaseado|salsa|marinada|aderezo)(?=$|[\s:/–—-])/iu, 'sauce'],
+    [/^(pasos|preparación|procedimiento|cómo hacerlo)(?=$|[\s:/–—-])/iu, 'stove'],
+    [/^(notas|consejos|tips|para servir)(?=$|[\s:/–—-])/iu, 'note']
   ]
   type Sec = 'none' | 'ing' | 'stove' | 'air' | 'sauce' | 'note'
-  const bullet = /^([-•*–—]|\d+[.)]|(?:step|крок|шаг)\s*\d+[:.)]?)\s*/i
+  const bullet = /^([-•*–—]|\d+[.)]|(?:step|крок|шаг|paso)\s*\d+[:.)]?)\s*/i
   let sec: Sec = 'none'
   const r = { ingredients: [] as string[], stove: [] as CookStep[], air: [] as CookStep[], sauce: [] as string[], notes: [] as string[] }
   let minutes: number | undefined, airTemp: number | undefined, airLeft = false
   const step = (b: string): CookStep => {
-    const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?|мин(?:ут[аы]?)?)(?![a-zа-яёіїєґ])/i)
+    const m = b.match(/(\d+)\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?|мин(?:ут[аы]?)?|minutos?)(?![a-zа-яёіїєґ])/i)
     // the time moves to the timeline, so drop "– 12 min" / ", 8 min left" / "(5 min)" from the end of the text
-    const text = b.replace(/\s*[,–—-]?\s*\(?(?:for\s+)?\d+\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?|мин(?:ут[аы]?)?)(?![a-zа-яёіїєґ])(?:\s+(?:left|залишилось|лишилось|осталось))?\)?\.?\s*$/i, '').trim() || b
+    const text = b.replace(/\s*[,–—-]?\s*\(?(?:for\s+)?\d+\s*(?:-\s*\d+\s*)?(?:min|mins|minutes|хв(?:илин[аи]?)?|мин(?:ут[аы]?)?|minutos?)(?![a-zа-яёіїєґ])(?:\s+(?:left|залишилось|лишилось|осталось|restantes|más))?\)?\.?\s*$/i, '').trim() || b
     return { text, min: m ? Number(m[1]) : undefined }
   }
   for (const l of lines) {
