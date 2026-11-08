@@ -93,14 +93,14 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
     if (p) {
       const items = p.items
         .filter((it) => !it.fromClient && !it.oneOff)
-        .map((it) => ({ ...it, id: `${it.id.split('@')[0]}@${key}`, date: it.date ? key.slice(0, 7) + it.date.slice(7) : undefined }))
+        .map((it) => ({ ...it, paid: undefined, id: `${it.id.split('@')[0]}@${key}`, date: it.date ? key.slice(0, 7) + it.date.slice(7) : undefined }))
       return { items, isTemplate: true }
     }
   }
   return { items: [], isTemplate: true }
 }
 
-export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' | 'fee' | 'lessons' | 'care'; income?: boolean; expected?: boolean; counted?: boolean /* expected, but already in the income sum (monthly fees) */ }
+export interface AutoLine { id: string; label: string; amount: number; date: string; meta: string; kind: 'supplies' | 'tax' | 'credit' | 'subs' | 'fee' | 'lessons' | 'care'; income?: boolean; expected?: boolean; counted?: boolean /* expected, but already in the income sum (monthly fees) */; paid?: boolean /* already paid / past its date → Budget's "Mandatory paid" */ }
 
 export const CAT_LABEL: Record<SupplyCat, string> = { meds: 'Meds', groceries: 'Groceries', pets: 'Pets', home: 'Home supplies', care: 'Care' }
 
@@ -138,8 +138,16 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   // taxes paid this month, on the days I pay them (official deadlines are later)
   {
     for (const x of taxPays(st, p.month)) if (x.amount > 0 && x.pay >= p.start && x.pay <= p.end) {
-      const paidPart = x.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
-      out.push({ id: `tax-${x.pay}`, label: x.name, amount: toMain(st.settings, x.amount, taxCur(st.settings), x.pay), date: x.pay, meta: `${tr('for {x}', { x: x.forName })} · ${x.paid ? tr('paid') : paidPart ? `${tr('{x} paid', { x: paidPart })} · ${x.leftName} ${fmtDay(x.pay)}` : tr('pay {d}', { d: fmtDay(x.pay) })}`, kind: 'tax' })
+      const main = (n: number) => toMain(st.settings, n, taxCur(st.settings), x.pay)
+      const forName = tr('for {x}', { x: x.forName })
+      const paidGroups = x.groups.filter((g) => g.paid)
+      // groups marked paid go to "Mandatory paid", the rest stays planned
+      if (x.paid) out.push({ id: `tax-${x.pay}`, label: x.name, amount: main(x.amount), date: x.pay, meta: `${forName} · ${tr('paid')}`, kind: 'tax', paid: true })
+      else if (!paidGroups.length) out.push({ id: `tax-${x.pay}`, label: x.name, amount: main(x.amount), date: x.pay, meta: `${forName} · ${tr('pay {d}', { d: fmtDay(x.pay) })}`, kind: 'tax' })
+      else {
+        out.push({ id: `tax-${x.pay}-paid`, label: paidGroups.map((g) => g.name).join(' + '), amount: main(r2(x.amount - x.left)), date: x.pay, meta: `${forName} · ${tr('paid')}`, kind: 'tax', paid: true })
+        out.push({ id: `tax-${x.pay}`, label: x.leftName, amount: main(x.left), date: x.pay, meta: `${forName} · ${tr('pay {d}', { d: fmtDay(x.pay) })}`, kind: 'tax' })
+      }
     }
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
@@ -199,10 +207,18 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   if (cr.length) out.push({ id: 'credits', label: tr('Credits'), amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: creditMeta(cr.flatMap((x) => x.dates)), kind: 'credit' })
   // subscriptions charged in this half, as one line
   const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
-  if (subs.length) out.push({ id: 'subs', label: tr('Subscriptions'), amount: subs.reduce((a, { x, d }) => a + toMain(st.settings, x.amount, x.currency, d), 0), date: p.start, meta: subs.map(({ x }) => x.name).join(', '), kind: 'subs' })
+  // the ones whose day has passed are paid
+  for (const done of [true, false]) {
+    const g = subs.filter(({ d }) => (d < t) === done)
+    if (g.length) out.push({ id: done ? 'subs-paid' : 'subs', label: tr('Subscriptions'), amount: g.reduce((a, { x, d }) => a + toMain(st.settings, x.amount, x.currency, d), 0), date: done ? g[0].d : p.start, meta: g.map(({ x }) => x.name).join(', '), kind: 'subs', paid: done || undefined })
+  }
   // selfcare planned in this half (from today on; done ones are logged as spending instead)
   const care = careInPeriod(st, p.start, p.end)
-  if (care.length) out.push({ id: 'care', label: tr('Selfcare'), amount: care.reduce((a, c) => a + c.pln, 0), date: care[0].date, meta: [...new Set(care.map((c) => c.x.name))].join(', '), kind: 'care' })
+  // an overdue time (its date has passed, shown on today) counts as paid
+  for (const done of [true, false]) {
+    const g = care.filter((c) => (c.date === t && c.x.next < t) === done)
+    if (g.length) out.push({ id: done ? 'care-paid' : 'care', label: tr('Selfcare'), amount: g.reduce((a, c) => a + c.pln, 0), date: done ? g[0].x.next : g[0].date, meta: [...new Set(g.map((c) => c.x.name))].join(', '), kind: 'care', paid: done || undefined })
+  }
   return out
 }
 

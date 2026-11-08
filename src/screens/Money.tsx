@@ -38,6 +38,8 @@ export const Money = () => {
 }
 
 // ================= BUDGET =================
+// an expense already paid: switched to Paid in its edit form (one-off purchases from Supplies/Closet/Selfcare count as paid)
+const isPaid = (i: { paid?: boolean; oneOff?: boolean }) => i.paid ?? !!i.oneOff
 const Budget = () => {
   const st = useSt()
   const [key, setKey] = useState(() => periodOf(today(), st.settings).key)
@@ -49,22 +51,22 @@ const Budget = () => {
     const it = s.items.find((i) => i.id === id)
     openSheet(
       <FormSheet
-        title={it ? 'Edit' : kind === 'income' ? 'Money in' : 'Fixed expense'}
-        initial={it ? { currency: st.settings.mainCur, ...it } : { kind, currency: st.settings.mainCur, date: kind === 'income' ? s.info.start : undefined }}
+        title={it ? 'Edit' : kind === 'income' ? 'Money in' : 'Mandatory expense'}
+        initial={it ? { currency: st.settings.mainCur, ...it, paid: isPaid(it) } : { kind, currency: st.settings.mainCur, date: kind === 'income' ? s.info.start : undefined }}
         fields={[
           { key: 'label', label: 'Name', type: 'text' },
           { key: 'amount', label: 'Amount', type: 'number' },
           { key: 'currency', label: 'Currency', type: 'select', options: curOptions(st.settings, it?.currency) },
           ...((it?.kind ?? kind) === 'income'
             ? ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const)
-            : [])
+            : ([{ key: 'paid', label: 'Paid', type: 'toggle' }] as const))
         ]}
         onSave={(v) => {
           // a dated entry always lives in the half its date belongs to, whichever half it was added from
           const target = v.date ? periodOf(v.date, st.settings).key : key
           update((d) => {
             const p = ensurePeriod(d, key)
-            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, taxable: v.taxable }
+            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, taxable: v.taxable, ...((it?.kind ?? kind) === 'expense' ? { paid: !!v.paid } : {}) }
             const item = it ? { ...p.items.find((x) => x.id === it.id)!, ...data } : { id: uid(), kind, ...data }
             if (it) p.items = p.items.filter((x) => x.id !== it.id)
             ensurePeriod(d, target).items.push(item as any)
@@ -84,7 +86,15 @@ const Budget = () => {
   const amt = (x: { amount: number; currency?: Currency; date?: string }) => !x.currency || x.currency === st.settings.mainCur ? fmt(x.amount) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(x.amount, x.currency)}<br /><span className="t13 muted" style={{ fontWeight: 400 }}>{fmt(toMain(st.settings, x.amount, x.currency, x.date ?? s.info.end))}</span></span>
   const incomes = s.items.filter((i) => i.kind === 'income')
   const isBought = (i: { bought?: boolean; label: string }) => !!i.bought || i.label.endsWith(' (bought)')
-  const expenses = s.items.filter((i) => i.kind === 'expense' && !isBought(i))
+  const expenses = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && !isPaid(i))
+  const paidItems = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && isPaid(i))
+  const autoOut = s.auto.filter((a) => !a.income)
+  const mainOf = (i: { amount: number; currency?: Currency; date?: string }) => toMain(st.settings, i.amount, i.currency, i.date ?? s.info.end)
+  const plannedSum = autoOut.filter((a) => !a.paid).reduce((x, a) => x + a.amount, 0) + expenses.reduce((x, i) => x + mainOf(i), 0)
+  const paidSum = autoOut.filter((a) => a.paid).reduce((x, a) => x + a.amount, 0) + paidItems.reduce((x, i) => x + mainOf(i), 0)
+  const autoRow = (a: (typeof autoOut)[number]) => (
+    <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'classes' : 'credits')} />
+  )
   const bought = s.items.filter((i) => i.kind === 'expense' && isBought(i))
   const boughtSum = bought.reduce((a, i) => a + toMain(st.settings, i.amount, i.currency, i.date ?? s.info.end), 0)
   const spends = st.spends.filter((x) => x.date >= s.info.start && x.date <= s.info.end).sort((a, b) => b.date.localeCompare(a.date))
@@ -126,15 +136,21 @@ const Budget = () => {
           ))}
         </List>
       )}
-      <List title="Fixed this fortnight" right={fmt(s.fixed - boughtSum)}>
-        {s.auto.filter((a) => !a.income).map((a) => (
-          <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'classes' : 'credits')} />
-        ))}
+      <List title="Mandatory planned" right={fmt(plannedSum)}>
+        {autoOut.filter((a) => !a.paid).map(autoRow)}
         {expenses.map((i) => (
           <Row key={i.id} dot={C.line} title={i.label} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
-        <Row title={<span className="muted">{tr('+ Add fixed expense')}</span>} onClick={() => editItem(undefined, 'expense')} />
+        <Row title={<span className="muted">{tr('+ Add mandatory expense')}</span>} onClick={() => editItem(undefined, 'expense')} />
       </List>
+      {paidSum > 0 || autoOut.some((a) => a.paid) || paidItems.length > 0 ? (
+        <List title="Mandatory paid" right={fmt(paidSum)}>
+          {autoOut.filter((a) => a.paid).map(autoRow)}
+          {paidItems.map((i) => (
+            <Row key={i.id} dot={C.line} title={i.label} meta={i.date ? fmtDay(i.date) : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+          ))}
+        </List>
+      ) : null}
       {bought.length > 0 && (
         <Fold title="Supplies bought" right={fmt(boughtSum)}>
           {bought.map((i) => (

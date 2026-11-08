@@ -116,13 +116,13 @@ export const uk: Record<string, string> = {
 
   // ---- Money ----
   'Came in': 'Надійшло', 'Nothing yet': 'Поки нічого', 'Expected from clients': 'Очікується від клієнтів',
-  'Fixed this fortnight': 'Постійні за ці два тижні', 'Supplies bought': 'Куплені запаси', 'Day-to-day spending': 'Щоденні витрати',
+  'Mandatory planned': 'Обовʼязкові заплановані', 'Mandatory paid': 'Обовʼязкові сплачені', 'Supplies bought': 'Куплені запаси', 'Day-to-day spending': 'Щоденні витрати',
   'Moved to {x}': 'Перенесено: {x}', 'now': 'зараз', 'Left this fortnight': 'Залишок на два тижні',
   'per day': 'на день', 'per day · {n} day left|per day · {n} days left': 'на день · лишився {n} день|на день · лишилося {n} дні|на день · лишилося {n} днів', 'Spent {a} of {b}': 'Витрачено {a} з {b}',
   'Copied from last month — edit anything and it becomes this fortnight’s own plan.': 'Скопійовано з минулого місяця — зміни будь-що, і це стане планом саме цих двох тижнів.', 'business revenue': 'дохід бізнесу', '+ Add money in': '+ Додати надходження',
-  '+ Add fixed expense': '+ Додати постійну витрату', 'Spending': 'Витрата', 'Nothing logged yet.': 'Ще нічого не записано.',
+  '+ Add mandatory expense': '+ Додати обовʼязкову витрату', 'Spending': 'Витрата', 'Nothing logged yet.': 'Ще нічого не записано.',
   '+ Log spending': '+ Додати витрату', 'Tap again to merge': 'Торкнись ще раз, щоб обʼєднати', 'Merge identical spends': 'Обʼєднати однакові витрати',
-  'Merged': 'Обʼєднано', 'Money in': 'Надходження', 'Fixed expense': 'Постійна витрата',
+  'Merged': 'Обʼєднано', 'Money in': 'Надходження', 'Mandatory expense': 'Обовʼязкова витрата',
   'Amount': 'Сума', 'Currency': 'Валюта', 'Counts as business revenue (for taxes)?': 'Рахується як дохід бізнесу (для податків)?',
   'Edit spending': 'Редагувати витрату', 'How much': 'Скільки', 'What for (optional)': 'На що (необовʼязково)',
   'coffee, taxi…': 'кава, таксі…', 'Eat out': 'Кафе', 'Taxi': 'Таксі',

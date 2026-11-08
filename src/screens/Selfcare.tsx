@@ -68,7 +68,7 @@ const CareSheet = ({ id }: { id: string }) => {
     const amount = parseNum(paid) ?? x.price
     update((d) => {
       const y = d.selfcare!.find((z) => z.id === id)!
-      ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: uid(), kind: 'expense', label: x.name, amount, currency: cur, date, oneOff: true })
+      ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: uid(), kind: 'expense', label: x.name, amount, currency: cur, date, oneOff: true, paid: true })
       y.lastDone = date
       y.next = addDays(date, Math.max(1, y.everyDays))
       y.time = undefined; y.endTime = undefined // the booked time was for this visit
