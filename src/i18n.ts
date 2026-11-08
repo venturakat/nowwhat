@@ -6,8 +6,8 @@ import { ru } from './i18n/ru'
 export type Lang = 'en' | 'uk' | 'ru'
 type Dict = Record<string, string>
 const DICTS: Partial<Record<Lang, Dict>> = { uk, ru }
-// Settings › Language: 'auto' follows the phone
-export const LANGS: [string, string][] = [['auto', 'Phone language'], ['en', 'English'], ['uk', 'Українська'], ['ru', 'Русский']]
+// Settings › Language. Until one is picked, the app starts in the phone's language if it has it, else English
+export const LANGS: [string, string][] = [['en', 'English'], ['uk', 'Українська'], ['ru', 'Русский']]
 let lang: Lang = 'en'
 export const getLang = () => lang
 export const phoneLang = (): Lang => {

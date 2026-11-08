@@ -7,7 +7,7 @@ import { blueFits, OFFICIAL, refreshRates } from './rates'
 import { uid, fmtCur, allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
 import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule } from './types'
 import { LAG_NAME, defaultPayDay, applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
-import { LANGS, tr } from './i18n'
+import { LANGS, resolveLang, tr } from './i18n'
 
 export const SettingsSheet = () => {
   return (
@@ -26,14 +26,14 @@ export const SettingsSheet = () => {
   )
 }
 
-// Settings › Language: follows the phone unless one is picked
+// Settings › Language: the language in use is highlighted (before any pick it came from the phone)
 const LanguageCard = () => {
-  const pick = useSt().settings.lang ?? 'auto'
+  const pick = resolveLang(useSt().settings.lang)
   return (
     <div className="card" style={{ gap: 10 }}>
       <span className="t17">{tr('Language')}</span>
       <div className="seg">
-        {LANGS.map(([k, l]) => <button key={k} type="button" className={'chip' + (pick === k ? ' on' : '')} onClick={() => update((d) => { d.settings.lang = k === 'auto' ? undefined : k })}>{k === 'auto' ? tr(l) : l}</button>)}
+        {LANGS.map(([k, l]) => <button key={k} type="button" className={'chip' + (pick === k ? ' on' : '')} onClick={() => update((d) => { d.settings.lang = k })}>{l}</button>)}
       </div>
     </div>
   )
