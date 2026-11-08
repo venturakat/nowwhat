@@ -3,12 +3,27 @@ import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
 import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
-import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
+import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
 import { copyText, SpendSheet } from './Money'
 import { RecipeSheet } from './Recipes'
 import { ShipmentLog } from './Shipments'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
 import { tr, trn } from '../i18n'
+import { BackupSheet, CurrenciesSheet, TaxesSheet } from '../settings'
+
+// Today › Fresh start: three setup buttons, each opens its Settings page and then hides; the block goes once all three were tapped
+const SETUP: [string, string, () => ReactNode][] = [['backup', 'Restore', () => <BackupSheet />], ['currencies', 'Currencies', () => <CurrenciesSheet />], ['taxes', 'Taxes', () => <TaxesSheet />]]
+const FreshStart = ({ done }: { done: string[] }) => (
+  <div className="card money" style={{ gap: 6 }}>
+    <span className="t17">{tr('Fresh start')}</span>
+    <span className="t15">{tr('Have a backup? Restore it. Then pick your currencies and set up your taxes. All three stay in Settings for later.')}</span>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+      {SETUP.filter(([k]) => !done.includes(k)).map(([k, label, page]) => (
+        <button key={k} className="btn" style={{ flex: '1 1 0' }} onClick={() => { update((d) => { d.settings.setup = [...(d.settings.setup ?? []).filter((x) => x !== k), k] }); openSettings(); pushSheet(page()) }}>{tr(label)}</button>
+      ))}
+    </div>
+  </div>
+)
 
 interface Thing { id: string; dot: string; title: string; meta: string; trail?: ReactNode; go: () => void }
 
@@ -104,16 +119,12 @@ export const Today = () => {
   const top = list
   const nextP = summarize(st, shiftPeriod(s.info.key, 1))
   const nextIncome = nextP.items.filter((i) => i.kind === 'income').sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))[0]
+  const setup = st.settings.setup ?? []
   const nextTax = taxPays(st, monthKey(t)).find((x) => !x.paid && x.left > 0 && diffDays(t, x.pay) > 5)
   return (
     <div className="screen withfab">
       <Header sub={fmtWeekday(t)} title={<Logo />} />
-      {Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0 && (
-        <button className="card money" style={{ gap: 6 }} onClick={() => openSettings()}>
-          <span className="t17">{tr('Fresh start')}</span>
-          <span className="t15">{tr('Have a backup file? Open Settings → Backup → Restore from backup. Or just start adding money in, clients and supplies.')}</span>
-        </button>
-      )}
+      {setup.length < SETUP.length && (setup.length > 0 || (Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0)) && <FreshStart done={setup} />}
       <button className="card dark" style={{ gap: 6, paddingTop: 22, paddingBottom: 22 }} onClick={() => useUi.getState().go('money', 'budget')}>
         <span className="t15 w5">{tr('You can spend today')}</span>
         <span className="big" style={{ fontSize: fitSize(fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0)), 63.5, 8), color: s.perDay < 0 ? 'var(--alert)' : undefined }}>{fmt(Math.max(s.perDay, s.perDay < 0 ? s.perDay : 0))}</span>

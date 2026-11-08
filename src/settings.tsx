@@ -40,7 +40,7 @@ const LanguageCard = () => {
 }
 
 // backup lives on its own page, so "Erase everything" can't be tapped by accident from the main menu
-const BackupSheet = () => (
+export const BackupSheet = () => (
   <Sheet title="Backup" full onBack={popSheet}>
     <span className="t15 muted">{tr('Everything lives only on this phone. Save a backup file now and then (e.g. to iCloud Drive).')}</span>
     <button className="btn" onClick={exportJson}>{tr('Save backup file')}</button>
@@ -66,7 +66,7 @@ const TaxesCard = () => {
   )
 }
 
-const TaxesSheet = () => {
+export const TaxesSheet = () => {
   const st = useSt()
   const s = st.settings
   const lines = s.taxLines ?? []
@@ -273,7 +273,7 @@ const CurrenciesCard = () => {
 
 const fmtRate = (n?: number) => (n ? fmtNum(n, n < 0.1 ? 6 : 4, 2) : '—')
 
-const CurrenciesSheet = () => {
+export const CurrenciesSheet = () => {
   const st = useSt()
   const s = st.settings
   const [busy, setBusy] = useState(false)

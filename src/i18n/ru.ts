@@ -91,7 +91,7 @@ export const ru: Record<string, string> = {
   "{n} day overdue|{n} days overdue": "просрочено на {n} день|просрочено на {n} дня|просрочено на {n} дней",
   "at {t}": "в {t}",
   "Fresh start": "С чистого листа",
-  "Have a backup file? Open Settings → Backup → Restore from backup. Or just start adding money in, clients and supplies.": "Есть резервная копия? Открой Настройки → Резервная копия → Восстановить из копии. Или просто начни добавлять доходы, клиентов и запасы.",
+  "Have a backup? Restore it. Then pick your currencies and set up your taxes. All three stay in Settings for later.": "Есть резервная копия? Восстанови её. Потом выбери валюты и настрой налоги. Все три пункта остаются в Настройках.", "Restore": "Восстановить",
   "You can spend today": "Сегодня можно потратить",
   "Last day of this fortnight": "Последний день этой половины месяца",
   "{x} lands {d}": "{x} поступит {d}",

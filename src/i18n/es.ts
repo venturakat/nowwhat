@@ -91,7 +91,7 @@ export const es: Record<string, string> = {
   "{n} day overdue|{n} days overdue": "{n} día de atraso|{n} días de atraso|{n} días de atraso",
   "at {t}": "a las {t}",
   "Fresh start": "Empezar de cero",
-  "Have a backup file? Open Settings → Backup → Restore from backup. Or just start adding money in, clients and supplies.": "¿Tenés una copia de seguridad? Abrí Ajustes → Copia de seguridad → Restaurar copia. O empezá a cargar ingresos, clientes y provisiones.",
+  "Have a backup? Restore it. Then pick your currencies and set up your taxes. All three stay in Settings for later.": "¿Tenés una copia de seguridad? Restaurala. Después elegí tus monedas y configurá tus impuestos. Las tres cosas quedan en Ajustes.", "Restore": "Restaurar",
   "You can spend today": "Hoy podés gastar",
   "Last day of this fortnight": "Último día de esta quincena",
   "{x} lands {d}": "{x} entra {d}",

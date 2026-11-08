@@ -34,8 +34,7 @@ export const uk: Record<string, string> = {
   'Pay for {x}': 'Оплатити {x}', '{n} class|{n} classes': '{n} заняття|{n} заняття|{n} занять',
   '{n} day overdue|{n} days overdue': 'прострочено на {n} день|прострочено на {n} дні|прострочено на {n} днів', 'at {t}': 'о {t}',
   'Fresh start': 'Чистий аркуш',
-  'Have a backup file? Open Settings → Backup → Restore from backup. Or just start adding money in, clients and supplies.':
-    'Маєш резервну копію? Відкрий Налаштування → Резервна копія → Відновити з копії. Або просто почни додавати доходи, клієнтів і запаси.',
+  'Have a backup? Restore it. Then pick your currencies and set up your taxes. All three stay in Settings for later.': 'Маєш резервну копію? Віднови її. Потім обери валюти й налаштуй податки. Усі три пункти лишаються в Налаштуваннях.', 'Restore': 'Відновити',
   'You can spend today': 'Сьогодні можна витратити',
   'Last day of this fortnight': 'Останній день цієї половини місяця', '{x} lands {d}': '{x} надійде {d}',
   '{x} left for {n} day|{x} left for {n} days': 'Лишилося {x} на {n} день|Лишилося {x} на {n} дні|Лишилося {x} на {n} днів',
