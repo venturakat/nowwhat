@@ -19,7 +19,7 @@ const TURN: Partial<Record<ClosetCat, ClosetCat[]>> = {
 }
 const turnFor = (cat: ClosetCat) => TURN[cat] ?? ORDER.filter((k) => k !== cat) // everything else: the formula order
 const NO_START: ClosetCat[] = ['jewelry'] // an outfit never starts from an accessory
-const MANY: ClosetCat[] = ['jewelry'] // kinds an outfit can have several of (accessories; stored as 'jewelry')
+const MANY: ClosetCat[] = ['mid', 'jewelry'] // kinds an outfit can have several of (mid layers, accessories — stored as 'jewelry')
 export const CAT1: Record<ClosetCat, string> = { base: 'Base', mid: 'Mid', bottom: 'Bottom', dress: 'Dress', outer: 'Outer', shoes: 'Shoes', bag: 'Bag', underwear: 'Underwear', jewelry: 'Accessory', other: 'Other' }
 
 // shrink a photo (~480px JPEG by default) so storage stays small
@@ -363,16 +363,16 @@ const Outfits = () => {
   const [pick, setPick] = useState<ID[]>([]) // pieces chosen from "Goes well with"
   const start = starters.find((x) => x.id === startId) ?? starters[0]
   // suggestions: all the start's pairs, kind by kind in the right turn — except the start's own kind
-  // (starting from a bottom never suggests other bottoms)
+  // (starting from a bottom never suggests other bottoms; mid layers and accessories can stack)
   const order = start ? turnFor(start.cat) : ORDER
   const pairs = start
-    ? now.filter((x) => start.pairs.includes(x.id) && x.cat !== start.cat).sort((a, b) => order.indexOf(a.cat) - order.indexOf(b.cat))
+    ? now.filter((x) => start.pairs.includes(x.id) && (x.cat !== start.cat || MANY.includes(x.cat))).sort((a, b) => order.indexOf(a.cat) - order.indexOf(b.cat))
     : []
   // one piece per kind in the outfit: picking another of the same kind swaps it
   const togglePick = (id: ID) => {
     if (pick.includes(id)) { setPick(pick.filter((x) => x !== id)); return }
     const cat = now.find((x) => x.id === id)?.cat
-    if (cat && MANY.includes(cat)) { setPick([...pick, id]); return } // accessories: add as many as you like
+    if (cat && MANY.includes(cat)) { setPick([...pick, id]); return } // mid layers, accessories: add as many as you like
     setPick([...pick.filter((p) => now.find((x) => x.id === p)?.cat !== cat), id])
   }
   const choose = (id: ID) => { setStartId(id); setPick([]) }
@@ -402,7 +402,7 @@ const Outfits = () => {
           <button className="link" onClick={() => openSheet(<PickSheet title="Start from" onPick={(id) => { choose(id); closeSheet() }} />)}>{tr('Change')}</button>
         </div>
         <div className="between">
-          <div className="col" style={{ gap: 0 }}><span className="t15 w6">{tr('Goes well with')}</span><span className="t13 muted">{tr(pairs.length ? 'Tap to add · another of the same kind swaps it (accessories add up)' : 'Your pairs')}</span></div>
+          <div className="col" style={{ gap: 0 }}><span className="t15 w6">{tr('Goes well with')}</span><span className="t13 muted">{tr(pairs.length ? 'Tap to add · another of the same kind swaps it (mid layers and accessories add up)' : 'Your pairs')}</span></div>
           {start && <button className="link" onClick={() => openSheet(<PairsSheet id={start.id} back={closeSheet} />)}>{tr('Edit pairs')}</button>}
         </div>
         {pairs.length ? (

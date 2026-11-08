@@ -539,7 +539,7 @@ export const uk: Record<string, string> = {
   'Saved {d}': 'Збережено {d}',
   'Add a few things to your wardrobe first': 'Спершу додай кілька речей у гардероб',
   'Go to wardrobe': 'До гардероба',
-  'Tap to add · another of the same kind swaps it (accessories add up)': 'Торкнись, щоб додати · річ того ж типу замінює попередню (аксесуари додаються)',
+  'Tap to add · another of the same kind swaps it (mid layers and accessories add up)': 'Торкнись, щоб додати · річ того ж типу замінює попередню (середні шари й аксесуари додаються)',
   'Your pairs': 'Твої пари',
   'Nothing else to add.': 'Більше нічого додати.',
   'No pairs yet. Tap “Edit pairs”.': 'Пар ще немає. Торкнись «Змінити пари».',
