@@ -32,7 +32,7 @@ const LanguageCard = () => {
   return (
     <div className="card" style={{ gap: 10 }}>
       <span className="t17">{tr('Language')}</span>
-      <div className="seg">
+      <div className="seg langs">
         {LANGS.map(([k, l]) => <button key={k} type="button" className={'chip' + (pick === k ? ' on' : '')} onClick={() => update((d) => { d.settings.lang = k })}>{l}</button>)}
       </div>
     </div>
