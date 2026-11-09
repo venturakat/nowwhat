@@ -47,7 +47,7 @@ export const uk: Record<string, string> = {
   'Parking lot': 'Парковка справ', 'Add a task': 'Додати справу', 'Task': 'Справа', 'New task': 'Нова справа',
   'What needs doing': 'Що треба зробити', 'Put it in the calendar': 'Додати в календар',
   'What to cook today': 'Що приготувати сьогодні', 'Nothing has everything at home right now.': 'Зараз немає рецепта, для якого все є вдома.',
-  '{n} min': '{n} хв', 'all at home': 'усе є вдома', 'cooked {d}': 'востаннє {d}',
+  '{n} min': '{n} хв', 'running low: {x}': 'закінчується: {x}', 'all at home': 'усе є вдома', 'cooked {d}': 'востаннє {d}',
   'Brain dump': 'Нотатки', 'Delete note': 'Видалити нотатку', 'Note deleted': 'Нотатку видалено', 'Add a note': 'Додати нотатку',
   'Note': 'Нотатка', 'New note': 'Нова нотатка', 'Note copied': 'Нотатку скопійовано', 'Whatever’s on your mind': 'Усе, що крутиться в голові',
   // shipments

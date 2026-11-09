@@ -817,8 +817,10 @@ export const groceryFor = (st: State, line: string) => {
 // per ingredient: at home / to buy (on the list) / unknown (not tracked in Groceries)
 export const recipeStatus = (st: State, r: Recipe) => r.ingredients.map((line) => {
   const sp = groceryFor(st, line)
-  const state: 'home' | 'buy' | 'none' = !sp ? 'none' : sp.once ? 'buy' : supplyStatus(sp, st.settings).state === 'ok' ? 'home' : 'buy'
-  return { line, sp, state }
+  const ss = sp && !sp.once ? supplyStatus(sp, st.settings).state : undefined
+  const state: 'home' | 'buy' | 'none' = !sp ? 'none' : sp.once ? 'buy' : ss === 'ok' ? 'home' : 'buy'
+  // running low = on the buy list but not run out yet (still some at home)
+  return { line, sp, state, low: ss === 'buy' }
 })
 // aerogrill steps written as "minutes left on the timer" -> how long each step takes
 export const leftToDurations = (steps: CookStep[]): CookStep[] => {

@@ -230,22 +230,25 @@ export const TaskSheet = ({ id, back, date }: { id?: string; back?: number; date
 }
 
 // ---------- what to cook today: two recipes with everything at home ----------
-// (ingredients matched to Groceries; the ones not cooked for the longest come first, for variety)
+// (ingredients matched to Groceries; running-low ones count as at home and those recipes come first,
+// to use them up; then the ones not cooked for the longest, for variety)
 const CookToday = () => {
   const st = useSt()
   const all = st.recipes ?? []
   if (!all.length) return null
   const ready = all
-    .filter((r) => { const ing = recipeStatus(st, r); return ing.length > 0 && ing.every((x) => x.state === 'home') })
-    .sort((a, b) => (a.lastCooked ?? '').localeCompare(b.lastCooked ?? '') || a.name.localeCompare(b.name))
+    .map((r) => ({ r, ing: recipeStatus(st, r) }))
+    .filter(({ ing }) => ing.length > 0 && ing.every((x) => x.state === 'home' || x.low))
+    .map(({ r, ing }) => ({ r, low: [...new Set(ing.filter((x) => x.low).map((x) => x.sp!.name))] }))
+    .sort((a, b) => Number(b.low.length > 0) - Number(a.low.length > 0) || (a.r.lastCooked ?? '').localeCompare(b.r.lastCooked ?? '') || a.r.name.localeCompare(b.r.name))
     .slice(0, 2)
   return (
     <div className="list">
       <div className="list-h"><span className="t17">{tr('What to cook today')}</span></div>
       {ready.length === 0 && <div className="list-empty">{tr('Nothing has everything at home right now.')}</div>}
-      {ready.map((r) => (
+      {ready.map(({ r, low }) => (
         <Row key={r.id} dot={C.home} title={r.name}
-          meta={[r.minutes ? tr('{n} min', { n: r.minutes }) : '', tr('all at home'), r.lastCooked ? tr('cooked {d}', { d: fmtDay(r.lastCooked) }) : ''].filter(Boolean).join(' · ')}
+          meta={[r.minutes ? tr('{n} min', { n: r.minutes }) : '', low.length ? tr('running low: {x}', { x: low.join(', ') }) : tr('all at home'), r.lastCooked ? tr('cooked {d}', { d: fmtDay(r.lastCooked) }) : ''].filter(Boolean).join(' · ')}
           trail="→" onClick={() => openSheet(<RecipeSheet id={r.id} />)} />
       ))}
     </div>

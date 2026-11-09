@@ -115,7 +115,7 @@ export const es: Record<string, string> = {
   "What to cook today": "Qué cocinar hoy",
   "Nothing has everything at home right now.": "Ahora no hay ninguna receta con todo en casa.",
   "{n} min": "{n} min",
-  "all at home": "todo en casa",
+  "running low: {x}": "se está acabando: {x}", "all at home": "todo en casa",
   "cooked {d}": "hecho el {d}",
   "Brain dump": "Notas",
   "Delete note": "Borrar nota",

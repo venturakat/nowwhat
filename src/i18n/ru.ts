@@ -115,7 +115,7 @@ export const ru: Record<string, string> = {
   "What to cook today": "Что приготовить сегодня",
   "Nothing has everything at home right now.": "Сейчас нет рецепта, для которого всё есть дома.",
   "{n} min": "{n} мин",
-  "all at home": "всё есть дома",
+  "running low: {x}": "заканчивается: {x}", "all at home": "всё есть дома",
   "cooked {d}": "в последний раз {d}",
   "Brain dump": "Заметки",
   "Delete note": "Удалить заметку",
