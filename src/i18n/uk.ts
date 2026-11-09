@@ -1,12 +1,8 @@
 // Українська. Keys are the English text; plural forms live under 'one|other' as 'one|few|many'.
 // Informal «ти». The app name "now what" is never translated.
 export const uk: Record<string, string> = {
-  'Earlier months': 'Попередні місяці',
-  'Skip a month': 'Пропустити місяць',
-  'A skipped month has no fee: nothing to invoice and nothing expected in the budget.': 'У пропущений місяць оплати немає: нічого виставляти й нічого не чекати в бюджеті.',
   'skipped': 'пропущено',
-  'already invoiced': 'рахунок уже виставлено',
-  'skipping {x}': 'пропуск: {x}',
+  'Amount 0 = this month is skipped.': 'Сума 0 = цей місяць пропущено.',
   // ---- tabs, header, shared ----
   'Today': 'Сьогодні', 'Money': 'Гроші', 'Supplies': 'Запаси', 'Home': 'Дім', 'Closet': 'Гардероб',
   'Settings': 'Налаштування', 'Calendar': 'Календар', 'Back': 'Назад', 'Close': 'Закрити',

@@ -4,10 +4,10 @@ import type { Currency, Session, State, TaxLine, TaxMonth } from '../types'
 import { bankAmount, fillTransfer, lineFormula } from '../taxes'
 import { tr, trn } from '../i18n'
 import { fitSize,
-  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
+  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
 } from '../lib'
-import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
+import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
 import { Credits } from './Credits'
 import { nbpRateForInvoice } from '../rates'
@@ -293,7 +293,7 @@ const Work = () => {
     const ss = st.sessions.filter((s) => s.clientId === c.id)
     const month = ss.filter((s) => monthKey(toLocalDate(s.start)) === mk)
     const mh = month.reduce((a, s) => a + hours(s), 0)
-    const unInv = ss.filter((s) => !s.invoiced)
+    const unInv = ss.filter((s) => !s.invoiced && !isSkipped(s))
     const unpaid = ss.filter((s) => s.invoiced && !s.paid)
     const eur = (l: Session[]) => fmtSum(st, l)
     const pln = (l: Session[]) => l.reduce((a, s) => a + sessionMain(st, s), 0)
@@ -420,7 +420,7 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
     return (
       <FormSheet title={s ? (s.feeMonth ? 'Edit monthly fee' : 'Edit job') : 'New job'} initial={init}
         fields={[{ key: 'task', label: 'What for', type: 'text', placeholder: 'Logo redesign' }, { key: 'fee', label: 'Amount', type: 'number' }, { key: 'feeCur', label: 'Currency', type: 'select', options: curOptions(st.settings, init.feeCur) }, { key: 'invoiceDate', label: 'Invoice date', type: 'date', clearable: true }, { key: 'paidDate', label: 'Paid on', type: 'date', clearable: true }]}
-        extra={<span className="t13 muted">{tr('Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.')}</span>}
+        extra={<span className="t13 muted">{tr('Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.')}{s?.feeMonth ? ' ' + tr('Amount 0 = this month is skipped.') : ''}</span>}
         onSave={(v) => update((d) => {
           const data = { task: v.task, fee: v.fee ?? 0, feeCur: (v.feeCur ?? 'EUR') as Currency }
           const sid = s?.id ?? uid()
@@ -555,7 +555,7 @@ const ClientSheet = ({ id }: { id: string }) => {
   const st = useSt()
   const c = st.clients.find((x) => x.id === id)!
   const ss = st.sessions.filter((s) => s.clientId === id).sort((a, b) => b.start.localeCompare(a.start))
-  const unInv = ss.filter((s) => !s.invoiced)
+  const unInv = ss.filter((s) => !s.invoiced && !isSkipped(s))
   const unpaid = ss.filter((s) => s.invoiced && !s.paid)
   const eur = (l: Session[]) => fmtSum(st, l)
   const pln = (l: Session[]) => l.reduce((a, s) => a + sessionMain(st, s), 0)
@@ -583,7 +583,7 @@ const ClientSheet = ({ id }: { id: string }) => {
   }
   return (
     <Sheet title={c.name} full>
-      <div className="t15 muted">{c.kind === 'job' ? tr('Fixed fee per job') : c.kind === 'fixed' ? tr('{x} a month, due on the {d}', { x: fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR'), d: ord(c.payDay ?? 1) }) + ((c.skips ?? []).some((m) => m >= today().slice(0, 7)) ? ' · ' + tr('skipping {x}', { x: (c.skips ?? []).filter((m) => m >= today().slice(0, 7)).map((m) => monthName(m, true)).join(', ') }) : '') : tr('{x} per hour', { x: fmtCur(c.rateEur, c.cur ?? 'EUR', c.rateEur % 1 !== 0) })}</div>
+      <div className="t15 muted">{c.kind === 'job' ? tr('Fixed fee per job') : c.kind === 'fixed' ? tr('{x} a month, due on the {d}', { x: fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR'), d: ord(c.payDay ?? 1) }) : tr('{x} per hour', { x: fmtCur(c.rateEur, c.cur ?? 'EUR', c.rateEur % 1 !== 0) })}</div>
       {unInv.length > 0 && (
         <div className="card work" style={{ gap: 6 }}>
           <span className="t14 w5">{tr('Not invoiced yet')}</span>
@@ -603,8 +603,8 @@ const ClientSheet = ({ id }: { id: string }) => {
       )}
       <List title="Hours" right={trn(ss.length, '{n} entry', '{n} entries')} empty="No hours yet">
         {shown.map((s) => (
-          <Row key={s.id} title={s.task} meta={`${fmtDay(toLocalDate(s.start))} · ${timeOf(s.start)}–${timeOf(s.end)} · ${s.paid ? tr('paid') : s.invoiced ? tr('invoiced') : tr('not invoiced')}`}
-            trail={s.fee !== undefined ? fmtSum(st, [s]) : `${fmtHours(hours(s))}`} dot={s.paid ? C.ok : s.invoiced ? C.money : C.work} onClick={() => openSheet(<SessionEdit clientId={id} id={s.id} />)} />
+          <Row key={s.id} title={s.task} meta={`${fmtDay(toLocalDate(s.start))} · ${timeOf(s.start)}–${timeOf(s.end)} · ${isSkipped(s) ? tr('skipped') : s.paid ? tr('paid') : s.invoiced ? tr('invoiced') : tr('not invoiced')}`}
+            trail={s.fee !== undefined ? fmtSum(st, [s]) : `${fmtHours(hours(s))}`} dot={isSkipped(s) ? C.line : s.paid ? C.ok : s.invoiced ? C.money : C.work} onClick={() => openSheet(<SessionEdit clientId={id} id={s.id} />)} />
         ))}
         {!all && ss.length > 8 && <Row title={<span className="muted">{tr('Show all')}</span>} onClick={() => setAll(true)} />}
       </List>
@@ -612,42 +612,6 @@ const ClientSheet = ({ id }: { id: string }) => {
         <button className="btn soft grow" onClick={() => openSheet(<SessionEdit clientId={id} />)}>{tr(c.kind === 'job' ? '+ Add a job' : c.kind === 'fixed' ? '+ Add extra payment' : '+ Add hours')}</button>
         <button className="btn soft grow" onClick={() => openSheet(<ClientEdit id={id} />)}>{tr('Edit client')}</button>
       </div>
-      {c.kind === 'fixed' && <button className="btn soft" onClick={() => openSheet(<SkipMonths id={id} />)}>{tr('Skip a month')}</button>}
-    </Sheet>
-  )
-}
-
-// monthly-fee clients: pick months with no fee — this month and the next 11, and earlier ones back to the first month (max 24, newest first)
-const SkipMonths = ({ id }: { id: string }) => {
-  const st = useSt()
-  const c = st.clients.find((x) => x.id === id)
-  if (!c) return null
-  const cur = today().slice(0, 7)
-  const skips = c.skips ?? []
-  const ahead: string[] = []
-  for (let i = 0, mk = cur; i < 12; i++, mk = nextMonth(mk)) if (!c.since || mk >= c.since) ahead.push(mk)
-  const first = c.since ?? st.sessions.filter((s) => s.clientId === id && s.feeMonth).map((s) => s.feeMonth!).sort()[0] ?? cur
-  const past: string[] = []
-  for (let i = 0, mk = prevMonth(cur); i < 24 && mk >= first; i++, mk = prevMonth(mk)) past.push(mk)
-  for (const m of skips) if (m < cur && !past.includes(m)) past.push(m)
-  past.sort().reverse()
-  const locked = (mk: string) => st.sessions.some((s) => s.clientId === id && s.feeMonth === mk && (s.invoiced || s.paid))
-  const toggle = (mk: string) => update((d) => {
-    const x = d.clients.find((y) => y.id === id)!
-    const l = x.skips ?? []
-    x.skips = l.includes(mk) ? l.filter((m) => m !== mk) : [...l, mk].sort()
-    if (!x.skips.length) delete x.skips
-    ensureFees(d)
-  })
-  const row = (mk: string) => {
-    const on = skips.includes(mk), lock = !on && locked(mk)
-    return <Row key={mk} lead={<Check on={on} />} title={`${monthName(mk, true)} ${mk.slice(0, 4)}`} meta={on ? tr('skipped') : lock ? tr('already invoiced') : undefined} onClick={lock ? undefined : () => toggle(mk)} />
-  }
-  return (
-    <Sheet title="Skip a month">
-      <div className="t14 muted">{tr('A skipped month has no fee: nothing to invoice and nothing expected in the budget.')}</div>
-      <List title="Coming up">{ahead.map(row)}</List>
-      {past.length > 0 && <List title="Earlier months">{past.map(row)}</List>}
     </Sheet>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
+import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, isSkipped, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
 import { copyText, SpendSheet } from './Money'
@@ -59,7 +59,7 @@ const things = (st: State): Thing[] => {
   for (const c of st.clients.filter((c) => !c.archived)) {
     const ss = st.sessions.filter((s) => s.clientId === c.id)
     // a monthly fee only needs invoicing once its day has come
-    const unInv = ss.filter((s) => !s.invoiced && !s.paid && (!s.feeMonth || s.start.slice(0, 10) <= t))
+    const unInv = ss.filter((s) => !s.invoiced && !s.paid && !isSkipped(s) && (!s.feeMonth || s.start.slice(0, 10) <= t))
     const unpaid = ss.filter((s) => s.invoiced && !s.paid)
     if (unInv.length) {
       const h = unInv.reduce((a, s) => a + hours(s), 0)

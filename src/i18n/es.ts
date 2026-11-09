@@ -1,12 +1,8 @@
 // Español rioplatense (voseo). Keys are the English text; plural forms live under 'one|other' as 'one|other|other'.
 // Non-gendered forms. The app name "now what" is never translated.
 export const es: Record<string, string> = {
-  'Earlier months': 'Meses anteriores',
-  'Skip a month': 'Saltear un mes',
-  'A skipped month has no fee: nothing to invoice and nothing expected in the budget.': 'Un mes salteado no tiene pago: nada para facturar y nada esperado en el presupuesto.',
   'skipped': 'salteado',
-  'already invoiced': 'ya facturado',
-  'skipping {x}': 'sin pago en {x}',
+  'Amount 0 = this month is skipped.': 'Monto 0 = este mes se saltea.',
   "Today": "Hoy",
   "Money": "Plata",
   "Supplies": "Provisiones",

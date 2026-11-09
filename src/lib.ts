@@ -170,7 +170,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   for (const [k, g] of Object.entries(hourly))
     out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtCur(g.amt, g.cur, g.amt % 1 !== 0)} · ${fmtDay(g.d)} · ${tr('invoiced')}`, kind: 'fee', income: true, expected: true })
   for (const s of st.sessions) {
-    if (s.fee === undefined || s.paid) continue
+    if (s.fee === undefined || s.paid || isSkipped(s)) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
     const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
@@ -181,7 +181,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   for (const c of st.clients) {
     if (c.kind !== 'fixed' || c.archived || !c.fixedEur) continue
     const d = feeDate(c, p.month)
-    if (d < p.start || d > p.end || (c.since && p.month < c.since) || c.skips?.includes(p.month)) continue
+    if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
     if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
     out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: toMain(st.settings, c.fixedEur, c.fixedCur ?? 'EUR'), date: d, meta: `${tr('monthly fee')} · ${fmtCur(c.fixedEur, c.fixedCur ?? 'EUR')} · ${fmtDay(d)} · ${tr('expected')}`, kind: 'fee', income: true, expected: true, counted: true })
   }
@@ -445,6 +445,8 @@ export const feeDate = (c: { payDay?: number }, mk: string) => {
   const [y, m] = mk.split('-').map(Number)
   return `${mk}-${pad(Math.min(c.payDay ?? 1, daysInMonth(y, m)))}`
 }
+// a monthly fee set to 0 by hand = that month is skipped (nothing to invoice, nothing expected)
+export const isSkipped = (s: Session) => !!s.feeMonth && s.fee === 0
 // make sure every fixed-fee client has an entry for each month up to now (they get invoiced like hours)
 // ticked tasks disappear the midnight after they were done
 export const purgeTasks = (d: State) => {
@@ -458,9 +460,7 @@ export const ensureFees = (d: State) => {
     let mk = c.since ?? cur
     for (let i = 0; i < 60 && mk <= cur; i++, mk = nextMonth(mk)) {
       const ex = d.sessions.find((s) => s.clientId === c.id && s.feeMonth === mk)
-      // a skipped month: no entry (one already made goes, unless it's invoiced or paid)
-      if (c.skips?.includes(mk)) { if (ex && !ex.invoiced && !ex.paid) d.sessions.splice(d.sessions.indexOf(ex), 1); continue }
-      if (ex) { if (!ex.invoiced) { ex.fee = c.fixedEur; ex.feeCur = c.fixedCur ?? 'EUR' } continue }
+      if (ex) { if (!ex.invoiced && !isSkipped(ex)) { ex.fee = c.fixedEur; ex.feeCur = c.fixedCur ?? 'EUR' } continue }
       const at = new Date(feeDate(c, mk) + 'T12:00:00').toISOString()
       d.sessions.push({ id: uid(), clientId: c.id, task: `${monthName(mk, true)} fee`, start: at, end: at, invoiced: false, paid: false, fee: c.fixedEur, feeCur: c.fixedCur ?? 'EUR', feeMonth: mk })
     }
