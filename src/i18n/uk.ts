@@ -810,4 +810,10 @@ export const uk: Record<string, string> = {
   "Used for the ZUS lines. Built in — tap a number if the official one is different.": "Для розрахунку ZUS. Вже є в застосунку — торкнись числа, якщо офіційне інше.",
   "The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.": "У застосунку ще немає чисел на {y}, тому він бере останні відомі. Торкнись, щоб ввести нові з zus.pl.",
   "The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.": "Дата початку, Ulga na start і пільговий ZUS спільні для обох рядків ZUS. Це орієнтовні суми. Перед оплатою звір їх із формою ZUS, яку подаєш.",
+  // ---- ZUS worked out ----
+  "ZUS social contributions": "Соціальні внески ZUS",
+  "ZUS health contribution · ryczałt": "Медичний внесок ZUS · ryczałt",
+  "The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.": "Дата початку діяльності, Ulga na start і пільговий ZUS однакові для обох внесків ZUS: зміниш в одному — зміниться й в іншому.",
+  "Name for a combined payment (optional)": "Назва спільного платежу (необовʼязково)",
+  "Taxes or contributions with the same name here are added up into one payment on the Taxes tab.": "Податки чи внески з однаковою назвою тут додаються в один платіж на вкладці Податки.",
 }

@@ -13,7 +13,7 @@ export type FieldDef =
 type Vals = Record<string, any>
 // off: the field is greyed out and can't be changed while this returns true (e.g. one-time purchase ticked)
 // hide: the field isn't shown while this returns true (e.g. a fixed amount needs no %)
-type Def = FieldDef & { off?: (v: Vals) => boolean; hide?: (v: Vals) => boolean }
+type Def = FieldDef & { off?: (v: Vals) => boolean; hide?: (v: Vals) => boolean; hint?: string } // hint: a grey line under the field
 
 // Generic bottom-sheet form. Number fields come back as numbers (or undefined when empty).
 export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void; saveLabel?: string; extra?: React.ReactNode | ((v: Vals) => React.ReactNode); onBack?: () => void; full?: boolean; twoTap?: boolean }) => {
@@ -104,6 +104,7 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
               onChange={(e) => set(f.key, f.type === 'number' ? e.target.value.replace(/[^0-9.,\-\s]/g, '') : e.target.value)}
             />
           )}
+          {f.hint && <span className="t13 muted" style={{ display: 'block', marginTop: 6 }}>{tr(f.hint)}</span>}
         </Field>
         </fieldset>
       ))}

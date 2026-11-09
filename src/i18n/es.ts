@@ -1163,4 +1163,10 @@ export const es: Record<string, string> = {
   "Used for the ZUS lines. Built in — tap a number if the official one is different.": "Se usan para calcular ZUS. Ya vienen en la app — tocá un número si el oficial es distinto.",
   "The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.": "La app todavía no tiene los números de {y}, así que usa los últimos que conoce. Tocá para escribir los nuevos de zus.pl.",
   "The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.": "La fecha de inicio, Ulga na start y el ZUS preferencial son comunes a las dos líneas de ZUS. Son estimaciones. Antes de pagar, compará los montos con el formulario de ZUS que presentás.",
+  // ---- ZUS worked out ----
+  "ZUS social contributions": "Aportes sociales ZUS",
+  "ZUS health contribution · ryczałt": "Aporte de salud ZUS · ryczałt",
+  "The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.": "La fecha de inicio, Ulga na start y el ZUS preferencial son los mismos para los dos aportes de ZUS: si los cambiás en uno, cambian en el otro.",
+  "Name for a combined payment (optional)": "Nombre del pago combinado (opcional)",
+  "Taxes or contributions with the same name here are added up into one payment on the Taxes tab.": "Los impuestos o aportes con el mismo nombre acá se suman en un solo pago en la pestaña Impuestos.",
 }

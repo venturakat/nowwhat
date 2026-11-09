@@ -63,7 +63,7 @@ export const fillTransfer = (text: string, mk: string) => {
 }
 
 // ---------- words ----------
-export const KIND_NAME = () => ({ fixed: tr('Fixed amount'), pct: tr('% of revenue'), pctLess: tr('% of revenue minus part of another line'), zusSocial: tr('ZUS social contributions (worked out)'), zusHealth: tr('ZUS health contribution · ryczałt (worked out)') })
+export const KIND_NAME = () => ({ fixed: tr('Fixed amount'), pct: tr('% of revenue'), pctLess: tr('% of revenue minus part of another line'), zusSocial: tr('ZUS social contributions'), zusHealth: tr('ZUS health contribution · ryczałt') })
 export const EVERY_NAME = () => ({ month: tr('Monthly'), quarter: tr('Quarterly'), year: tr('Yearly') })
 export const LAG_NAME = () => [tr('The same month'), tr('The month after'), tr('Two months after')]
 export const RULE_NAME = () => ({

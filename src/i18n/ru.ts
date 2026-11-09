@@ -1163,4 +1163,10 @@ export const ru: Record<string, string> = {
   "Used for the ZUS lines. Built in — tap a number if the official one is different.": "Для расчёта ZUS. Уже есть в приложении — нажми на число, если официальное другое.",
   "The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.": "В приложении ещё нет цифр на {y}, поэтому оно берёт последние известные. Нажми, чтобы ввести новые с zus.pl.",
   "The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.": "Дата начала, Ulga na start и льготный ZUS общие для обеих строк ZUS. Это ориентировочные суммы. Перед оплатой сверь их с формой ZUS, которую подаёшь.",
+  // ---- ZUS worked out ----
+  "ZUS social contributions": "Социальные взносы ZUS",
+  "ZUS health contribution · ryczałt": "Медицинский взнос ZUS · ryczałt",
+  "The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.": "Дата начала деятельности, Ulga na start и льготный ZUS одинаковы для обоих взносов ZUS: изменишь в одном — изменится и в другом.",
+  "Name for a combined payment (optional)": "Название общего платежа (необязательно)",
+  "Taxes or contributions with the same name here are added up into one payment on the Taxes tab.": "Налоги или взносы с одинаковым названием здесь складываются в один платёж на вкладке Налоги.",
 }

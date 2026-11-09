@@ -157,7 +157,7 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
         { key: 'lag', label: tr('Paid in'), type: 'select', options: LAG_NAME().map((n, i) => [String(i), n]) },
         { key: 'payDay', label: tr('I pay on day (puts it in the budget)'), type: 'number', step: 1, placeholder: (v) => String(defaultPayDay(parseNum(String(v.dueDay ?? '')) ?? 20)) },
         { key: 'dueDay', label: tr('Official deadline, day'), type: 'number', step: 1 },
-        { key: 'group', label: tr('Paid together as (optional)'), type: 'text', suggest: groups }
+        { key: 'group', label: tr('Name for a combined payment (optional)'), type: 'text', suggest: groups, hint: 'Taxes or contributions with the same name here are added up into one payment on the Taxes tab.' }
       ]}
       onSave={(v) => update((d) => {
         const day = (n: number | undefined, dflt: number) => Math.min(31, Math.max(1, Math.round(n ?? dflt)))
@@ -215,7 +215,7 @@ const ZusNotes = ({ v }: { v: Record<string, any> }) => {
       <span className="t14 w5">{now}</span>
       <span className="t13 muted">{tr('Ulga na start and Preferential ZUS have more conditions than the dates — for example, not for work for a former employer this year or last, or after another business in the last 60 months. Check on zus.pl that you qualify.')}</span>
       <span className="t13 muted">{tr('Months count from the start date if it was the 1st, otherwise from the next month; the first, partial month counts only its days. Full ZUS adds the Labour Fund. Health contribution follows your revenue so far this year: up to 60 000, up to 300 000, more.')}</span>
-      <span className="t13 muted">{tr('The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.')}</span>
+      <span className="t13 muted">{tr('The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.')}</span>
     </div>
   )
 }
