@@ -5,7 +5,7 @@ import type { BudgetItem, State } from './types'
 import { seed } from './seed'
 import { migrateTaxes } from './taxes'
 import { defaultCleanPlan, defaultCleanTasks, migrateCleanPlan } from './cleaning'
-import { fillCurs, leftToDurations, logRates, periodItems, periodOf, setMainCur, syncProjectBuys, today, uid } from './lib'
+import { fillCurs, leftToDurations, logRates, markTaxSince, periodItems, periodOf, setMainCur, syncProjectBuys, today, uid } from './lib'
 
 const KEY = 'now-what-state'
 
@@ -111,6 +111,7 @@ export const migrate = (s: State): State => {
     if (l.id === 'ua-tax') { l.lag = 2; if (l.dueDay === 20) { l.dueDay = 19; if (l.payDay === 15 || l.payDay === 10) l.payDay = 14 } }
   }
   migrateCleanPlan(out.cleanPlan) // each list gets its own day and repeat
+  markTaxSince(out) // taxes already set up: the budget counts them from this year's first month with revenue
   fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
   // nutrition: earlier lookups only searched basic foods — forget the "not found" ones so they're tried again everywhere
@@ -147,6 +148,7 @@ export const useStore = create<Store>((set, get) => ({
     const d = structuredClone(get().st)
     recipe(d)
     fillCurs(d)
+    markTaxSince(d)
     syncProjectBuys(d)
     set({ st: d })
     persist(d)

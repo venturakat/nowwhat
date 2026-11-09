@@ -137,7 +137,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   }
   // taxes paid this month, on the days I pay them (official deadlines are later)
   {
-    for (const x of taxPays(st, p.month)) if (x.amount > 0 && x.pay >= p.start && x.pay <= p.end) {
+    for (const x of taxPays(st, p.month, taxForBudget(st, p.month))) if (x.amount > 0 && x.pay >= p.start && x.pay <= p.end) {
       const main = (n: number) => toMain(st.settings, n, taxCur(st.settings), x.pay)
       const forName = tr('for {x}', { x: x.forName })
       const paidGroups = x.groups.filter((g) => g.paid)
@@ -396,6 +396,19 @@ export const setTaxPaid = (d: State, pm: string, group: string | 'all', on: bool
     const x = (ls[p.line.id] ??= {})
     if (on) x.paid = true; else delete x.paid
   }
+}
+// the budget only gets taxes from when they were set up: earlier months of that year count from the first one with revenue, nothing before that
+const taxSet = (s: Settings) => taxLinesOf(s).some((l) => (l.amount ?? 0) > 0 || (l.pct ?? 0) > 0)
+export const markTaxSince = (d: State) => { if (!d.settings.taxSince && taxSet(d.settings)) d.settings.taxSince = monthKey(today()) }
+export const taxFrom = (st: State) => {
+  const since = st.settings.taxSince ?? monthKey(today())
+  for (let m = `${since.slice(0, 4)}-01`; m < since; m = nextMonth(m)) if (monthRevenue(st, m) > 0) return m
+  return since
+}
+// taxes paid in month pm, as the budget counts them (periods before taxFrom left out)
+export const taxForBudget = (st: State, pm: string) => {
+  const tx = taxFor(st, pm), from = taxFrom(st)
+  return { ...tx, ...sumUp(tx.parts.filter((p) => p.end >= from)) }
 }
 // a day of a month, never past its end
 export const dayOf = (mk: string, day: number) => { const [y, m] = mk.split('-').map(Number); return `${mk}-${pad(Math.min(Math.max(1, day || 1), daysInMonth(y, m)))}` }

@@ -50,6 +50,7 @@ export interface Settings {
   ratesNote?: string
   subsFrom?: string // budget half from which subscriptions are added automatically
   taxLines?: TaxLine[] // what is paid in taxes (v10; replaces pitRate / dra / rca)
+  taxSince?: string // month (YYYY-MM) taxes were first set up here; the budget gets taxes from then on, plus earlier months of that year that have revenue
   taxRule?: TaxRule // how invoices in other currencies count for taxes
   transfer?: TransferRow[] // Taxes › Transfer details (label + text to copy)
   // before v10 (kept, no longer read)
