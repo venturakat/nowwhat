@@ -556,10 +556,16 @@ export const feeDate = (c: { payDay?: number }, mk: string) => {
 // a monthly fee set to 0 by hand = that month is skipped (nothing to invoice, nothing expected)
 export const isSkipped = (s: Session) => !!s.feeMonth && s.fee === 0
 // make sure every fixed-fee client has an entry for each month up to now (they get invoiced like hours)
-// ticked tasks disappear the midnight after they were done
+// ticked tasks disappear an hour after they were done (ticks from before doneTs existed: the midnight after)
+export const TASK_KEEP = 60 * 60 * 1000
+export const taskGone = (x: { doneAt?: string; doneTs?: number }, now = Date.now()) =>
+  !!x.doneAt && (x.doneTs ? now - x.doneTs >= TASK_KEEP : x.doneAt < today())
+export const tickTask = (x: { doneAt?: string; doneTs?: number }) => {
+  if (x.doneAt) { x.doneAt = undefined; x.doneTs = undefined } else { x.doneAt = today(); x.doneTs = Date.now() }
+}
 export const purgeTasks = (d: State) => {
-  const t = today()
-  if (d.tasks?.some((x) => x.doneAt && x.doneAt < t)) d.tasks = d.tasks.filter((x) => !x.doneAt || x.doneAt >= t)
+  const now = Date.now()
+  if (d.tasks?.some((x) => taskGone(x, now))) d.tasks = d.tasks.filter((x) => !taskGone(x, now))
 }
 export const ensureFees = (d: State) => {
   const cur = today().slice(0, 7)

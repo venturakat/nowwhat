@@ -5,7 +5,8 @@ import type { CalEvent, CalKey, State } from './types'
 import { DayWeather, PlaceSheet, placeName } from './weather'
 import {
   addDays, CAT_LABEL, careNext, classBatch, creditSchedule, daysInMonth, fmtCur, fmtDay, fmtWeekday, monthName, nextBuy, nextMonth, pad, parse,
-  prevMonth, diffDays, subDate, taxPays, fmtTax, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass
+  prevMonth, diffDays, subDate, taxPays, fmtTax, timeSpan, today, uid, classEnd, classTime, movedAway, toggleClass, rescheduleClass,
+  taskGone, tickTask,
 } from './lib'
 import { MODE_HOURS, MODE_NAME, occurrences, onceKey, type Occurrence } from './cleaning'
 import { moveOcc } from './screens/Cleaning'
@@ -90,14 +91,14 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
   // Parking lot tasks given a day (always shown, like your own appointments);
   // not ticked done and its day has passed → it rolls on to today, day by day, until ticked
   for (const x of st.tasks ?? []) {
-    if (!x.date) continue
+    if (!x.date || taskGone(x)) continue
     const late = !x.doneAt && x.date < t
     const d = late ? t : x.date
     if (d < from || d > to) continue
     out.push({
     id: 'task-' + x.id, date: d, title: x.text, time: timeSpan(x.time, x.end), meta: late ? `${tr('Parking lot')} · ${tr('overdue')}` : tr('Parking lot'), dot: dotOf(x.color), done: !!x.doneAt,
     edit: () => <TaskSheet id={x.id} back={1} />,
-    toggle: { on: !!x.doneAt, run: () => update((s) => { const y = s.tasks?.find((z) => z.id === x.id); if (!y) return; if (late) y.date = d; y.doneAt = y.doneAt ? undefined : today() }) }
+    toggle: { on: !!x.doneAt, run: () => update((s) => { const y = s.tasks?.find((z) => z.id === x.id); if (!y) return; if (late) y.date = d; tickTask(y) }) }
   }) }
   // birthdays: every year on their day (29 Feb falls on the 28th in other years)
   for (const b of st.birthdays ?? []) for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) {

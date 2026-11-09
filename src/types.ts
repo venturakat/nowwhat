@@ -456,7 +456,8 @@ export interface Task {
   id: ID
   text: string
   color: string // one of TASK_COLORS
-  doneAt?: string // YYYY-MM-DD it was ticked — gone after that midnight
+  doneAt?: string // YYYY-MM-DD it was ticked
+  doneTs?: number // when it was ticked (ms) — gone from the list an hour later (old ticks without it: after that midnight)
   date?: string // on the calendar that day (optional)
   time?: string
   end?: string

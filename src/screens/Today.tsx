@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
-import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, isSkipped, nextBuy, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
+import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, isSkipped, nextBuy, purgeTasks, taskGone, tickTask, TASK_KEEP, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
 import { Logo } from '../logo'
 import { C, Check, Chips, closeSheet, Field, Header, Icon, openSettings, openSheet, popSheet, pushSheet, Row, Sheet, TimeRange, toast, useUi } from '../ui'
 import { copyText, SpendSheet } from './Money'
@@ -165,11 +165,18 @@ export const dotOf = (c: string) => TASK_COLORS.find((x) => x[0] === c)?.[1] ?? 
 
 const OtherTasks = () => {
   const st = useSt()
-  const t = today()
-  const tasks = (st.tasks ?? []).filter((x) => !x.doneAt || x.doneAt >= t)
+  const [, setTick] = useState(0)
+  const tasks = (st.tasks ?? []).filter((x) => !taskGone(x))
   const open = tasks.filter((x) => !x.doneAt)
   const done = tasks.filter((x) => x.doneAt)
-  const toggle = (id: string) => update((d) => { const x = d.tasks?.find((y) => y.id === id); if (x) x.doneAt = x.doneAt ? undefined : today() })
+  // take ticked ones off the list an hour after ticking, while the screen stays open
+  const next = Math.min(...done.map((x) => (x.doneTs ? x.doneTs + TASK_KEEP : Infinity)))
+  useEffect(() => {
+    if (!isFinite(next)) return
+    const h = setTimeout(() => { update(purgeTasks); setTick((n) => n + 1) }, Math.max(0, next - Date.now()) + 500)
+    return () => clearTimeout(h)
+  }, [next])
+  const toggle = (id: string) => update((d) => { const x = d.tasks?.find((y) => y.id === id); if (x) tickTask(x) })
   return (
     <div className="list">
       <div className="list-h"><span className="t17">{tr('Parking lot')}</span></div>
