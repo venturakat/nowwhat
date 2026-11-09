@@ -14,6 +14,7 @@ export const seed = (): State => ({
   timer: null,
   taxMonths: {},
   credits: [],
+  savings: [],
   subscriptions: [],
   supplies: [],
   cleanTasks: defaultCleanTasks(),

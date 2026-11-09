@@ -10,18 +10,19 @@ import { fitSize,
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
 import { Credits } from './Credits'
+import { AccountSheet, MoveToSavings, Savings } from './Savings'
 import { nbpRateForInvoice } from '../rates'
 import { ord, Subscriptions } from './Subscriptions'
 import { Classes } from './Classes'
 import { Selfcare } from './Selfcare'
 
-const SUBTABS: [string, string][] = [['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['classes', 'Classes'], ['subs', 'Subscriptions'], ['credits', 'Credits']]
+const SUBTABS: [string, string][] = [['budget', 'Budget'], ['work', 'Work'], ['taxes', 'Taxes'], ['selfcare', 'Selfcare'], ['classes', 'Classes'], ['subs', 'Subscriptions'], ['credits', 'Credits'], ['savings', 'Savings']]
 registerSubs('money', SUBTABS.map((x) => x[0]))
 
 export const Money = () => {
   const sub = useUi((u) => u.sub.money)
   const setSub = useUi((u) => u.setSub)
-  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'subs' ? 'Subscriptions' : sub === 'selfcare' ? 'Selfcare' : sub === 'classes' ? 'Classes' : 'Budget'
+  const title = sub === 'work' ? 'Work' : sub === 'taxes' ? 'Taxes' : sub === 'credits' ? 'Credits' : sub === 'savings' ? 'Savings' : sub === 'subs' ? 'Subscriptions' : sub === 'selfcare' ? 'Selfcare' : sub === 'classes' ? 'Classes' : 'Budget'
   return (
     <div className="screen">
       <Header sub="Money" title={title} />
@@ -30,6 +31,7 @@ export const Money = () => {
       {sub === 'work' && <Work />}
       {sub === 'taxes' && <Taxes />}
       {sub === 'credits' && <Credits />}
+      {sub === 'savings' && <Savings />}
       {sub === 'subs' && <Subscriptions />}
       {sub === 'selfcare' && <Selfcare />}
       {sub === 'classes' && <Classes />}
@@ -45,7 +47,7 @@ const Budget = () => {
   const [key, setKey] = useState(() => periodOf(today(), st.settings).key)
   const s = summarize(st, key)
   const isNow = today() >= s.info.start && today() <= s.info.end
-  const pct = s.income > 0 ? Math.min(1, (s.fixed + s.spent) / s.income) : 0
+  const pct = s.income > 0 ? Math.max(0, Math.min(1, (s.fixed + s.spent + s.saved) / s.income)) : 0
 
   const editItem = (id?: string, kind: 'income' | 'expense' = 'expense') => {
     const it = s.items.find((i) => i.id === id)
@@ -98,6 +100,7 @@ const Budget = () => {
   const bought = s.items.filter((i) => i.kind === 'expense' && isBought(i))
   const boughtSum = bought.reduce((a, i) => a + toMain(st.settings, i.amount, i.currency, i.date ?? s.info.end), 0)
   const spends = st.spends.filter((x) => x.date >= s.info.start && x.date <= s.info.end).sort((a, b) => b.date.localeCompare(a.date))
+  const toSavings = (st.savings ?? []).flatMap((a) => a.moves.filter((m) => m.budget && m.date >= s.info.start && m.date <= s.info.end).map((m) => ({ a, m }))).sort((x, y) => y.m.date.localeCompare(x.m.date))
   return (
     <>
       <div className="between">
@@ -117,7 +120,8 @@ const Budget = () => {
           </div>
         </div>
         <div className="bar"><div style={{ width: `${pct * 100}%` }} /></div>
-        <span className="t14">{tr('Spent {a} of {b}', { a: fmt(s.fixed + s.spent), b: fmt(s.income) })}</span>
+        <span className="t14">{tr('Spent {a} of {b}', { a: fmt(s.fixed + s.spent), b: fmt(s.income) })}{s.saved ? ' · ' + tr('{a} to savings', { a: fmt(s.saved) }) : ''}</span>
+        <button className="btn sm" style={{ alignSelf: 'flex-start', marginTop: 2 }} onClick={() => openSheet(<MoveToSavings date={isNow ? today() : s.info.end} left={s.left} />)}>{tr('Move to savings')}</button>
       </div>
       {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>{tr('Copied from last month — edit anything and it becomes this fortnight’s own plan.')}</div>}
       <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
@@ -155,6 +159,13 @@ const Budget = () => {
         <Fold title="Supplies bought" right={fmt(boughtSum)}>
           {bought.map((i) => (
             <Row key={i.id} dot={C.supplies} title={i.label.replace(/ \(bought\)$/, '')} meta={i.date ? fmtDay(i.date) : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+          ))}
+        </Fold>
+      )}
+      {toSavings.length > 0 && (
+        <Fold title="Moved to savings" right={fmt(s.saved)}>
+          {toSavings.map(({ a, m }) => (
+            <Row key={m.id} dot={C.money} title={a.name} meta={[fmtDay(m.date), m.budget! < 0 && tr('back to the budget'), m.note].filter(Boolean).join(' · ')} trail={(m.budget! < 0 ? '−' : '') + fmt(Math.abs(toMain(st.settings, m.budget!, m.budgetCur, m.date)))} onClick={() => openSheet(<AccountSheet id={a.id} />)} />
           ))}
         </Fold>
       )}

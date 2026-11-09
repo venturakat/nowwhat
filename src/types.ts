@@ -452,6 +452,24 @@ export interface Note {
   at: string // last edited (ISO)
 }
 
+// Money › Savings: an account in its own currency; its total = the sum of its moves
+export interface SavingsMove {
+  id: ID
+  date: string
+  amount: number // in the account's currency; negative = taken out
+  budget?: number // taken from (positive) or given back to (negative) that fortnight's budget, in budgetCur
+  budgetCur?: Currency // the main currency at the time
+  note?: string
+}
+export interface SavingsAccount {
+  id: ID
+  name: string
+  currency: Currency
+  goal?: number // optional target, in the account's currency
+  note?: string
+  moves: SavingsMove[]
+}
+
 export interface State {
   version: number
   settings: Settings
@@ -463,6 +481,7 @@ export interface State {
   timer: Timer | null
   taxMonths: Record<string, TaxMonth>
   credits: Credit[]
+  savings?: SavingsAccount[]
   subscriptions: Subscription[]
   selfcare?: SelfCare[]
   recipes?: Recipe[]

@@ -265,6 +265,7 @@ export interface PeriodSummary {
   income: number
   fixed: number
   spent: number
+  saved: number // moved to savings from this half (counts out of Left)
   left: number
   daysLeft: number
   perDay: number
@@ -279,12 +280,14 @@ export const summarize = (st: State, key: string): PeriodSummary => {
   const income = items.filter((i) => i.kind === 'income').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => a.income && (!a.expected || a.counted)).reduce((a, b) => a + b.amount, 0)
   const fixed = items.filter((i) => i.kind === 'expense').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => !a.income).reduce((a, b) => a + b.amount, 0)
   const spent = st.spends.filter((s) => s.date >= info.start && s.date <= info.end).reduce((a, b) => a + pl(b), 0)
-  const left = income - fixed - spent
+  // moved to savings from this half's budget (given back = negative)
+  const saved = (st.savings ?? []).reduce((a, acc) => a + acc.moves.filter((m) => m.budget && m.date >= info.start && m.date <= info.end).reduce((b, m) => b + toMain(st.settings, m.budget!, m.budgetCur, m.date), 0), 0)
+  const left = income - fixed - spent - saved
   const t = today()
   const total = diffDays(info.start, info.end) + 1
   const daysLeft = t < info.start ? total : t > info.end ? 0 : diffDays(t, info.end) + 1
   const perDay = daysLeft > 0 ? left / daysLeft : 0
-  return { info, items, isTemplate, auto, income, fixed, spent, left, daysLeft, perDay }
+  return { info, items, isTemplate, auto, income, fixed, spent, saved, left, daysLeft, perDay }
 }
 
 // ---------- taxes ----------
@@ -615,6 +618,7 @@ export const usedCurs = (st: State): Currency[] => {
   for (const x of st.subscriptions ?? []) add(x.currency)
   for (const x of st.selfcare ?? []) add(x.currency)
   for (const x of st.credits ?? []) add(x.currency)
+  for (const x of st.savings ?? []) add(x.currency)
   for (const x of st.saved ?? []) add(x.currency)
   for (const x of st.clients) { add(x.cur ?? 'EUR'); add(x.fixedCur) }
   for (const x of st.sessions) add(x.feeCur)
