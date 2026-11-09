@@ -663,6 +663,7 @@ export const ru: Record<string, string> = {
   "Plan the Light clean": "Запланировать лёгкую уборку",
   "Plan the Regular clean": "Запланировать обычную уборку",
   "Plan the Extra clean": "Запланировать генеральную уборку",
+  "Plan for next season": "Запланировать на следующий сезон",
   "Move Light clean": "Перенести лёгкую уборку",
   "Move Regular clean": "Перенести обычную уборку",
   "Move Extra clean": "Перенести генеральную уборку",

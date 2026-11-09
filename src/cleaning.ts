@@ -126,8 +126,10 @@ export const seasonOf = (d: string) => {
 export const seasonStatus = (st: State, mode: CleanMode) => {
   const s = seasonOf(today())
   const doneThis = Object.entries(st.cleanDone).filter(([, r]) => r.mode === mode && r.finished && r.date >= s.start && r.date <= s.end).map(([, r]) => r.date).sort()
-  const planned = (st.cleanPlan.once?.[mode] ?? []).filter((d) => d >= today() && d <= s.end).sort()
-  return { season: s, doneOn: doneThis[doneThis.length - 1], plannedOn: planned[0], daysLeft: diffDays(today(), s.end) }
+  const next = seasonOf(addDays(s.end, 1))
+  // a date planned this season, or — when this season's is done or not planned — one planned for next season
+  const planned = (st.cleanPlan.once?.[mode] ?? []).filter((d) => d >= today() && d <= next.end).sort()
+  return { season: s, next, doneOn: doneThis[doneThis.length - 1], plannedOn: planned[0], daysLeft: diffDays(today(), s.end) }
 }
 
 // before schedules: Light and Regular took turns every Sunday from `anchor`, Extra was planned by hand once a season

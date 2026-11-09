@@ -56,13 +56,11 @@ const SeasonCard = ({ mode }: { mode: CleanMode }) => {
     <div className="card" style={{ gap: 6, padding: 16 }}>
       <span className="t14 w5 muted">{tr(MODE_NAME[mode])} · {tr('once a season')}</span>
       <span className="t17">
-        {ex.doneOn ? tr('Done this {s} on {d}', { s: ex.season.name, d: fmtDay(ex.doneOn) }) : ex.plannedOn ? tr('Planned for {d}', { d: fmtWeekday(ex.plannedOn) }) : trn(ex.daysLeft, 'Not done this {s} yet · {n} day left', 'Not done this {s} yet · {n} days left', { s: ex.season.name })}
+        {ex.plannedOn ? tr('Planned for {d}', { d: fmtWeekday(ex.plannedOn) }) : ex.doneOn ? tr('Done this {s} on {d}', { s: ex.season.name, d: fmtDay(ex.doneOn) }) : trn(ex.daysLeft, 'Not done this {s} yet · {n} day left', 'Not done this {s} yet · {n} days left', { s: ex.season.name })}
       </span>
-      {!ex.doneOn && (
-        <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => openSheet(<PlanOnce mode={mode} date={ex.plannedOn} />)}>
-          {ex.plannedOn ? tr('Change date') : tr(`Plan the ${MODE_NAME[mode]} clean`)}
-        </button>
-      )}
+      <button className="btn soft sm" style={{ alignSelf: 'flex-start', marginTop: 4 }} onClick={() => openSheet(<PlanOnce mode={mode} date={ex.plannedOn} from={ex.doneOn && !ex.plannedOn ? ex.next.start : undefined} />)}>
+        {ex.plannedOn ? tr('Change date') : ex.doneOn ? tr('Plan for next season') : tr(`Plan the ${MODE_NAME[mode]} clean`)}
+      </button>
     </div>
   )
 }
@@ -149,10 +147,10 @@ const OccSheet = ({ occ }: { occ: Occurrence }) => (
   </Sheet>
 )
 
-const PlanOnce = ({ mode, date }: { mode: CleanMode; date?: string }) => {
+const PlanOnce = ({ mode, date, from }: { mode: CleanMode; date?: string; from?: string }) => {
   const drop = (d: { cleanPlan: { once?: Partial<Record<CleanMode, string[]>> } }) => { const o = (d.cleanPlan.once ??= {}); o[mode] = (o[mode] ?? []).filter((x) => x !== date); return o }
   return (
-    <FormSheet title={tr(`Plan the ${MODE_NAME[mode]} clean`)} initial={{ date: date ?? addDays(today(), 1) }} saveLabel="Plan it"
+    <FormSheet title={tr(`Plan the ${MODE_NAME[mode]} clean`)} initial={{ date: date ?? from ?? addDays(today(), 1) }} saveLabel="Plan it"
       fields={[{ key: 'date', label: 'Date (on a cleaning day it takes that clean’s place)', type: 'date' }]}
       onSave={(v) => { if (v.date) update((d) => { const o = drop(d); o[mode] = o[mode]!.concat(v.date) }) }}
       onDelete={date ? () => update((d) => { drop(d) }) : undefined}

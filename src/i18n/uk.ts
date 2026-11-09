@@ -309,6 +309,7 @@ export const uk: Record<string, string> = {
   'Plan the Light clean': 'Запланувати легке прибирання',
   'Plan the Regular clean': 'Запланувати звичайне прибирання',
   'Plan the Extra clean': 'Запланувати генеральне прибирання',
+  'Plan for next season': 'Запланувати на наступний сезон',
   'Move Light clean': 'Перенести легке прибирання',
   'Move Regular clean': 'Перенести звичайне прибирання',
   'Move Extra clean': 'Перенести генеральне прибирання',
