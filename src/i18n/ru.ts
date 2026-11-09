@@ -270,7 +270,7 @@ export const ru: Record<string, string> = {
   "Amounts keep their own currency. Supply prices, project costs and “up to” prices switch over at today’s rate.": "Суммы хранят свою валюту. Цены запасов, стоимость проектов и цены «до» пересчитываются по сегодняшнему курсу.",
   "Came in": "Поступило",
   "Nothing yet": "Пока ничего",
-  "Expected from clients": "Ожидается от клиентов",
+  "Expected income": "Ожидаемый доход",
   "Mandatory planned": "Обязательные запланированные",
   "Mandatory paid": "Обязательные оплаченные",
   "Supplies bought": "Купленные запасы",

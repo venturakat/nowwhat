@@ -270,7 +270,7 @@ export const es: Record<string, string> = {
   "Amounts keep their own currency. Supply prices, project costs and “up to” prices switch over at today’s rate.": "Los montos mantienen su moneda. Los precios de provisiones, los costos de proyectos y los precios “hasta” se pasan a la cotización de hoy.",
   "Came in": "Entró",
   "Nothing yet": "Todavía nada",
-  "Expected from clients": "Esperado de clientes",
+  "Expected income": "Ingresos esperados",
   "Mandatory planned": "Obligatorios previstos",
   "Mandatory paid": "Obligatorios pagados",
   "Supplies bought": "Provisiones compradas",

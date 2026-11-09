@@ -225,7 +225,7 @@ export const ClassEdit = ({ id }: { id?: string }) => {
   const preview = differs && p ? classRate(st.settings, { ...(c ?? { id: '', name: '', days: [], since: today(), extra: [], skips: [], pays: [] }), price: p, currency: cur, payIn, rate: rateNow }) : undefined
   return (
     <Sheet title={c ? c.name : 'New class'}>
-      <Field label="What"><input className="input" value={name} placeholder={tr('Spanish, yoga, piano…')} autoFocus={!c} onChange={(e) => setName(e.target.value)} /></Field>
+      <Field label="Name"><input className="input" value={name} placeholder={tr('Spanish, yoga, piano…')} autoFocus={!c} onChange={(e) => setName(e.target.value)} /></Field>
       <Field label="Price per class"><input className="input" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
       <Field label="Price currency"><CurPick value={cur} options={CURS} onChange={(x) => { if (payIn === cur) setPayIn(x); setCur(x) }} /></Field>
       <Field label="Payment currency"><CurPick value={payIn} options={PAY_CURS} onChange={setPayIn} /></Field>

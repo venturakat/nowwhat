@@ -120,7 +120,7 @@ export const uk: Record<string, string> = {
   'Amounts keep their own currency. Supply prices, project costs and “up to” prices switch over at today’s rate.': 'Суми зберігають свою валюту. Ціни запасів, вартість проєктів і ціни «до» перераховуються за сьогоднішнім курсом.',
 
   // ---- Money ----
-  'Came in': 'Надійшло', 'Nothing yet': 'Поки нічого', 'Expected from clients': 'Очікується від клієнтів',
+  'Came in': 'Надійшло', 'Nothing yet': 'Поки нічого', 'Expected income': 'Очікуваний дохід',
   'Mandatory planned': 'Обовʼязкові заплановані', 'Mandatory paid': 'Обовʼязкові сплачені', 'Supplies bought': 'Куплені запаси', 'Day-to-day spending': 'Щоденні витрати',
   'Moved to {x}': 'Перенесено: {x}', 'now': 'зараз', 'Left this fortnight': 'Залишок на два тижні',
   'per day': 'на день', 'per day · {n} day left|per day · {n} days left': 'на день · лишився {n} день|на день · лишилося {n} дні|на день · лишилося {n} днів', 'Spent {a} of {b}': 'Витрачено {a} з {b}',
