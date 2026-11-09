@@ -157,7 +157,7 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
         { key: 'lag', label: tr('Paid in'), type: 'select', options: LAG_NAME().map((n, i) => [String(i), n]) },
         { key: 'payDay', label: tr('I pay on day (puts it in the budget)'), type: 'number', step: 1, placeholder: (v) => String(defaultPayDay(parseNum(String(v.dueDay ?? '')) ?? 20)) },
         { key: 'dueDay', label: tr('Official deadline, day'), type: 'number', step: 1 },
-        { key: 'group', label: tr('Name for a combined payment (optional)'), type: 'text', suggest: groups, hint: 'Taxes or contributions with the same name here are added up into one payment on the Taxes tab.' }
+        { key: 'group', label: tr('Name for a combined payment (optional)'), type: 'text', suggest: groups, hint: 'Taxes or contributions with the same name put in this field are added up into one payment on the Taxes tab.' }
       ]}
       onSave={(v) => update((d) => {
         const day = (n: number | undefined, dflt: number) => Math.min(31, Math.max(1, Math.round(n ?? dflt)))

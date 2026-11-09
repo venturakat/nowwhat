@@ -815,7 +815,7 @@ export const uk: Record<string, string> = {
   "ZUS health contribution · ryczałt": "Медичний внесок ZUS · ryczałt",
   "The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.": "Дата початку діяльності, Ulga na start і пільговий ZUS однакові для обох внесків ZUS: зміниш в одному — зміниться й в іншому.",
   "Name for a combined payment (optional)": "Назва спільного платежу (необовʼязково)",
-  "Taxes or contributions with the same name here are added up into one payment on the Taxes tab.": "Податки чи внески з однаковою назвою тут додаються в один платіж на вкладці Податки.",
+  "Taxes or contributions with the same name put in this field are added up into one payment on the Taxes tab.": "Податки чи внески з однаковою назвою в цьому полі додаються в один платіж на вкладці Податки.",
   // ---- ZUS worked out ----
   "Full ZUS base: 60% = {x}": "База повного ZUS: 60% = {x}",
   "Preferential ZUS base: 30% = {x}": "База пільгового ZUS: 30% = {x}",

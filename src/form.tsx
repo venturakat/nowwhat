@@ -104,7 +104,7 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
               onChange={(e) => set(f.key, f.type === 'number' ? e.target.value.replace(/[^0-9.,\-\s]/g, '') : e.target.value)}
             />
           )}
-          {f.hint && <span className="t13 muted" style={{ display: 'block', marginTop: 6 }}>{tr(f.hint)}</span>}
+          {f.hint && <span className="t13 muted" style={{ display: 'block', marginTop: 6, marginBottom: 14 }}>{tr(f.hint)}</span>}
         </Field>
         </fieldset>
       ))}
