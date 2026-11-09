@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { addHours } from './lib'
+import { addHours, fmtWeekday, today } from './lib'
 import type { ClosetCat } from './types'
 import { tr } from './i18n'
 // shared pieces translate the plain strings they're given (labels, titles, chips); text with data in it is translated where it's built
@@ -122,12 +122,17 @@ export const Garment = ({ cat, size = 40 }: { cat: ClosetCat; size?: number }) =
 
 // ---------- primitives ----------
 export const Header = ({ sub, title, right }: { sub: string; title: ReactNode; right?: ReactNode }) => (
-  <div className="between" style={{ alignItems: 'flex-end' }}>
-    <div className="col" style={{ gap: 2 }}>
+  <div className="between" style={{ alignItems: 'flex-end', position: 'relative' }}>
+    <div className="col" style={{ gap: 2, minWidth: 0 }}>
       <div className="sub">{t(sub)}</div>
       <h1 className="h1">{t(title)}</h1>
     </div>
-    {right ?? <button className="hdr-gear" aria-label={tr('Settings')} onClick={openSettings}><Icon.gear /></button>}
+    {right ?? (
+      <div className="hdr-right">
+        <span className="sub">{fmtWeekday(today())}</span>
+        <button className="hdr-gear" aria-label={tr('Settings')} onClick={openSettings}><Icon.gear /></button>
+      </div>
+    )}
   </div>
 )
 

@@ -1072,5 +1072,6 @@ export const ru: Record<string, string> = {
   "Now for {x}.": "Сейчас для: {x}.",
   "City": "Город",
   "Use where I am": "Взять, где я сейчас",
-  "No city by that name.": "Такого города не найдено."
+  "No city by that name.": "Такого города не найдено.",
+  "Your daily hub app": "Твой ежедневный хаб",
 }

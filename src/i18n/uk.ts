@@ -719,5 +719,6 @@ export const uk: Record<string, string> = {
   'Now for {x}.': 'Зараз для: {x}.',
   'City': 'Місто',
   'Use where I am': 'Взяти, де я зараз',
-  'No city by that name.': 'Такого міста не знайдено.'
+  'No city by that name.': 'Такого міста не знайдено.',
+  'Your daily hub app': 'Твій щоденний хаб',
 }

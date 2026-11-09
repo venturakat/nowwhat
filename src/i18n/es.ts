@@ -1072,5 +1072,6 @@ export const es: Record<string, string> = {
   "Now for {x}.": "Ahora para {x}.",
   "City": "Ciudad",
   "Use where I am": "Usar donde estoy",
-  "No city by that name.": "No hay ninguna ciudad con ese nombre."
+  "No city by that name.": "No hay ninguna ciudad con ese nombre.",
+  "Your daily hub app": "Tu hub para el día a día",
 }

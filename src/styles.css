@@ -172,6 +172,9 @@ button { background: none; border: 0; padding: 0; cursor: pointer; text-align: l
 .quota.on { background: var(--inv); color: var(--ink); }
 .quota.hold { transform: scale(.96); border-color: var(--money); }
 .hdr-gear { color: var(--ink2); padding: 6px; margin: -6px -6px 0 0; align-self: flex-start; }
+/* date + gear sit on the sub line, top right; the title can run underneath */
+.hdr-right { position: absolute; top: 0; right: 0; display: flex; align-items: center; gap: 4px; }
+.hdr-right .hdr-gear { align-self: auto; margin: -9px -6px -9px 0; }
 .page > * { flex-shrink: 0; }
 
 /* iOS Safari draws date fields its own way (shorter, centred text, odd width) — make them match the other inputs */

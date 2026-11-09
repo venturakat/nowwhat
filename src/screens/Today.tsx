@@ -123,7 +123,7 @@ export const Today = () => {
   const nextTax = taxPays(st, monthKey(t)).find((x) => !x.paid && x.left > 0 && diffDays(t, x.pay) > 5)
   return (
     <div className="screen withfab">
-      <Header sub={fmtWeekday(t)} title={<Logo />} />
+      <Header sub="Your daily hub app" title={<Logo />} />
       {setup.length < SETUP.length && (setup.length > 0 || (Object.keys(st.periods).length === 0 && st.clients.length === 0 && st.supplies.length === 0)) && <FreshStart done={setup} />}
       <button className="card dark" style={{ gap: 6, paddingTop: 22, paddingBottom: 22 }} onClick={() => useUi.getState().go('money', 'budget')}>
         <span className="t15 w5">{tr('You can spend today')}</span>
