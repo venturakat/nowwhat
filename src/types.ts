@@ -101,6 +101,7 @@ export interface BudgetItem {
   fromSession?: ID // a client payment marked paid — removed again if it's unmarked
   bought?: boolean // a supply marked bought — listed under "Supplies bought"
   oneOff?: boolean // purchases logged from Supplies/Closet: not copied to next month
+  repeat?: boolean // "Repeat every month": copied into the same half of the months after (copies share the id before '@'); unset = one-time
   paid?: boolean // expense already paid → Budget's "Mandatory paid" (unset: one-off purchases count as paid)
 }
 

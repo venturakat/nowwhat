@@ -4,7 +4,7 @@ import type { Currency, Session, State, TaxLine, TaxMonth } from '../types'
 import { bankAmount, fillTransfer, lineFormula } from '../taxes'
 import { tr, trn } from '../i18n'
 import { fitSize,
-  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
+  diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, seriesOf, repeatCopy, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
@@ -54,7 +54,7 @@ const Budget = () => {
     openSheet(
       <FormSheet
         title={it ? 'Edit' : kind === 'income' ? 'Money in' : 'Mandatory expense'}
-        initial={it ? { currency: st.settings.mainCur, ...it, paid: isPaid(it) } : { kind, currency: st.settings.mainCur, date: kind === 'income' ? s.info.start : undefined }}
+        initial={it ? { currency: st.settings.mainCur, ...it, paid: isPaid(it), repeat: !!it.repeat } : { kind, currency: st.settings.mainCur, date: kind === 'income' ? s.info.start : undefined, repeat: false }}
         fields={[
           { key: 'label', label: 'Name', type: 'text' },
           { key: 'amount', label: 'Amount', type: 'number' },
@@ -62,22 +62,35 @@ const Budget = () => {
           ...((it?.kind ?? kind) === 'income'
             ? (it?.fromClient
                 ? ([{ key: 'date', label: 'Date', type: 'date' }] as const)
-                : ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const))
-            : ([{ key: 'paid', label: 'Paid', type: 'toggle' }] as const))
+                : ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'repeat', label: 'Repeat every month', type: 'toggle' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const))
+            : ([{ key: 'repeat', label: 'Repeat every month', type: 'toggle' }, { key: 'paid', label: 'Paid', type: 'toggle' }] as const))
         ]}
         onSave={(v) => {
           // a dated entry always lives in the half its date belongs to, whichever half it was added from
           const target = v.date ? periodOf(v.date, st.settings).key : key
+          const repeat = !it?.fromClient && !!v.repeat
           update((d) => {
             const p = ensurePeriod(d, key)
-            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, ...(it?.fromClient ? {} : { taxable: v.taxable }), ...((it?.kind ?? kind) === 'expense' ? { paid: !!v.paid } : {}) }
+            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, ...(it?.fromClient ? {} : { taxable: v.taxable, repeat }), ...((it?.kind ?? kind) === 'expense' ? { paid: !!v.paid } : {}) }
             const item = it ? { ...p.items.find((x) => x.id === it.id)!, ...data } : { id: uid(), kind, ...data }
             if (it) p.items = p.items.filter((x) => x.id !== it.id)
             ensurePeriod(d, target).items.push(item as any)
+            // repeat switched on: a copy goes into the months after that are already set up (later ones copy it by themselves);
+            // switched off: the copies after this one go
+            const ser = seriesOf(item.id)
+            const later = Object.keys(d.periods).filter((k) => k > target)
+            if (repeat && !it?.repeat) {
+              for (const k of later) if (k.slice(8) === target.slice(8) && !d.periods[k].items.some((x) => seriesOf(x.id) === ser)) d.periods[k].items.push(repeatCopy(item as any, k))
+            } else if (!repeat && it?.repeat) {
+              for (const k of later) d.periods[k].items = d.periods[k].items.filter((x) => seriesOf(x.id) !== ser)
+            }
           })
           if (target !== key) toast(tr('Moved to {x}', { x: periodFromKey(target, st.settings).label }))
         }}
-        onDelete={it ? () => update((d) => { const p = ensurePeriod(d, key); p.items = p.items.filter((x) => x.id !== it.id) }) : undefined}
+        onDelete={it ? () => {
+          if (it.repeat) { pushSheet(<DeleteRepeat label={it.label} id={it.id} pkey={key} />); return false }
+          update((d) => { const p = ensurePeriod(d, key); p.items = p.items.filter((x) => x.id !== it.id) })
+        } : undefined}
       />
     )
   }
@@ -131,7 +144,7 @@ const Budget = () => {
           <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
         ))}
         {incomes.map((i) => (
-          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), (i.fromClient || i.taxable) && tr('business revenue')].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
+          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.repeat && tr('every month'), (i.fromClient || i.taxable) && tr('business revenue')].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">{tr('+ Add money in')}</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
@@ -145,7 +158,7 @@ const Budget = () => {
       <List title="Mandatory planned" right={fmt(plannedSum)}>
         {autoOut.filter((a) => !a.paid).map(autoRow)}
         {expenses.map((i) => (
-          <Row key={i.id} dot={C.line} title={i.label} trail={amt(i)} onClick={() => editItem(i.id)} />
+          <Row key={i.id} dot={C.line} title={i.label} meta={i.repeat ? tr('every month') : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">{tr('+ Add mandatory expense')}</span>} onClick={() => editItem(undefined, 'expense')} />
       </List>
@@ -179,6 +192,28 @@ const Budget = () => {
       </Fold>
       <button className="btn full soft" onClick={() => editSpend()}>{tr('+ Log spending')}</button>
     </>
+  )
+}
+
+// deleting a line that repeats every month: just this one, or this one and every copy after it
+const DeleteRepeat = ({ label, id, pkey }: { label: string; id: string; pkey: string }) => {
+  const ser = seriesOf(id)
+  const del = (after: boolean) => {
+    update((d) => {
+      const p = ensurePeriod(d, pkey)
+      // just this one: next month's same half is set up first, so it still gets its copy and the series carries on
+      if (!after) ensurePeriod(d, shiftPeriod(shiftPeriod(pkey, 1), 1))
+      p.items = p.items.filter((x) => x.id !== id)
+      if (after) for (const k of Object.keys(d.periods)) if (k > pkey) d.periods[k].items = d.periods[k].items.filter((x) => seriesOf(x.id) !== ser)
+    })
+    closeSheet()
+  }
+  return (
+    <Sheet title={tr('Delete {x}?', { x: label })} onBack={popSheet}>
+      <div className="t15 muted">{tr('It repeats every month. Delete just this one, or this one and all the months after it?')}</div>
+      <button className="btn full soft" onClick={() => del(false)}>{tr('Just this one')}</button>
+      <button className="btn full soft" onClick={() => del(true)}>{tr('This and all months after')}</button>
+    </Sheet>
   )
 }
 

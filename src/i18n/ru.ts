@@ -1173,4 +1173,10 @@ export const ru: Record<string, string> = {
   "Full ZUS base: 60% = {x}": "База полного ZUS: 60% = {x}",
   "Preferential ZUS base: 30% = {x}": "База льготного ZUS: 30% = {x}",
   "Health contribution base: 60 / 100 / 180% = {x}": "База медицинского взноса: 60 / 100 / 180% = {x}",
+  // ---- Budget: repeat every month ----
+  "Repeat every month": "Повторять каждый месяц",
+  "every month": "каждый месяц",
+  "It repeats every month. Delete just this one, or this one and all the months after it?": "Это повторяется каждый месяц. Удалить только этот раз или этот и все следующие месяцы?",
+  "Just this one": "Только этот раз",
+  "This and all months after": "Этот и все следующие",
 }

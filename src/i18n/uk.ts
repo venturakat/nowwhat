@@ -820,4 +820,10 @@ export const uk: Record<string, string> = {
   "Full ZUS base: 60% = {x}": "База повного ZUS: 60% = {x}",
   "Preferential ZUS base: 30% = {x}": "База пільгового ZUS: 30% = {x}",
   "Health contribution base: 60 / 100 / 180% = {x}": "База медичного внеску: 60 / 100 / 180% = {x}",
+  // ---- Budget: repeat every month ----
+  'Repeat every month': 'Повторювати щомісяця',
+  'every month': 'щомісяця',
+  'It repeats every month. Delete just this one, or this one and all the months after it?': 'Це повторюється щомісяця. Видалити тільки цей раз чи цей і всі наступні місяці?',
+  'Just this one': 'Тільки цей раз',
+  'This and all months after': 'Цей і всі наступні',
 }

@@ -1173,4 +1173,10 @@ export const es: Record<string, string> = {
   "Full ZUS base: 60% = {x}": "Base del ZUS completo: 60% = {x}",
   "Preferential ZUS base: 30% = {x}": "Base del ZUS preferencial: 30% = {x}",
   "Health contribution base: 60 / 100 / 180% = {x}": "Base del aporte de salud: 60 / 100 / 180% = {x}",
+  // ---- Budget: repeat every month ----
+  "Repeat every month": "Repetir todos los meses",
+  "every month": "todos los meses",
+  "It repeats every month. Delete just this one, or this one and all the months after it?": "Se repite todos los meses. ¿Borrás solo este o este y todos los meses que siguen?",
+  "Just this one": "Solo este",
+  "This and all months after": "Este y todos los que siguen",
 }

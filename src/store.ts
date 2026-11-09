@@ -99,6 +99,11 @@ export const migrate = (s: State): State => {
     migrateZus(out)
     out.version = 11
   }
+  if (out.version < 12) {
+    // v12: budget lines repeat only when "Repeat every month" is on — the ones that used to be copied to the next months keep repeating
+    for (const p of Object.values(out.periods)) for (const it of p.items) if (!it.fromClient && !it.oneOff) it.repeat = true
+    out.version = 12
+  }
   // Spanish classes (USD price paid in pesos) became one of the Classes
   if (out.lessons && !out.classes) {
     const l = out.lessons

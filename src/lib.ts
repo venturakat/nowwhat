@@ -82,7 +82,18 @@ export const shiftPeriod = (key: string, dir: 1 | -1) => {
   return half === 'B' ? `${mk}-A` : `${prevMonth(mk)}-B`
 }
 
-// If a period was never opened, it starts as a copy of the same half of the latest earlier month that has one.
+// Monthly repeating budget lines ("Repeat every month"): every copy keeps the first one's id before '@'
+// (copies are `<id>@<period key>`), dated on the same day of their own month (clamped to its length).
+export const seriesOf = (id: string) => id.split('@')[0]
+export const dateInPeriod = (key: string, date?: string) => {
+  if (!date) return undefined
+  const mk = key.slice(0, 7)
+  const [y, m] = mk.split('-').map(Number)
+  return `${mk}-${pad(Math.min(Number(date.slice(8, 10)), daysInMonth(y, m)))}`
+}
+export const repeatCopy = (it: BudgetItem, key: string): BudgetItem => ({ ...it, paid: undefined, id: `${seriesOf(it.id)}@${key}`, date: dateInPeriod(key, it.date) })
+
+// If a period was never opened, it starts with the repeating lines of the same half of the latest earlier month that has one.
 export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTemplate: boolean } => {
   if (st.periods[key]) return { items: st.periods[key].items, isTemplate: false }
   const half = key.slice(8)
@@ -91,9 +102,7 @@ export const periodItems = (st: State, key: string): { items: BudgetItem[]; isTe
     mk = prevMonth(mk)
     const p = st.periods[`${mk}-${half}`]
     if (p) {
-      const items = p.items
-        .filter((it) => !it.fromClient && !it.oneOff)
-        .map((it) => ({ ...it, paid: undefined, id: `${it.id.split('@')[0]}@${key}`, date: it.date ? key.slice(0, 7) + it.date.slice(7) : undefined }))
+      const items = p.items.filter((it) => it.repeat && !it.fromClient && !it.oneOff).map((it) => repeatCopy(it, key))
       return { items, isTemplate: true }
     }
   }
