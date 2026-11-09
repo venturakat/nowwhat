@@ -124,6 +124,7 @@ export interface Client {
   fixedCur?: Currency // default EUR
   payDay?: number // fixed clients: day of the month the fee is due
   since?: string // fixed clients: first month (YYYY-MM)
+  skips?: string[] // fixed clients: months (YYYY-MM) with no fee — no entry, nothing expected
   archived?: boolean
 }
 

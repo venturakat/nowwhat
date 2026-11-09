@@ -7,7 +7,7 @@ import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
 } from '../lib'
-import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
+import { C, Check, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
 import { Credits } from './Credits'
 import { nbpRateForInvoice } from '../rates'
@@ -583,7 +583,7 @@ const ClientSheet = ({ id }: { id: string }) => {
   }
   return (
     <Sheet title={c.name} full>
-      <div className="t15 muted">{c.kind === 'job' ? tr('Fixed fee per job') : c.kind === 'fixed' ? tr('{x} a month, due on the {d}', { x: fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR'), d: ord(c.payDay ?? 1) }) : tr('{x} per hour', { x: fmtCur(c.rateEur, c.cur ?? 'EUR', c.rateEur % 1 !== 0) })}</div>
+      <div className="t15 muted">{c.kind === 'job' ? tr('Fixed fee per job') : c.kind === 'fixed' ? tr('{x} a month, due on the {d}', { x: fmtCur(c.fixedEur ?? 0, c.fixedCur ?? 'EUR'), d: ord(c.payDay ?? 1) }) + ((c.skips ?? []).some((m) => m >= today().slice(0, 7)) ? ' · ' + tr('skipping {x}', { x: (c.skips ?? []).filter((m) => m >= today().slice(0, 7)).map((m) => monthName(m, true)).join(', ') }) : '') : tr('{x} per hour', { x: fmtCur(c.rateEur, c.cur ?? 'EUR', c.rateEur % 1 !== 0) })}</div>
       {unInv.length > 0 && (
         <div className="card work" style={{ gap: 6 }}>
           <span className="t14 w5">{tr('Not invoiced yet')}</span>
@@ -612,6 +612,38 @@ const ClientSheet = ({ id }: { id: string }) => {
         <button className="btn soft grow" onClick={() => openSheet(<SessionEdit clientId={id} />)}>{tr(c.kind === 'job' ? '+ Add a job' : c.kind === 'fixed' ? '+ Add extra payment' : '+ Add hours')}</button>
         <button className="btn soft grow" onClick={() => openSheet(<ClientEdit id={id} />)}>{tr('Edit client')}</button>
       </div>
+      {c.kind === 'fixed' && <button className="btn soft" onClick={() => openSheet(<SkipMonths id={id} />)}>{tr('Skip a month')}</button>}
+    </Sheet>
+  )
+}
+
+// monthly-fee clients: pick months with no fee (this month and the next 11, plus earlier ones already skipped)
+const SkipMonths = ({ id }: { id: string }) => {
+  const st = useSt()
+  const c = st.clients.find((x) => x.id === id)
+  if (!c) return null
+  const cur = today().slice(0, 7)
+  const skips = c.skips ?? []
+  const ahead: string[] = []
+  for (let i = 0, mk = cur; i < 12; i++, mk = nextMonth(mk)) if (!c.since || mk >= c.since) ahead.push(mk)
+  const months = [...skips.filter((m) => m < cur), ...ahead]
+  const locked = (mk: string) => st.sessions.some((s) => s.clientId === id && s.feeMonth === mk && (s.invoiced || s.paid))
+  const toggle = (mk: string) => update((d) => {
+    const x = d.clients.find((y) => y.id === id)!
+    const l = x.skips ?? []
+    x.skips = l.includes(mk) ? l.filter((m) => m !== mk) : [...l, mk].sort()
+    if (!x.skips.length) delete x.skips
+    ensureFees(d)
+  })
+  return (
+    <Sheet title="Skip a month">
+      <div className="t14 muted">{tr('A skipped month has no fee: nothing to invoice and nothing expected in the budget.')}</div>
+      <List>
+        {months.map((mk) => {
+          const on = skips.includes(mk), lock = !on && locked(mk)
+          return <Row key={mk} lead={<Check on={on} />} title={`${monthName(mk, true)} ${mk.slice(0, 4)}`} meta={on ? tr('skipped') : lock ? tr('already invoiced') : undefined} onClick={lock ? undefined : () => toggle(mk)} />
+        })}
+      </List>
     </Sheet>
   )
 }

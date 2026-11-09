@@ -181,7 +181,7 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   for (const c of st.clients) {
     if (c.kind !== 'fixed' || c.archived || !c.fixedEur) continue
     const d = feeDate(c, p.month)
-    if (d < p.start || d > p.end || (c.since && p.month < c.since)) continue
+    if (d < p.start || d > p.end || (c.since && p.month < c.since) || c.skips?.includes(p.month)) continue
     if (st.sessions.some((x) => x.clientId === c.id && x.feeMonth === p.month)) continue
     out.push({ id: 'fee-' + c.id + p.month, label: c.name, amount: toMain(st.settings, c.fixedEur, c.fixedCur ?? 'EUR'), date: d, meta: `${tr('monthly fee')} · ${fmtCur(c.fixedEur, c.fixedCur ?? 'EUR')} · ${fmtDay(d)} · ${tr('expected')}`, kind: 'fee', income: true, expected: true, counted: true })
   }
@@ -458,6 +458,8 @@ export const ensureFees = (d: State) => {
     let mk = c.since ?? cur
     for (let i = 0; i < 60 && mk <= cur; i++, mk = nextMonth(mk)) {
       const ex = d.sessions.find((s) => s.clientId === c.id && s.feeMonth === mk)
+      // a skipped month: no entry (one already made goes, unless it's invoiced or paid)
+      if (c.skips?.includes(mk)) { if (ex && !ex.invoiced && !ex.paid) d.sessions.splice(d.sessions.indexOf(ex), 1); continue }
       if (ex) { if (!ex.invoiced) { ex.fee = c.fixedEur; ex.feeCur = c.fixedCur ?? 'EUR' } continue }
       const at = new Date(feeDate(c, mk) + 'T12:00:00').toISOString()
       d.sessions.push({ id: uid(), clientId: c.id, task: `${monthName(mk, true)} fee`, start: at, end: at, invoiced: false, paid: false, fee: c.fixedEur, feeCur: c.fixedCur ?? 'EUR', feeMonth: mk })

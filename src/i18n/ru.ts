@@ -1,6 +1,11 @@
 // Русский. Keys are the English text; plural forms live under 'one|other' as 'one|few|many'.
 // Informal «ты», non-gendered forms. The app name "now what" is never translated.
 export const ru: Record<string, string> = {
+  'Skip a month': 'Пропустить месяц',
+  'A skipped month has no fee: nothing to invoice and nothing expected in the budget.': 'В пропущенный месяц оплаты нет: ничего не выставлять и ничего не ждать в бюджете.',
+  'skipped': 'пропущено',
+  'already invoiced': 'счёт уже выставлен',
+  'skipping {x}': 'пропуск: {x}',
   "Today": "Сегодня",
   "Money": "Деньги",
   "Supplies": "Запасы",
