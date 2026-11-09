@@ -741,7 +741,7 @@ const Taxes = () => {
         })}
         {pctLines.map((l) => {
           const sum = months.filter((m) => m <= curM && lineEndsIn(l, m)).reduce((a, m) => a + (taxPeriod(st, m).parts.find((p) => p.line.id === l.id)?.amount ?? 0), 0)
-          return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('So far this year')} trail={ft(sum)} onClick={() => editMonth(curM)} />
+          return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('So far this year')} trail={ft(sum)} />
         })}
       </List>
       <div className="t13 muted" style={{ padding: '0 4px' }}>{formulas ? formulas + '. ' : ''}{zusNote}{tr('Tap any month to check or correct it. Tax lines are in Settings.')}</div>
