@@ -1169,4 +1169,8 @@ export const ru: Record<string, string> = {
   "The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.": "Дата начала деятельности, Ulga na start и льготный ZUS одинаковы для обоих взносов ZUS: изменишь в одном — изменится и в другом.",
   "Name for a combined payment (optional)": "Название общего платежа (необязательно)",
   "Taxes or contributions with the same name here are added up into one payment on the Taxes tab.": "Налоги или взносы с одинаковым названием здесь складываются в один платёж на вкладке Налоги.",
+  // ---- ZUS worked out ----
+  "Full ZUS base: 60% = {x}": "База полного ZUS: 60% = {x}",
+  "Preferential ZUS base: 30% = {x}": "База льготного ZUS: 30% = {x}",
+  "Health contribution base: 60 / 100 / 180% = {x}": "База медицинского взноса: 60 / 100 / 180% = {x}",
 }

@@ -4,7 +4,7 @@ import { C, Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast } from './
 import { FormSheet } from './form'
 import { seed } from './seed'
 import { blueFits, OFFICIAL, refreshRates } from './rates'
-import { isZus, zusOn, zusCalc, zusStage, zusYear, ZUS_YEARS, ZUS_ACCIDENT, monthKey, monthName, today } from './lib'
+import { r2, isZus, zusOn, zusCalc, zusStage, zusYear, ZUS_YEARS, ZUS_ACCIDENT, monthKey, monthName, today } from './lib'
 import { uid, fmtCur, allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
 import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule, ZusYear } from './types'
 import { LAG_NAME, defaultPayDay, applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
@@ -194,9 +194,9 @@ const ZusBlock = () => {
     <>
       <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Official numbers {y}', { y })}</span>
       <List>
-        <Row dot={C.money} title={tr('Forecast average wage')} meta={tr('Full ZUS base: 60%')} trail={zl(yr.avg)} onClick={open} />
-        <Row dot={C.money} title={tr('Minimum wage')} meta={tr('Preferential ZUS base: 30%')} trail={zl(yr.min)} onClick={open} />
-        <Row dot={C.money} title={tr('Average wage in Q4 {p}', { p: +y - 1 })} meta={tr('Health contribution base: 60 / 100 / 180%')} trail={zl(yr.health)} onClick={open} />
+        <Row dot={C.money} title={tr('Forecast average wage')} meta={tr('Full ZUS base: 60% = {x}', { x: zl(r2(0.6 * yr.avg)) })} trail={zl(yr.avg)} onClick={open} />
+        <Row dot={C.money} title={tr('Minimum wage')} meta={tr('Preferential ZUS base: 30% = {x}', { x: zl(r2(0.3 * yr.min)) })} trail={zl(yr.min)} onClick={open} />
+        <Row dot={C.money} title={tr('Average wage in Q4 {p}', { p: +y - 1 })} meta={tr('Health contribution base: 60 / 100 / 180% = {x}', { x: [0.6, 1, 1.8].map((k) => fmtNum(r2(k * yr.health), 2)).join(' / ') + ' zł' })} trail={zl(yr.health)} onClick={open} />
       </List>
       <span className="t13 muted" style={{ padding: '0 4px' }}>{yr.known ? tr('Used for the ZUS lines. Built in — tap a number if the official one is different.') : tr('The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.', { y })}</span>
     </>

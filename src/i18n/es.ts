@@ -1169,4 +1169,8 @@ export const es: Record<string, string> = {
   "The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.": "La fecha de inicio, Ulga na start y el ZUS preferencial son los mismos para los dos aportes de ZUS: si los cambiás en uno, cambian en el otro.",
   "Name for a combined payment (optional)": "Nombre del pago combinado (opcional)",
   "Taxes or contributions with the same name here are added up into one payment on the Taxes tab.": "Los impuestos o aportes con el mismo nombre acá se suman en un solo pago en la pestaña Impuestos.",
+  // ---- ZUS worked out ----
+  "Full ZUS base: 60% = {x}": "Base del ZUS completo: 60% = {x}",
+  "Preferential ZUS base: 30% = {x}": "Base del ZUS preferencial: 30% = {x}",
+  "Health contribution base: 60 / 100 / 180% = {x}": "Base del aporte de salud: 60 / 100 / 180% = {x}",
 }
