@@ -168,7 +168,7 @@ export const ru: Record<string, string> = {
   "Invoices count": "Доход считается",
   "Taxes and contributions": "Налоги и взносы",
   "Add contribution or tax": "Добавить взнос или налог",
-  "Transfer details": "Реквизиты",
+  "Transfer details to copy": "Реквизиты для копирования",
   "empty": "пусто",
   "Add row": "Добавить строку",
   "In the text, {p} become the month you pay for.": "В тексте {p} заменяются на месяц, за который платишь.",

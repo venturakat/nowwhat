@@ -23,7 +23,7 @@ export const PRESETS: Preset[] = [
       // ryczałt: rate × (revenue − social contributions − half of the health contribution)
       { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: 14, less: 'rca', lessPct: 100, less2: 'dra', less2Pct: 50, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
     ],
-    transfer: () => [row('ZUS account'), row('PIT account'), row('NIP'), row('Basis'), row('Title', 'Składki za {miesiąc} {yyyy}')]
+    transfer: () => [row('ZUS account'), row('PIT account'), row('NIP'), row('Title', 'Składki za {miesiąc} {yyyy}')]
   },
   {
     key: 'ua', name: 'Ukraine', cur: 'UAH', rule: 'paid',

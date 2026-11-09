@@ -168,7 +168,7 @@ export const es: Record<string, string> = {
   "Invoices count": "Los ingresos cuentan",
   "Taxes and contributions": "Impuestos y aportes",
   "Add contribution or tax": "Agregar aporte o impuesto",
-  "Transfer details": "Datos para transferir",
+  "Transfer details to copy": "Datos para copiar y transferir",
   "empty": "vacío",
   "Add row": "Agregar fila",
   "In the text, {p} become the month you pay for.": "En el texto, {p} se reemplazan por el mes que pagás.",

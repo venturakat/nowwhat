@@ -68,7 +68,7 @@ export const uk: Record<string, string> = {
   'Start from': 'Почати з', 'Started from {x}': 'Почато з: {x}', 'Replace lines': 'Замінити платежі',
   'Poland · ryczałt': 'Польща · ryczałt', 'Ukraine': 'Україна', 'Argentina': 'Аргентина', 'Custom': 'Свій',
   'Taxes are in': 'Валюта податків', 'Invoices count': 'Дохід рахується', 'Taxes and contributions': 'Податки та внески', 'Add contribution or tax': 'Додати внесок або податок',
-  'Transfer details': 'Реквізити', 'empty': 'порожньо', 'Add row': 'Додати рядок',
+  'Transfer details to copy': 'Реквізити для копіювання', 'empty': 'порожньо', 'Add row': 'Додати рядок',
   'In the text, {p} become the month you pay for.': 'У тексті {p} замінюються на місяць, за який платиш.',
   '{p} become the month you pay for.': '{p} замінюються на місяць, за який платиш.',
   'New tax line': 'Новий платіж', 'How it’s worked out': 'Як рахується', 'Amount per period': 'Сума за період', 'Rate, %': 'Ставка, %',

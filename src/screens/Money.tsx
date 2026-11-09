@@ -699,7 +699,7 @@ const Taxes = () => {
       {transfer.length > 0 && (
         <div className="card" style={{ gap: 0, padding: '4px 0' }}>
           <button className="between" style={{ padding: '14px 20px', alignItems: 'center' }} onClick={() => setDetails(!details)}>
-            <span className="t17">{tr('Transfer details')}</span>
+            <span className="t17">{tr('Transfer details to copy')}</span>
             <span style={{ display: 'flex', transform: details ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .15s', color: 'var(--ink2)' }}><Icon.chevR /></span>
           </button>
           {details && (

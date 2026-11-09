@@ -112,7 +112,7 @@ export const TaxesSheet = () => {
       )}
       <button className="btn soft" onClick={() => pushSheet(<TaxLineSheet />)}>{tr('Add contribution or tax')}</button>
       {lines.some(isZus) && <ZusBlock />}
-      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Transfer details')}</span>
+      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Transfer details to copy')}</span>
       {(s.transfer ?? []).length > 0 && (
         <List>
           {(s.transfer ?? []).map((r) => <Row key={r.id} dot={C.ink} title={r.label} meta={r.text || tr('empty')} onClick={() => pushSheet(<TransferRowSheet id={r.id} />)} />)}
