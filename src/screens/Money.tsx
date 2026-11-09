@@ -617,7 +617,7 @@ const ClientSheet = ({ id }: { id: string }) => {
   )
 }
 
-// monthly-fee clients: pick months with no fee (this month and the next 11, plus earlier ones already skipped)
+// monthly-fee clients: pick months with no fee — this month and the next 11, and earlier ones back to the first month (max 24, newest first)
 const SkipMonths = ({ id }: { id: string }) => {
   const st = useSt()
   const c = st.clients.find((x) => x.id === id)
@@ -626,7 +626,11 @@ const SkipMonths = ({ id }: { id: string }) => {
   const skips = c.skips ?? []
   const ahead: string[] = []
   for (let i = 0, mk = cur; i < 12; i++, mk = nextMonth(mk)) if (!c.since || mk >= c.since) ahead.push(mk)
-  const months = [...skips.filter((m) => m < cur), ...ahead]
+  const first = c.since ?? st.sessions.filter((s) => s.clientId === id && s.feeMonth).map((s) => s.feeMonth!).sort()[0] ?? cur
+  const past: string[] = []
+  for (let i = 0, mk = prevMonth(cur); i < 24 && mk >= first; i++, mk = prevMonth(mk)) past.push(mk)
+  for (const m of skips) if (m < cur && !past.includes(m)) past.push(m)
+  past.sort().reverse()
   const locked = (mk: string) => st.sessions.some((s) => s.clientId === id && s.feeMonth === mk && (s.invoiced || s.paid))
   const toggle = (mk: string) => update((d) => {
     const x = d.clients.find((y) => y.id === id)!
@@ -635,15 +639,15 @@ const SkipMonths = ({ id }: { id: string }) => {
     if (!x.skips.length) delete x.skips
     ensureFees(d)
   })
+  const row = (mk: string) => {
+    const on = skips.includes(mk), lock = !on && locked(mk)
+    return <Row key={mk} lead={<Check on={on} />} title={`${monthName(mk, true)} ${mk.slice(0, 4)}`} meta={on ? tr('skipped') : lock ? tr('already invoiced') : undefined} onClick={lock ? undefined : () => toggle(mk)} />
+  }
   return (
     <Sheet title="Skip a month">
       <div className="t14 muted">{tr('A skipped month has no fee: nothing to invoice and nothing expected in the budget.')}</div>
-      <List>
-        {months.map((mk) => {
-          const on = skips.includes(mk), lock = !on && locked(mk)
-          return <Row key={mk} lead={<Check on={on} />} title={`${monthName(mk, true)} ${mk.slice(0, 4)}`} meta={on ? tr('skipped') : lock ? tr('already invoiced') : undefined} onClick={lock ? undefined : () => toggle(mk)} />
-        })}
-      </List>
+      <List title="Coming up">{ahead.map(row)}</List>
+      {past.length > 0 && <List title="Earlier months">{past.map(row)}</List>}
     </Sheet>
   )
 }
