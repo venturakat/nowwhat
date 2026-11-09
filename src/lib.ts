@@ -362,7 +362,7 @@ export const zusStage = (s: Settings, mk: string): { stage: ZusStage; part: numb
   const first = day === 1 ? sm : nextMonth(sm)
   const i = Math.max(0, monthsFrom(first, mk)) // the partial first month belongs to the first stage
   const part = mk === sm && day > 1 ? (daysIn(sm) - day + 1) / daysIn(sm) : 1
-  const ulga = z?.ulga ? 6 : 0, pref = z?.pref !== false ? 24 : 0
+  const ulga = z?.ulga ? 6 : 0, pref = z?.pref ? 24 : 0
   if (i < ulga) return { stage: 'ulga', part, until: addMonths(first, ulga - 1) }
   if (i < ulga + pref) return { stage: 'pref', part, until: addMonths(first, ulga + pref - 1) }
   return { stage: 'full', part }

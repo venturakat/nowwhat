@@ -18,8 +18,8 @@ export const PRESETS: Preset[] = [
     key: 'pl', name: 'Poland · ryczałt', cur: 'PLN', rule: 'nbp',
     lines: () => [
       // worked out from Settings › Taxes › ZUS (start date, Ulga na start, preferential, sickness)
-      { id: 'rca', name: 'Social (ZUS)', kind: 'zusSocial', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
-      { id: 'dra', name: 'Health (ZUS)', kind: 'zusHealth', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'rca', name: 'Social ZUS', kind: 'zusSocial', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'dra', name: 'Health ZUS', kind: 'zusHealth', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
       // ryczałt: rate × (revenue − social contributions − half of the health contribution)
       { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: 14, less: 'rca', lessPct: 100, less2: 'dra', less2Pct: 50, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
     ],
@@ -121,8 +121,8 @@ export const migrateZus = (out: State) => {
     try { old = Object.fromEntries(taxPeriod(out, mk).parts.map((p) => [p.line.id, p.amount])) } catch { /* keep going */ }
     for (const l of [dra, rca, pit]) { const x = l && st[l.id]; if (l && x?.paid && x.amount === undefined && old[l.id] !== undefined) x.amount = old[l.id] }
   }
-  dra.kind = 'zusHealth'; if (dra.name === 'ZUS DRA') dra.name = 'Health (ZUS)'
-  rca.kind = 'zusSocial'; if (rca.name === 'ZUS RCA') rca.name = 'Social (ZUS)'
+  dra.kind = 'zusHealth'; if (dra.name === 'ZUS DRA') dra.name = 'Health ZUS'
+  rca.kind = 'zusSocial'; if (rca.name === 'ZUS RCA') rca.name = 'Social ZUS'
   dra.every = rca.every = 'month'
   if (pit?.kind === 'pctLess' && pit.less === 'dra' && !pit.less2) { pit.less2 = 'rca'; pit.less2Pct = 100 }
 }

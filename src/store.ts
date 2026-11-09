@@ -116,6 +116,8 @@ export const migrate = (s: State): State => {
     if (l.id === 'ua-tax') { l.lag = 2; if (l.dueDay === 20) { l.dueDay = 19; if (l.payDay === 15 || l.payDay === 10) l.payDay = 14 } }
   }
   migrateCleanPlan(out.cleanPlan) // each list gets its own day and repeat
+  // ZUS line names without brackets: "Health (ZUS)" → "Health ZUS"
+  for (const l of out.settings.taxLines ?? []) { if (l.name === 'Health (ZUS)') l.name = 'Health ZUS'; if (l.name === 'Social (ZUS)') l.name = 'Social ZUS' }
   markTaxSince(out) // taxes already set up: the budget counts them from this year's first month with revenue
   fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies

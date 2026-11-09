@@ -67,7 +67,7 @@ export const uk: Record<string, string> = {
   'Tax lines, pay days, transfer details': 'Платежі, дні оплати, реквізити', 'of': 'від', 'revenue': 'дохід', 'pay day {d}': 'оплата {d}-го', 'with {g}': 'разом із {g}',
   'Start from': 'Почати з', 'Started from {x}': 'Почато з: {x}', 'Replace lines': 'Замінити платежі',
   'Poland · ryczałt': 'Польща · ryczałt', 'Ukraine': 'Україна', 'Argentina': 'Аргентина', 'Custom': 'Свій',
-  'Taxes are in': 'Валюта податків', 'Invoices count': 'Дохід рахується', 'Tax lines': 'Платежі', 'Add tax line': 'Додати платіж',
+  'Taxes are in': 'Валюта податків', 'Invoices count': 'Дохід рахується', 'Taxes and contributions': 'Податки та внески', 'Add contribution or tax': 'Додати внесок або податок',
   'Transfer details': 'Реквізити', 'empty': 'порожньо', 'Add row': 'Додати рядок',
   'In the text, {p} become the month you pay for.': 'У тексті {p} замінюються на місяць, за який платиш.',
   '{p} become the month you pay for.': '{p} замінюються на місяць, за який платиш.',

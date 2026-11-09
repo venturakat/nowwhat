@@ -104,13 +104,13 @@ export const TaxesSheet = () => {
           {(Object.keys(RN) as TaxRule[]).filter((k) => k !== 'nbp' || tc === 'PLN').map((k) => <button key={k} type="button" className={'chip' + (rule === k ? ' on' : '')} onClick={() => update((d) => { d.settings.taxRule = k })}>{RN[k]}</button>)}
         </div>
       </Field>
-      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Tax lines')}</span>
+      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Taxes and contributions')}</span>
       {lines.length > 0 && (
         <List>
           {lines.map((l) => <Row key={l.id} dot={C.money} title={l.name} meta={lineMeta(l)} onClick={() => pushSheet(<TaxLineSheet id={l.id} />)} />)}
         </List>
       )}
-      <button className="btn soft" onClick={() => pushSheet(<TaxLineSheet />)}>{tr('Add tax line')}</button>
+      <button className="btn soft" onClick={() => pushSheet(<TaxLineSheet />)}>{tr('Add contribution or tax')}</button>
       {lines.some(isZus) && <ZusBlock />}
       <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Transfer details')}</span>
       {(s.transfer ?? []).length > 0 && (
@@ -198,7 +198,7 @@ const ZusSheet = () => {
   const z = st.settings.zus ?? {}
   return (
     <FormSheet title="ZUS" onBack={popSheet}
-      initial={{ start: z.start ?? '', ulga: !!z.ulga, pref: z.pref !== false, sick: !!z.sick, accident: z.accident }}
+      initial={{ start: z.start ?? '', ulga: !!z.ulga, pref: !!z.pref, sick: !!z.sick, accident: z.accident }}
       fields={[
         { key: 'start', label: tr('Business started on'), type: 'date' },
         { key: 'ulga', label: tr('Ulga na start — first 6 months: health contribution only'), type: 'toggle' },
