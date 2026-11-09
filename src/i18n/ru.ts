@@ -1153,4 +1153,14 @@ export const ru: Record<string, string> = {
   "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Налоги и взносы считаются из Настроек › Налоги — перед оплатой сверь их со своей бухгалтерией и поданными формами. Нажми на любой месяц, чтобы проверить или исправить.",
   // ---- ZUS worked out ----
   "Paid so far this year": "Оплачено с начала года",
+  // ---- ZUS worked out ----
+  "Forecast average wage": "Прогнозная средняя зарплата",
+  "Minimum wage": "Минимальная зарплата",
+  "Full ZUS base: 60%": "База полного ZUS: 60%",
+  "Preferential ZUS base: 30%": "База льготного ZUS: 30%",
+  "Average wage in Q4 {p}": "Средняя зарплата за 4 кв. {p}",
+  "Health contribution base: 60 / 100 / 180%": "База медицинского взноса: 60 / 100 / 180%",
+  "Used for the ZUS lines. Built in — tap a number if the official one is different.": "Для расчёта ZUS. Уже есть в приложении — нажми на число, если официальное другое.",
+  "The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.": "В приложении ещё нет цифр на {y}, поэтому оно берёт последние известные. Нажми, чтобы ввести новые с zus.pl.",
+  "The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.": "Дата начала, Ulga na start и льготный ZUS общие для обеих строк ZUS. Это ориентировочные суммы. Перед оплатой сверь их с формой ZUS, которую подаёшь.",
 }

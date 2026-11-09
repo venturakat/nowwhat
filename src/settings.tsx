@@ -132,13 +132,22 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
   const groups = [...new Set(lines.map((x) => x.group?.trim()).filter(Boolean))] as string[]
   const KN = KIND_NAME(), EN = EVERY_NAME()
   const pln = (st.settings.taxCur ?? 'PLN') === 'PLN'
+  const z = st.settings.zus ?? {}
+  const zusInit = { zusStart: z.start ?? '', zusUlga: !!z.ulga, zusPref: !!z.pref, zusSick: !!z.sick, zusAccident: z.accident }
   return (
     <FormSheet title={l ? l.name : tr('New tax line')} onBack={popSheet} twoTap
-      initial={l ? { ...l, lag: String(l.lag ?? 1), less2: l.less2 ?? '' } : { less2: '',  lag: '1', kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? defaultPayDay(lines[0]?.dueDay ?? 20), dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }}
+      initial={{ ...zusInit, ...(l ? { ...l, lag: String(l.lag ?? 1), less2: l.less2 ?? '' } : { less2: '', lag: '1', kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? defaultPayDay(lines[0]?.dueDay ?? 20), dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }) }}
+      extra={(v) => zusKind(v.kind) && <ZusNotes v={v} />}
       fields={[
         { key: 'name', label: tr('Name'), type: 'text', placeholder: 'ZUS, ЄСВ, Monotributo…' },
         { key: 'kind', label: tr('How it’s worked out'), type: 'select', options: (Object.keys(KN) as TaxKind[]).filter((k) => (k !== 'pctLess' || others.length) && (!zusKind(k) || pln || l?.kind === k)).map((k) => [k, KN[k]]) },
-        { key: 'amount', label: tr('Amount per period'), type: 'number', hide: (v) => v.kind !== 'fixed' && !(zusKind(v.kind) && !zusOn(st.settings)) },
+        // ZUS lines: what they're worked out from (shared by both ZUS lines, kept in settings.zus)
+        { key: 'zusStart', label: tr('Business started on'), type: 'date', hide: (v) => !zusKind(v.kind) },
+        { key: 'zusUlga', label: tr('Ulga na start — first 6 months: health contribution only'), type: 'toggle', hide: (v) => !zusKind(v.kind) },
+        { key: 'zusPref', label: tr('Preferential ZUS — the next 24 months: lower social contributions'), type: 'toggle', hide: (v) => !zusKind(v.kind) },
+        { key: 'zusSick', label: tr('Sickness insurance (voluntary)'), type: 'toggle', hide: (v) => v.kind !== 'zusSocial' },
+        { key: 'zusAccident', label: tr('Accident insurance, %'), type: 'number', placeholder: () => String(ZUS_ACCIDENT).replace('.', ','), hide: (v) => v.kind !== 'zusSocial' },
+        { key: 'amount', label: tr('Amount per period'), type: 'number', hide: (v) => v.kind !== 'fixed' && !(zusKind(v.kind) && !v.zusStart) },
         { key: 'pct', label: tr('Rate, %'), type: 'number', hide: (v) => v.kind === 'fixed' || zusKind(v.kind) },
         { key: 'less', label: tr('Minus part of'), type: 'select', options: others.map((x) => [x.id, x.name]), hide: (v) => v.kind !== 'pctLess' },
         { key: 'lessPct', label: tr('How much of it, %'), type: 'number', hide: (v) => v.kind !== 'pctLess' },
@@ -160,6 +169,10 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
         }
         const ls = d.settings.taxLines ?? []
         d.settings.taxLines = l ? ls.map((y) => (y.id === l.id ? x : y)) : [...ls, x]
+        if (zusKind(v.kind)) {
+          const old = d.settings.zus ?? {}
+          d.settings.zus = { ...old, start: v.zusStart || undefined, ulga: !!v.zusUlga, pref: !!v.zusPref, ...(v.kind === 'zusSocial' ? { sick: !!v.zusSick, accident: v.zusAccident ?? undefined } : {}) }
+        }
       })}
       onDelete={l ? () => { update((d) => { d.settings.taxLines = (d.settings.taxLines ?? []).filter((y) => y.id !== l.id) }) } : undefined}
     />
@@ -170,51 +183,40 @@ const zusKind = (k?: string) => k === 'zusSocial' || k === 'zusHealth'
 const STAGE_NAME = () => ({ none: tr('Not started yet'), ulga: tr('Ulga na start'), pref: tr('Preferential ZUS'), full: tr('Full ZUS') })
 const monthYear = (mk: string) => `${monthName(mk, true)} ${mk.slice(0, 4)}`
 
-// Settings › Taxes › ZUS: what the ZUS lines are worked out from
+// Settings › Taxes › Official numbers {year}: what the ZUS lines are worked out from (tap a number to change it)
 const ZusBlock = () => {
   const st = useSt()
-  const s = st.settings, z = s.zus ?? {}
-  const mk = monthKey(today()), y = mk.slice(0, 4)
-  const lines = (s.taxLines ?? []).filter(isZus)
-  const stg = zusStage(s, mk)
-  const now = !z.start ? tr('Add your business start date to work ZUS out')
-    : [STAGE_NAME()[stg.stage] + (stg.until ? ' ' + tr('until {m}', { m: monthYear(stg.until) }) : ''), z.sick ? tr('with sickness insurance') : tr('without sickness insurance')].join(' · ')
-  const yr = zusYear(s, y)
+  const y = today().slice(0, 4)
+  const yr = zusYear(st.settings, y)
+  const open = () => pushSheet(<ZusYearSheet y={y} />)
+  const zl = (n: number) => fmtCur(n, 'PLN', true)
   return (
     <>
-      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>ZUS</span>
+      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Official numbers {y}', { y })}</span>
       <List>
-        <Row dot={C.money} title={tr('How ZUS is worked out')} meta={now} onClick={() => pushSheet(<ZusSheet />)} />
-        <Row dot={C.money} title={tr('Official numbers {y}', { y })} meta={yr.known ? tr('Average wage {a} · minimum wage {m}', { a: fmtCur(yr.avg, 'PLN', true), m: fmtCur(yr.min, 'PLN', true) }) : tr('Not in the app yet — add them')} onClick={() => pushSheet(<ZusYearSheet y={y} />)} />
+        <Row dot={C.money} title={tr('Forecast average wage')} meta={tr('Full ZUS base: 60%')} trail={zl(yr.avg)} onClick={open} />
+        <Row dot={C.money} title={tr('Minimum wage')} meta={tr('Preferential ZUS base: 30%')} trail={zl(yr.min)} onClick={open} />
+        <Row dot={C.money} title={tr('Average wage in Q4 {p}', { p: +y - 1 })} meta={tr('Health contribution base: 60 / 100 / 180%')} trail={zl(yr.health)} onClick={open} />
       </List>
-      {z.start && <span className="t13 muted" style={{ padding: '0 4px' }}>{lines.map((l) => `${l.name} ${fmtCur(zusCalc(st, l, mk) ?? 0, s.taxCur ?? 'PLN', true)}`).join(' · ')} · {monthName(mk, true)}</span>}
-      <span className="t13 muted" style={{ padding: '0 4px' }}>{tr('These are estimates. Check the amounts against the ZUS form you file before paying.')}</span>
+      <span className="t13 muted" style={{ padding: '0 4px' }}>{yr.known ? tr('Used for the ZUS lines. Built in — tap a number if the official one is different.') : tr('The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.', { y })}</span>
     </>
   )
 }
 
-const ZusSheet = () => {
+// under the ZUS fields of a tax line: the stage they give this month, and what to check
+const ZusNotes = ({ v }: { v: Record<string, any> }) => {
   const st = useSt()
-  const z = st.settings.zus ?? {}
+  const mk = monthKey(today())
+  const stg = zusStage({ ...st.settings, zus: { ...st.settings.zus, start: v.zusStart || undefined, ulga: !!v.zusUlga, pref: !!v.zusPref } }, mk)
+  const now = !v.zusStart ? tr('Add your business start date to work ZUS out')
+    : STAGE_NAME()[stg.stage] + (stg.until ? ' ' + tr('until {m}', { m: monthYear(stg.until) }) : '')
   return (
-    <FormSheet title="ZUS" onBack={popSheet}
-      initial={{ start: z.start ?? '', ulga: !!z.ulga, pref: !!z.pref, sick: !!z.sick, accident: z.accident }}
-      fields={[
-        { key: 'start', label: tr('Business started on'), type: 'date' },
-        { key: 'ulga', label: tr('Ulga na start — first 6 months: health contribution only'), type: 'toggle' },
-        { key: 'pref', label: tr('Preferential ZUS — the next 24 months: lower social contributions'), type: 'toggle' },
-        { key: 'sick', label: tr('Sickness insurance (voluntary)'), type: 'toggle' },
-        { key: 'accident', label: tr('Accident insurance, %'), type: 'number', placeholder: () => String(ZUS_ACCIDENT).replace('.', ',') }
-      ]}
-      extra={<div className="col" style={{ gap: 8 }}>
-        <span className="t13 muted">{tr('Ulga na start and Preferential ZUS have more conditions than the dates — for example, not for work for a former employer this year or last, or after another business in the last 60 months. Check on zus.pl that you qualify.')}</span>
-        <span className="t13 muted">{tr('Months count from the start date if it was the 1st, otherwise from the next month; the first, partial month counts only its days. Full ZUS adds the Labour Fund. Health contribution follows your revenue so far this year: up to 60 000, up to 300 000, more.')}</span>
-      </div>}
-      onSave={(v) => update((d) => {
-        const old = d.settings.zus ?? {}
-        d.settings.zus = { ...old, start: v.start || undefined, ulga: !!v.ulga, pref: !!v.pref, sick: !!v.sick, accident: v.accident ?? undefined }
-      })}
-    />
+    <div className="col" style={{ gap: 8 }}>
+      <span className="t14 w5">{now}</span>
+      <span className="t13 muted">{tr('Ulga na start and Preferential ZUS have more conditions than the dates — for example, not for work for a former employer this year or last, or after another business in the last 60 months. Check on zus.pl that you qualify.')}</span>
+      <span className="t13 muted">{tr('Months count from the start date if it was the 1st, otherwise from the next month; the first, partial month counts only its days. Full ZUS adds the Labour Fund. Health contribution follows your revenue so far this year: up to 60 000, up to 300 000, more.')}</span>
+      <span className="t13 muted">{tr('The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.')}</span>
+    </div>
   )
 }
 

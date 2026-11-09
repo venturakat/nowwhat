@@ -1153,4 +1153,14 @@ export const es: Record<string, string> = {
   "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Los impuestos y aportes se calculan desde Ajustes › Impuestos — antes de pagar, compará con tu contabilidad y los formularios presentados. Tocá cualquier mes para revisarlo o corregirlo.",
   // ---- ZUS worked out ----
   "Paid so far this year": "Pagado en lo que va del año",
+  // ---- ZUS worked out ----
+  "Forecast average wage": "Salario promedio previsto",
+  "Minimum wage": "Salario mínimo",
+  "Full ZUS base: 60%": "Base del ZUS completo: 60%",
+  "Preferential ZUS base: 30%": "Base del ZUS preferencial: 30%",
+  "Average wage in Q4 {p}": "Salario promedio del T4 {p}",
+  "Health contribution base: 60 / 100 / 180%": "Base del aporte de salud: 60 / 100 / 180%",
+  "Used for the ZUS lines. Built in — tap a number if the official one is different.": "Se usan para calcular ZUS. Ya vienen en la app — tocá un número si el oficial es distinto.",
+  "The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.": "La app todavía no tiene los números de {y}, así que usa los últimos que conoce. Tocá para escribir los nuevos de zus.pl.",
+  "The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.": "La fecha de inicio, Ulga na start y el ZUS preferencial son comunes a las dos líneas de ZUS. Son estimaciones. Antes de pagar, compará los montos con el formulario de ZUS que presentás.",
 }

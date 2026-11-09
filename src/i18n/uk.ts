@@ -800,4 +800,14 @@ export const uk: Record<string, string> = {
   "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Податки та внески рахуються з Налаштувань › Податки — перед оплатою звір їх зі своєю бухгалтерією та поданими формами. Торкнись будь-якого місяця, щоб перевірити чи виправити.",
   // ---- ZUS worked out ----
   "Paid so far this year": "Сплачено з початку року",
+  // ---- ZUS worked out ----
+  "Forecast average wage": "Прогнозна середня зарплата",
+  "Minimum wage": "Мінімальна зарплата",
+  "Full ZUS base: 60%": "База повного ZUS: 60%",
+  "Preferential ZUS base: 30%": "База пільгового ZUS: 30%",
+  "Average wage in Q4 {p}": "Середня зарплата за 4 кв. {p}",
+  "Health contribution base: 60 / 100 / 180%": "База медичного внеску: 60 / 100 / 180%",
+  "Used for the ZUS lines. Built in — tap a number if the official one is different.": "Для розрахунку ZUS. Вже є в застосунку — торкнись числа, якщо офіційне інше.",
+  "The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.": "У застосунку ще немає чисел на {y}, тому він бере останні відомі. Торкнись, щоб ввести нові з zus.pl.",
+  "The start date, Ulga na start and Preferential ZUS are shared by both ZUS lines. These are estimates. Check the amounts against the ZUS form you file before paying.": "Дата початку, Ulga na start і пільговий ZUS спільні для обох рядків ZUS. Це орієнтовні суми. Перед оплатою звір їх із формою ZUS, яку подаєш.",
 }
