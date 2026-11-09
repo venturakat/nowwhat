@@ -1,5 +1,5 @@
 import { getLang, monthNames, tr, trn, weekdayNames } from './i18n'
-import type { TaxEvery, TaxLine, TaxRule, BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, PayCur, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
+import type { TaxEvery, TaxLine, TaxRule, ZusYear, BudgetItem, ClassRate, CookStep, Course, Credit, Nutri, Currency, PayCur, Recipe, SelfCare, Session, Settings, State, Subscription, Supply, SupplyCat } from './types'
 
 // ---------- ids ----------
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -332,19 +332,87 @@ export const periodMonths = (l: TaxLine, mk: string) => {
   return out
 }
 export const taxLinesOf = (s: Settings) => s.taxLines ?? []
+// ---------- ZUS (Poland): social contributions + ryczałt health contribution ----------
+// official numbers per year (zł) — add the new year every January (Settings › Taxes › ZUS lets people type them meanwhile)
+export const ZUS_YEARS: Record<string, ZusYear> = {
+  '2025': { avg: 8673, min: 4666, health: 8549.18 },
+  '2026': { avg: 9420, min: 4806, health: 9228.64 }
+}
+export const ZUS_RATES = { pension: 19.52, disability: 8, sickness: 2.45, labour: 2.45, health: 9 }
+export const ZUS_ACCIDENT = 1.67
+export const isZus = (l: TaxLine) => l.kind === 'zusSocial' || l.kind === 'zusHealth'
+export const zusOn = (s: Settings) => !!s.zus?.start
+// the year's numbers: own ones first, then built in; a year the app doesn't know yet uses the latest one it does (known: false)
+export const zusYear = (s: Settings, y: string) => {
+  const built = ZUS_YEARS[y] ?? ZUS_YEARS[Object.keys(ZUS_YEARS).filter((k) => k <= y).sort().pop() ?? Object.keys(ZUS_YEARS).sort()[0]]
+  const own = s.zus?.years?.[y] ?? {}
+  const n: ZusYear = { avg: own.avg || built.avg, min: own.min || built.min, health: own.health || built.health }
+  return { ...n, known: !!ZUS_YEARS[y] || !!(own.avg && own.min && own.health) }
+}
+const monthsFrom = (a: string, b: string) => (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7))
+const daysIn = (mk: string) => new Date(+mk.slice(0, 4), +mk.slice(5, 7), 0).getDate()
+export type ZusStage = 'none' | 'ulga' | 'pref' | 'full'
+// stage in month mk: a business started on the 1st counts that month; started later, counting begins the month after
+// (the first, partial month is in the first stage, social contributions for its days only)
+export const zusStage = (s: Settings, mk: string): { stage: ZusStage; part: number; until?: string } => {
+  const z = s.zus, start = z?.start
+  if (!start) return { stage: 'none', part: 0 }
+  const sm = start.slice(0, 7), day = +start.slice(8, 10)
+  if (mk < sm) return { stage: 'none', part: 0 }
+  const first = day === 1 ? sm : nextMonth(sm)
+  const i = Math.max(0, monthsFrom(first, mk)) // the partial first month belongs to the first stage
+  const part = mk === sm && day > 1 ? (daysIn(sm) - day + 1) / daysIn(sm) : 1
+  const ulga = z?.ulga ? 6 : 0, pref = z?.pref !== false ? 24 : 0
+  if (i < ulga) return { stage: 'ulga', part, until: addMonths(first, ulga - 1) }
+  if (i < ulga + pref) return { stage: 'pref', part, until: addMonths(first, ulga + pref - 1) }
+  return { stage: 'full', part }
+}
+// social contributions for month mk, part by part (each rounded to grosze, like the ZUS forms)
+export const zusSocial = (s: Settings, mk: string) => {
+  const { stage, part } = zusStage(s, mk)
+  const y = zusYear(s, mk.slice(0, 4))
+  const base = stage === 'pref' ? r2(0.3 * y.min * part) : stage === 'full' ? r2(0.6 * y.avg * part) : 0
+  const of = (rate: number) => r2((base * rate) / 100)
+  const items: [string, number][] = base ? [
+    ['Pension', of(ZUS_RATES.pension)], ['Disability', of(ZUS_RATES.disability)],
+    ...(s.zus?.sick ? [['Sickness', of(ZUS_RATES.sickness)] as [string, number]] : []),
+    ['Accident', of(s.zus?.accident ?? ZUS_ACCIDENT)],
+    ...(stage === 'full' && base >= y.min ? [['Labour Fund', of(ZUS_RATES.labour)] as [string, number]] : [])
+  ] : []
+  return { stage, base, items, total: r2(items.reduce((a, [, n]) => a + n, 0)) }
+}
+// ryczałt health contribution for month mk: 9% of 60 / 100 / 180% of the Q4 average wage, by revenue so far this year
+// (revenue minus social contributions) — up to 60 000, up to 300 000, more. revMk = the month's revenue if it's being edited
+export const zusHealth = (st: State, mk: string, revMk?: number) => {
+  const s = st.settings
+  if (zusStage(s, mk).stage === 'none') return { ytd: 0, tier: 0, total: 0 }
+  let ytd = 0
+  for (let m = `${mk.slice(0, 4)}-01`; m <= mk; m = nextMonth(m)) ytd += (m === mk && revMk !== undefined ? revMk : monthRevenue(st, m)) - zusSocial(s, m).total
+  const tier = ytd > 300000 ? 1.8 : ytd > 60000 ? 1 : 0.6
+  const y = zusYear(s, mk.slice(0, 4))
+  return { ytd: r2(ytd), tier, total: r2((ZUS_RATES.health / 100) * r2(tier * y.health)) }
+}
+// what a ZUS line comes to in month mk (undefined: not set up yet → the line's own amount)
+export const zusCalc = (st: State, l: TaxLine, mk: string, revMk?: number) => {
+  if (!isZus(l) || !zusOn(st.settings)) return undefined
+  return l.kind === 'zusSocial' ? zusSocial(st.settings, mk).total : zusHealth(st, mk, revMk).total
+}
 // the lines' amounts for one period: own numbers first, then fixed, then % lines (a % line may take off part of another line)
-export const lineAmounts = (lines: TaxLine[], revOf: (l: TaxLine) => number, own: Record<string, number | undefined>) => {
+export const lineAmounts = (lines: TaxLine[], revOf: (l: TaxLine) => number, own: Record<string, number | undefined>, auto?: (l: TaxLine) => number | undefined) => {
   const out: Record<string, number> = {}
   const calc: Record<string, number> = {}
   const get = (l: TaxLine, depth = 0): number => {
     if (out[l.id] !== undefined) return out[l.id]
     let c = 0
     if (l.kind === 'fixed') c = l.amount ?? 0
+    else if (isZus(l)) c = auto?.(l) ?? l.amount ?? 0
     else if (l.kind === 'pct') c = Math.max(0, r2(((l.pct ?? 0) / 100) * revOf(l)))
     else {
       const o = lines.find((x) => x.id === l.less && x.id !== l.id)
+      const o2 = l.less2 ? lines.find((x) => x.id === l.less2 && x.id !== l.id) : undefined
       const off = o && depth < 5 ? get(o, depth + 1) : 0
-      c = Math.max(0, r2(((l.pct ?? 0) / 100) * (revOf(l) - ((l.lessPct ?? 0) / 100) * off)))
+      const off2 = o2 && depth < 5 ? get(o2, depth + 1) : 0
+      c = Math.max(0, r2(((l.pct ?? 0) / 100) * (revOf(l) - ((l.lessPct ?? 0) / 100) * off - ((l.less2Pct ?? 0) / 100) * off2)))
     }
     calc[l.id] = c
     return (out[l.id] = own[l.id] ?? c)
@@ -382,7 +450,7 @@ export const taxPeriod = (st: State, mk: string) => {
   const revOf = (l: TaxLine) => periodMonths(l, mk).reduce((a, m) => a + (m === mk ? revenue : monthRevenue(st, m)), 0)
   const own: Record<string, number | undefined> = {}
   for (const l of lines) own[l.id] = tm?.lines?.[l.id]?.amount
-  const { amounts, calc } = lineAmounts(lines, revOf, own)
+  const { amounts, calc } = lineAmounts(lines, revOf, own, (l) => zusCalc(st, l, mk))
   const parts: TaxPart[] = lines.map((l) => ({ line: l, end: mk, amount: amounts[l.id], calc: calc[l.id], own: own[l.id] !== undefined, paid: !!tm?.lines?.[l.id]?.paid, revenue: revOf(l) }))
   return { revenue, ...sumUp(parts), override: tm?.revenueOverride !== undefined }
 }
@@ -410,7 +478,7 @@ export const setTaxPaid = (d: State, pm: string, group: string | 'all', on: bool
   }
 }
 // the budget only gets taxes from when they were set up: earlier months of that year count from the first one with revenue, nothing before that
-const taxSet = (s: Settings) => taxLinesOf(s).some((l) => (l.amount ?? 0) > 0 || (l.pct ?? 0) > 0)
+const taxSet = (s: Settings) => taxLinesOf(s).some((l) => (l.amount ?? 0) > 0 || (l.pct ?? 0) > 0 || (isZus(l) && zusOn(s)))
 export const markTaxSince = (d: State) => { if (!d.settings.taxSince && taxSet(d.settings)) d.settings.taxSince = monthKey(today()) }
 export const taxFrom = (st: State) => {
   const since = st.settings.taxSince ?? monthKey(today())

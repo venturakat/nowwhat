@@ -53,6 +53,7 @@ export interface Settings {
   taxLines?: TaxLine[] // what is paid in taxes (v10; replaces pitRate / dra / rca)
   taxSince?: string // month (YYYY-MM) taxes were first set up here; the budget gets taxes from then on, plus earlier months of that year that have revenue
   taxRule?: TaxRule // how invoices in other currencies count for taxes
+  zus?: ZusSettings // Poland: what the ZUS lines are worked out from
   transfer?: TransferRow[] // Taxes › Transfer details (label + text to copy)
   // before v10 (kept, no longer read)
   pitRate?: number
@@ -152,7 +153,8 @@ export interface Timer {
 }
 
 // one thing paid in taxes: fixed, % of revenue, or % of (revenue − part of another line)
-export type TaxKind = 'fixed' | 'pct' | 'pctLess'
+// zusSocial / zusHealth: Polish ZUS worked out from Settings › Taxes › ZUS (until the start date is set they use `amount`)
+export type TaxKind = 'fixed' | 'pct' | 'pctLess' | 'zusSocial' | 'zusHealth'
 export type TaxEvery = 'month' | 'quarter' | 'year'
 // nbp: invoice month, NBP mid rate of the last working day before the invoice (zł taxes)
 // invoice: invoice month, the app's rate of the invoice day · paid: the month the money arrives, the rate of that day
@@ -165,6 +167,8 @@ export interface TaxLine {
   pct?: number // % of revenue (14 = 14%)
   less?: ID // pctLess: the other line
   lessPct?: number // pctLess: this % of the other line is taken off the revenue first
+  less2?: ID // pctLess: a second line taken off too (ryczałt: social 100% + health 50%)
+  less2Pct?: number
   every: TaxEvery // its period
   lag?: number // paid this many months after the period ends: 0 = the same month, 1 (default) = the month after, 2
   payDay: number // the day I pay (the budget puts it here)
@@ -172,6 +176,17 @@ export interface TaxLine {
   group?: string // lines with the same group are paid together (one tile, one Paid button)
 }
 export interface TransferRow { id: ID; label: string; text: string }
+// official numbers of a year (zł): forecast average wage (full ZUS base = 60%), minimum wage (preferential base = 30%),
+// average wage in Q4 of the year before incl. profit bonuses (ryczałt health base = 60 / 100 / 180%)
+export interface ZusYear { avg: number; min: number; health: number }
+export interface ZusSettings {
+  start?: string // business start date (YYYY-MM-DD)
+  ulga?: boolean // Ulga na start: first 6 months only health
+  pref?: boolean // preferential ZUS for 24 months (default on)
+  sick?: boolean // voluntary sickness insurance
+  accident?: number // accident insurance rate, % (default 1.67)
+  years?: Record<string, Partial<ZusYear>> // own numbers for a year the app doesn't know (or got wrong)
+}
 
 // keyed by month (YYYY-MM); quarterly/yearly lines keep their state in the last month of their period
 export interface TaxMonth {

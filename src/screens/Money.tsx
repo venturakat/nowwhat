@@ -5,7 +5,7 @@ import { bankAmount, fillTransfer, lineFormula } from '../taxes'
 import { tr, trn } from '../i18n'
 import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
-  setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
+  setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
@@ -669,7 +669,8 @@ const Taxes = () => {
   const pctLines = lines.filter((l) => l.kind !== 'fixed')
   const transfer = (s.transfer ?? []).map((r) => [r.label, fillTransfer(r.text, tx.month).trim() || undefined] as [string, string | undefined])
   const paidNames = tx.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
-  const formulas = pctLines.map((l) => lineFormula(l, lines)).join('. ')
+  const formulas = pctLines.filter((l) => !isZus(l)).map((l) => lineFormula(l, lines)).join('. ')
+  const zusNote = lines.some(isZus) ? (zusOn(s) ? tr('ZUS is worked out from Settings › Taxes › ZUS — check it against your ZUS form before paying.') : tr('Add your business start date in Settings › Taxes › ZUS to work ZUS out.')) + ' ' : ''
   return (
     <>
       <div className="card dark" style={{ gap: 6 }}>
@@ -739,11 +740,11 @@ const Taxes = () => {
           return <Row key={'e' + l.id} dot={C.money} title={tr('Estimated {x} for {p}', { x: l.name, p: periodLabel(l, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(addMonths(end, lagOf(l)), l.dueDay)) })} trail={ft(part?.amount ?? 0)} onClick={() => editMonth(end)} />
         })}
         {pctLines.map((l) => {
-          const sum = months.filter((m) => lineEndsIn(l, m)).reduce((a, m) => a + (taxPeriod(st, m).parts.find((p) => p.line.id === l.id)?.amount ?? 0), 0)
+          const sum = months.filter((m) => m <= curM && lineEndsIn(l, m)).reduce((a, m) => a + (taxPeriod(st, m).parts.find((p) => p.line.id === l.id)?.amount ?? 0), 0)
           return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('So far this year')} trail={ft(sum)} onClick={() => editMonth(curM)} />
         })}
       </List>
-      <div className="t13 muted" style={{ padding: '0 4px' }}>{formulas ? formulas + '. ' : ''}{tr('Tap any month to check or correct it. Tax lines are in Settings.')}</div>
+      <div className="t13 muted" style={{ padding: '0 4px' }}>{formulas ? formulas + '. ' : ''}{zusNote}{tr('Tap any month to check or correct it. Tax lines are in Settings.')}</div>
     </>
   )
 }
@@ -762,7 +763,7 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
   const revOf = (l: TaxLine) => periodMonths(l, m).reduce((a, x) => a + (x === m ? revNum : monthRevenue(st, x)), 0)
   const ownNum: Record<string, number | undefined> = {}
   for (const [k, v] of Object.entries(own)) if (v !== undefined) ownNum[k] = parseNum(v) ?? 0
-  const { amounts, calc } = lineAmounts(lines, revOf, ownNum)
+  const { amounts, calc } = lineAmounts(lines, revOf, ownNum, (l) => zusCalc(st, l, m, revNum))
   const total = r2(lines.reduce((a, l) => a + amounts[l.id], 0))
   return (
     <Sheet title={`${monthName(m, true)} ${m.slice(0, 4)}`}>
@@ -771,11 +772,12 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
       </Field>
       {lines.map((l) => {
         const mine = own[l.id] !== undefined
-        const how = l.kind === 'fixed' ? tr('usual amount') : tr('calculated: {f}', { f: lineFormula(l, taxLinesOf(st.settings)).split(' = ')[1] })
+        const usual = l.kind === 'fixed' || (isZus(l) && !zusOn(st.settings))
+        const how = usual ? tr('usual amount') : isZus(l) ? tr('worked out') : tr('calculated: {f}', { f: lineFormula(l, taxLinesOf(st.settings)).split(' = ')[1] })
         return (
           <Field key={l.id} label={`${l.name} (${mine ? tr('your number') : how})`}>
             <input className="input" inputMode="decimal" value={mine ? own[l.id] : numText(calc[l.id])} onChange={(e) => setOwn({ ...own, [l.id]: e.target.value })} />
-            {mine && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => setOwn({ ...own, [l.id]: undefined })}>{l.kind === 'fixed' ? tr('Use the usual amount') : tr('Use the calculated amount')}</button>}
+            {mine && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => setOwn({ ...own, [l.id]: undefined })}>{usual ? tr('Use the usual amount') : tr('Use the calculated amount')}</button>}
           </Field>
         )
       })}

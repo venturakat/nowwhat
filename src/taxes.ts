@@ -1,5 +1,5 @@
 import type { Settings, State, TaxLine, TaxRule, TransferRow } from './types'
-import { monthName, uid } from './lib'
+import { monthName, taxPeriod, uid } from './lib'
 import { tr } from './i18n'
 
 // Bank-friendly amount: 954,54 (comma, no thousands separator)
@@ -17,9 +17,11 @@ export const PRESETS: Preset[] = [
   {
     key: 'pl', name: 'Poland · ryczałt', cur: 'PLN', rule: 'nbp',
     lines: () => [
-      { id: 'dra', name: 'ZUS DRA', kind: 'fixed', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
-      { id: 'rca', name: 'ZUS RCA', kind: 'fixed', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
-      { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: 14, less: 'dra', lessPct: 50, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
+      // worked out from Settings › Taxes › ZUS (start date, Ulga na start, preferential, sickness)
+      { id: 'rca', name: 'Social (ZUS)', kind: 'zusSocial', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'dra', name: 'Health (ZUS)', kind: 'zusHealth', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      // ryczałt: rate × (revenue − social contributions − half of the health contribution)
+      { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: 14, less: 'rca', lessPct: 100, less2: 'dra', less2Pct: 50, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
     ],
     transfer: () => [row('ZUS account'), row('PIT account'), row('NIP'), row('Basis'), row('Title', 'Składki za {miesiąc} {yyyy}')]
   },
@@ -61,7 +63,7 @@ export const fillTransfer = (text: string, mk: string) => {
 }
 
 // ---------- words ----------
-export const KIND_NAME = () => ({ fixed: tr('Fixed amount'), pct: tr('% of revenue'), pctLess: tr('% of revenue minus part of another line') })
+export const KIND_NAME = () => ({ fixed: tr('Fixed amount'), pct: tr('% of revenue'), pctLess: tr('% of revenue minus part of another line'), zusSocial: tr('ZUS social contributions (worked out)'), zusHealth: tr('ZUS health contribution · ryczałt (worked out)') })
 export const EVERY_NAME = () => ({ month: tr('Monthly'), quarter: tr('Quarterly'), year: tr('Yearly') })
 export const LAG_NAME = () => [tr('The same month'), tr('The month after'), tr('Two months after')]
 export const RULE_NAME = () => ({
@@ -72,19 +74,21 @@ export const RULE_NAME = () => ({
 // "PIT-28 = 14% × (revenue − 50% of ZUS DRA)"
 export const lineFormula = (l: TaxLine, all: TaxLine[]) => {
   if (l.kind === 'pct') return `${l.name} = ${l.pct ?? 0}% ${tr('of revenue')}`
-  if (l.kind === 'pctLess') return `${l.name} = ${l.pct ?? 0}% × (${tr('revenue')} − ${l.lessPct ?? 0}% ${tr('of')} ${all.find((x) => x.id === l.less)?.name ?? '—'})`
+  const name = (id?: string) => all.find((x) => x.id === id)?.name ?? '—'
+  if (l.kind === 'pctLess') return `${l.name} = ${l.pct ?? 0}% × (${tr('revenue')} − ${l.lessPct ?? 0}% ${tr('of')} ${name(l.less)}${l.less2 && all.some((x) => x.id === l.less2) ? ` − ${l.less2Pct ?? 0}% ${tr('of')} ${name(l.less2)}` : ''})`
   return ''
 }
 
 // ---------- v10: ZUS DRA + RCA + PIT become tax lines; her numbers, paid flags and own amounts carry over unchanged ----------
 export const migrateTaxes = (out: State) => {
   const s0 = out.settings as Settings
-  const lines = PRESETS[0].lines()
+  // the v10 shape (DRA = health, RCA = social, both fixed; PIT minus half of DRA) — v11 (migrateZus) turns them into worked-out lines
   const due = s0.taxDueDay ?? 20, pay = s0.taxPayDay ?? defaultPayDay(due)
-  for (const l of lines) { l.payDay = pay; l.dueDay = due }
-  lines[0].amount = s0.dra ?? 0
-  lines[1].amount = s0.rca ?? 0
-  lines[2].pct = Math.round((s0.pitRate ?? 0.14) * 100000) / 1000
+  const lines: TaxLine[] = [
+    { id: 'dra', name: 'ZUS DRA', kind: 'fixed', amount: s0.dra ?? 0, every: 'month', payDay: pay, dueDay: due, group: 'ZUS' },
+    { id: 'rca', name: 'ZUS RCA', kind: 'fixed', amount: s0.rca ?? 0, every: 'month', payDay: pay, dueDay: due, group: 'ZUS' },
+    { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: Math.round((s0.pitRate ?? 0.14) * 100000) / 1000, less: 'dra', lessPct: 50, every: 'month', payDay: pay, dueDay: due }
+  ]
   const idKind = s0.taxIdKind ?? (s0.nip ? 'nip' : s0.regon ? 'regon' : s0.pesel ? 'pesel' : undefined)
   const ID_NAME = { nip: 'NIP', regon: 'REGON', pesel: 'PESEL' } as const
   const transfer = [
@@ -101,4 +105,24 @@ export const migrateTaxes = (out: State) => {
     tm.lines = { dra: one(z, tm.draOverride), rca: one(z, tm.rcaOverride), pit: one(p, tm.pitOverride) }
     delete tm.draOverride; delete tm.rcaOverride; delete tm.pitOverride; delete tm.paid; delete tm.zusPaid; delete tm.pitPaid
   }
+}
+
+// ---------- v11: the Poland preset's ZUS DRA (health) and ZUS RCA (social) become worked-out lines ----------
+// until the business start date is set they keep using their amount; months already marked paid keep the amounts shown then;
+// PIT-28 also takes off the social contributions (ryczałt: revenue − social − half of health)
+export const migrateZus = (out: State) => {
+  const ls = out.settings.taxLines ?? []
+  const dra = ls.find((l) => l.id === 'dra'), rca = ls.find((l) => l.id === 'rca'), pit = ls.find((l) => l.id === 'pit')
+  if (!dra || !rca || dra.group !== 'ZUS' || rca.group !== 'ZUS' || dra.kind !== 'fixed' || rca.kind !== 'fixed') return
+  for (const [mk, tm] of Object.entries(out.taxMonths ?? {})) {
+    const st = tm.lines ?? {}
+    if (!Object.values(st).some((x) => x?.paid)) continue
+    let old: Record<string, number> = {}
+    try { old = Object.fromEntries(taxPeriod(out, mk).parts.map((p) => [p.line.id, p.amount])) } catch { /* keep going */ }
+    for (const l of [dra, rca, pit]) { const x = l && st[l.id]; if (l && x?.paid && x.amount === undefined && old[l.id] !== undefined) x.amount = old[l.id] }
+  }
+  dra.kind = 'zusHealth'; if (dra.name === 'ZUS DRA') dra.name = 'Health (ZUS)'
+  rca.kind = 'zusSocial'; if (rca.name === 'ZUS RCA') rca.name = 'Social (ZUS)'
+  dra.every = rca.every = 'month'
+  if (pit?.kind === 'pctLess' && pit.less === 'dra' && !pit.less2) { pit.less2 = 'rca'; pit.less2Pct = 100 }
 }

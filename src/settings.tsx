@@ -4,8 +4,9 @@ import { C, Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast } from './
 import { FormSheet } from './form'
 import { seed } from './seed'
 import { blueFits, OFFICIAL, refreshRates } from './rates'
+import { isZus, zusOn, zusCalc, zusStage, zusYear, ZUS_YEARS, ZUS_ACCIDENT, monthKey, monthName, today } from './lib'
 import { uid, fmtCur, allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
-import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule } from './types'
+import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule, ZusYear } from './types'
 import { LAG_NAME, defaultPayDay, applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
 import { LANGS, resolveLang, tr } from './i18n'
 
@@ -74,7 +75,13 @@ export const TaxesSheet = () => {
   const rule = s.taxRule ?? (tc === 'PLN' ? 'nbp' : 'invoice')
   const [armed, setArmed] = useState<PresetKey | null>(null) // a preset replaces the lines: first tap arms it (3 s), second applies
   const RN = RULE_NAME(), EN = EVERY_NAME()
-  const lineMeta = (l: TaxLine) => [l.kind === 'fixed' ? fmtCur(l.amount ?? 0, tc, true) : l.kind === 'pct' ? `${l.pct ?? 0}%` : `${l.pct ?? 0}% − ${l.lessPct ?? 0}% ${tr('of')} ${lines.find((x) => x.id === l.less)?.name ?? '—'}`, EN[l.every], (l.lag ?? 1) !== 1 && LAG_NAME()[l.lag ?? 1].toLowerCase(), tr('pay day {d}', { d: l.payDay }), l.group && tr('with {g}', { g: l.group })].filter(Boolean).join(' · ')
+  const nameOf = (id?: string) => lines.find((x) => x.id === id)?.name ?? '—'
+  const mk = monthKey(today())
+  const lineMeta = (l: TaxLine) => [
+    isZus(l) ? (zusOn(s) ? tr('{x} this month', { x: fmtCur(zusCalc(st, l, mk) ?? 0, tc, true) }) : `${fmtCur(l.amount ?? 0, tc, true)} · ${tr('fixed until ZUS is set up')}`)
+      : l.kind === 'fixed' ? fmtCur(l.amount ?? 0, tc, true) : l.kind === 'pct' ? `${l.pct ?? 0}%`
+      : `${l.pct ?? 0}% − ${l.lessPct ?? 0}% ${tr('of')} ${nameOf(l.less)}${l.less2 ? ` − ${l.less2Pct ?? 0}% ${tr('of')} ${nameOf(l.less2)}` : ''}`,
+    EN[l.every], (l.lag ?? 1) !== 1 && LAG_NAME()[l.lag ?? 1].toLowerCase(), tr('pay day {d}', { d: l.payDay }), l.group && tr('with {g}', { g: l.group })].filter(Boolean).join(' · ')
   return (
     <Sheet title={tr('Taxes')} full onBack={popSheet}>
       <Field label={tr('Start from')}>
@@ -104,6 +111,7 @@ export const TaxesSheet = () => {
         </List>
       )}
       <button className="btn soft" onClick={() => pushSheet(<TaxLineSheet />)}>{tr('Add tax line')}</button>
+      {lines.some(isZus) && <ZusBlock />}
       <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Transfer details')}</span>
       {(s.transfer ?? []).length > 0 && (
         <List>
@@ -123,17 +131,20 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
   const others = lines.filter((x) => x.id !== id)
   const groups = [...new Set(lines.map((x) => x.group?.trim()).filter(Boolean))] as string[]
   const KN = KIND_NAME(), EN = EVERY_NAME()
+  const pln = (st.settings.taxCur ?? 'PLN') === 'PLN'
   return (
     <FormSheet title={l ? l.name : tr('New tax line')} onBack={popSheet} twoTap
-      initial={l ? { ...l, lag: String(l.lag ?? 1) } : { lag: '1', kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? defaultPayDay(lines[0]?.dueDay ?? 20), dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }}
+      initial={l ? { ...l, lag: String(l.lag ?? 1), less2: l.less2 ?? '' } : { less2: '',  lag: '1', kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? defaultPayDay(lines[0]?.dueDay ?? 20), dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }}
       fields={[
         { key: 'name', label: tr('Name'), type: 'text', placeholder: 'ZUS, ЄСВ, Monotributo…' },
-        { key: 'kind', label: tr('How it’s worked out'), type: 'select', options: (Object.keys(KN) as TaxKind[]).filter((k) => k !== 'pctLess' || others.length).map((k) => [k, KN[k]]) },
-        { key: 'amount', label: tr('Amount per period'), type: 'number', hide: (v) => v.kind !== 'fixed' },
-        { key: 'pct', label: tr('Rate, %'), type: 'number', hide: (v) => v.kind === 'fixed' },
+        { key: 'kind', label: tr('How it’s worked out'), type: 'select', options: (Object.keys(KN) as TaxKind[]).filter((k) => (k !== 'pctLess' || others.length) && (!zusKind(k) || pln || l?.kind === k)).map((k) => [k, KN[k]]) },
+        { key: 'amount', label: tr('Amount per period'), type: 'number', hide: (v) => v.kind !== 'fixed' && !(zusKind(v.kind) && !zusOn(st.settings)) },
+        { key: 'pct', label: tr('Rate, %'), type: 'number', hide: (v) => v.kind === 'fixed' || zusKind(v.kind) },
         { key: 'less', label: tr('Minus part of'), type: 'select', options: others.map((x) => [x.id, x.name]), hide: (v) => v.kind !== 'pctLess' },
         { key: 'lessPct', label: tr('How much of it, %'), type: 'number', hide: (v) => v.kind !== 'pctLess' },
-        { key: 'every', label: tr('Period'), type: 'select', options: (Object.keys(EN) as TaxEvery[]).map((k) => [k, EN[k]]) },
+        { key: 'less2', label: tr('And minus part of'), type: 'select', options: [['', tr('Nothing')], ...others.map((x) => [x.id, x.name] as [string, string])], hide: (v) => v.kind !== 'pctLess' },
+        { key: 'less2Pct', label: tr('How much of that, %'), type: 'number', hide: (v) => v.kind !== 'pctLess' || !v.less2 },
+        { key: 'every', label: tr('Period'), type: 'select', options: (Object.keys(EN) as TaxEvery[]).map((k) => [k, EN[k]]), hide: (v) => zusKind(v.kind) },
         { key: 'lag', label: tr('Paid in'), type: 'select', options: LAG_NAME().map((n, i) => [String(i), n]) },
         { key: 'payDay', label: tr('I pay on day (puts it in the budget)'), type: 'number', step: 1, placeholder: (v) => String(defaultPayDay(parseNum(String(v.dueDay ?? '')) ?? 20)) },
         { key: 'dueDay', label: tr('Official deadline, day'), type: 'number', step: 1 },
@@ -142,10 +153,10 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
       onSave={(v) => update((d) => {
         const day = (n: number | undefined, dflt: number) => Math.min(31, Math.max(1, Math.round(n ?? dflt)))
         const x: TaxLine = {
-          id: l?.id ?? uid(), name: String(v.name).trim(), kind: v.kind, every: v.every, lag: Number(v.lag ?? 1),
+          id: l?.id ?? uid(), name: String(v.name).trim(), kind: v.kind, every: zusKind(v.kind) ? 'month' : v.every, lag: Number(v.lag ?? 1),
           dueDay: day(v.dueDay, 20), payDay: day(v.payDay, defaultPayDay(day(v.dueDay, 20))), group: String(v.group ?? '').trim() || undefined,
-          ...(v.kind === 'fixed' ? { amount: v.amount ?? 0 } : { pct: v.pct ?? 0 }),
-          ...(v.kind === 'pctLess' ? { less: v.less ?? others[0]?.id, lessPct: v.lessPct ?? 0 } : {})
+          ...(v.kind === 'fixed' || zusKind(v.kind) ? { amount: v.amount ?? l?.amount ?? 0 } : { pct: v.pct ?? 0 }),
+          ...(v.kind === 'pctLess' ? { less: v.less ?? others[0]?.id, lessPct: v.lessPct ?? 0, ...(v.less2 ? { less2: v.less2, less2Pct: v.less2Pct ?? 0 } : {}) } : {})
         }
         const ls = d.settings.taxLines ?? []
         d.settings.taxLines = l ? ls.map((y) => (y.id === l.id ? x : y)) : [...ls, x]
@@ -154,6 +165,85 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
     />
   )
 }
+
+const zusKind = (k?: string) => k === 'zusSocial' || k === 'zusHealth'
+const STAGE_NAME = () => ({ none: tr('Not started yet'), ulga: tr('Ulga na start'), pref: tr('Preferential ZUS'), full: tr('Full ZUS') })
+const monthYear = (mk: string) => `${monthName(mk, true)} ${mk.slice(0, 4)}`
+
+// Settings › Taxes › ZUS: what the ZUS lines are worked out from
+const ZusBlock = () => {
+  const st = useSt()
+  const s = st.settings, z = s.zus ?? {}
+  const mk = monthKey(today()), y = mk.slice(0, 4)
+  const lines = (s.taxLines ?? []).filter(isZus)
+  const stg = zusStage(s, mk)
+  const now = !z.start ? tr('Add your business start date to work ZUS out')
+    : [STAGE_NAME()[stg.stage] + (stg.until ? ' ' + tr('until {m}', { m: monthYear(stg.until) }) : ''), z.sick ? tr('with sickness insurance') : tr('without sickness insurance')].join(' · ')
+  const yr = zusYear(s, y)
+  return (
+    <>
+      <span className="t15 w5" style={{ padding: '8px 4px 0' }}>ZUS</span>
+      <List>
+        <Row dot={C.money} title={tr('How ZUS is worked out')} meta={now} onClick={() => pushSheet(<ZusSheet />)} />
+        <Row dot={C.money} title={tr('Official numbers {y}', { y })} meta={yr.known ? tr('Average wage {a} · minimum wage {m}', { a: fmtCur(yr.avg, 'PLN', true), m: fmtCur(yr.min, 'PLN', true) }) : tr('Not in the app yet — add them')} onClick={() => pushSheet(<ZusYearSheet y={y} />)} />
+      </List>
+      {z.start && <span className="t13 muted" style={{ padding: '0 4px' }}>{lines.map((l) => `${l.name} ${fmtCur(zusCalc(st, l, mk) ?? 0, s.taxCur ?? 'PLN', true)}`).join(' · ')} · {monthName(mk, true)}</span>}
+      <span className="t13 muted" style={{ padding: '0 4px' }}>{tr('These are estimates. Check the amounts against the ZUS form you file before paying.')}</span>
+    </>
+  )
+}
+
+const ZusSheet = () => {
+  const st = useSt()
+  const z = st.settings.zus ?? {}
+  return (
+    <FormSheet title="ZUS" onBack={popSheet}
+      initial={{ start: z.start ?? '', ulga: !!z.ulga, pref: z.pref !== false, sick: !!z.sick, accident: z.accident }}
+      fields={[
+        { key: 'start', label: tr('Business started on'), type: 'date' },
+        { key: 'ulga', label: tr('Ulga na start — first 6 months: health contribution only'), type: 'toggle' },
+        { key: 'pref', label: tr('Preferential ZUS — the next 24 months: lower social contributions'), type: 'toggle' },
+        { key: 'sick', label: tr('Sickness insurance (voluntary)'), type: 'toggle' },
+        { key: 'accident', label: tr('Accident insurance, %'), type: 'number', placeholder: () => String(ZUS_ACCIDENT).replace('.', ',') }
+      ]}
+      extra={<div className="col" style={{ gap: 8 }}>
+        <span className="t13 muted">{tr('Ulga na start and Preferential ZUS have more conditions than the dates — for example, not for work for a former employer this year or last, or after another business in the last 60 months. Check on zus.pl that you qualify.')}</span>
+        <span className="t13 muted">{tr('Months count from the start date if it was the 1st, otherwise from the next month; the first, partial month counts only its days. Full ZUS adds the Labour Fund. Health contribution follows your revenue so far this year: up to 60 000, up to 300 000, more.')}</span>
+      </div>}
+      onSave={(v) => update((d) => {
+        const old = d.settings.zus ?? {}
+        d.settings.zus = { ...old, start: v.start || undefined, ulga: !!v.ulga, pref: !!v.pref, sick: !!v.sick, accident: v.accident ?? undefined }
+      })}
+    />
+  )
+}
+
+const ZusYearSheet = ({ y }: { y: string }) => {
+  const st = useSt()
+  const own = st.settings.zus?.years?.[y] ?? {}
+  const built = ZUS_YEARS[y]
+  const yr = zusYear({ ...st.settings, zus: { ...st.settings.zus, years: {} } }, y) // the built-in (or latest known) numbers
+  const ph = (k: keyof ZusYear) => () => String(yr[k]).replace('.', ',')
+  return (
+    <FormSheet title={tr('Official numbers {y}', { y })} onBack={popSheet} initial={{ ...own }}
+      fields={[
+        { key: 'avg', label: tr('Forecast average wage (full ZUS base = 60%)'), type: 'number', placeholder: ph('avg') },
+        { key: 'min', label: tr('Minimum wage (preferential base = 30%)'), type: 'number', placeholder: ph('min') },
+        { key: 'health', label: tr('Average wage in Q4 {p} incl. bonuses (health base)', { p: +y - 1 }), type: 'number', placeholder: ph('health') }
+      ]}
+      extra={<span className="t13 muted">{built ? tr('These are built in. Type a number only if the official one is different.') : tr('The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows (shown greyed). Type the new ones from zus.pl.', { y })}</span>}
+      onSave={(v) => update((d) => {
+        const z = (d.settings.zus ??= {})
+        const x: Partial<ZusYear> = {}
+        for (const k of ['avg', 'min', 'health'] as const) if (v[k]) x[k] = v[k]
+        const ys = { ...(z.years ?? {}) }
+        if (Object.keys(x).length) ys[y] = x; else delete ys[y]
+        z.years = Object.keys(ys).length ? ys : undefined
+      })}
+    />
+  )
+}
+
 
 const TransferRowSheet = ({ id }: { id?: string }) => {
   const st = useSt()
