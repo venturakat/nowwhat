@@ -87,7 +87,7 @@ const Current = ({ occ }: { occ: Occurrence }) => {
         <span className="t15">{finished ? tr('All done') : tr('{n} of {m} done', { n: done.length, m: tasks.length })}</span>
         <div className="btn2" style={{ paddingTop: 8 }}>
           <button className="btn" onClick={() => openSheet(<MoveSheet occ={occ} />)}>{tr('Move date')}</button>
-          <button className="btn ghost" onClick={() => openSheet(<OccSheet occ={occ} />)}>{tr('More')}</button>
+          <button className="btn ghost" onClick={() => skipOcc(occ)}>{tr('Skip')}</button>
         </div>
       </div>
       <div className="list" style={{ padding: '6px 16px' }}>
@@ -104,6 +104,14 @@ const Current = ({ occ }: { occ: Occurrence }) => {
       </div>
     </>
   )
+}
+
+const skipOcc = (occ: Occurrence) => {
+  update((d) => {
+    if (occ.sched) d.cleanPlan.skips.push(occ.sched)
+    else { const o = (d.cleanPlan.once ??= {}); o[occ.mode] = (o[occ.mode] ?? []).filter((x) => x !== occ.date) }
+  })
+  toast('Skipped this one')
 }
 
 export const moveOcc = (occ: Occurrence, date: string) =>

@@ -676,7 +676,7 @@ export const es: Record<string, string> = {
   "New date": "Fecha nueva",
   "Back to {d}": "Volver al {d}",
   "Moved to {d}": "Movida al {d}",
-  "Skip this one": "Saltear esta",
+  "Skip": "Saltear", "Skip this one": "Saltear esta",
   "Skipped this one": "Esta se salteó",
   "Remove this one": "Sacar esta",
   "Plan it": "Planearla",

@@ -322,7 +322,7 @@ export const uk: Record<string, string> = {
   'New date': 'Нова дата',
   'Back to {d}': 'Повернути на {d}',
   'Moved to {d}': 'Перенесено на {d}',
-  'Skip this one': 'Пропустити цей раз',
+  'Skip': 'Пропустити', 'Skip this one': 'Пропустити цей раз',
   'Skipped this one': 'Цей раз пропущено',
   'Remove this one': 'Прибрати цей раз',
   'Plan it': 'Запланувати',
