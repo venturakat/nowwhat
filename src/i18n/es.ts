@@ -1109,4 +1109,7 @@ export const es: Record<string, string> = {
   'Left this fortnight: {a}. Once moved, the money no longer counts in the budget.': 'Queda esta quincena: {a}. Una vez pasada, la plata ya no cuenta en el presupuesto.',
   '{a} to savings': '{a} a ahorros',
   'Moved to savings': 'Pasado a ahorros',
+  "day|days": "día|días|días",
+  "week|weeks": "semana|semanas|semanas",
+  "month|months": "mes|meses|meses",
 }

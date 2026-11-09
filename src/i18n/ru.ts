@@ -1109,4 +1109,7 @@ export const ru: Record<string, string> = {
   'Left this fortnight: {a}. Once moved, the money no longer counts in the budget.': 'Остаток на две недели: {a}. После переноса эти деньги больше не считаются в бюджете.',
   '{a} to savings': '{a} в сбережения',
   'Moved to savings': 'Перенесено в сбережения',
+  "day|days": "день|дня|дней",
+  "week|weeks": "неделя|недели|недель",
+  "month|months": "месяц|месяца|месяцев",
 }

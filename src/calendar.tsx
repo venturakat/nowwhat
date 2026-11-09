@@ -53,13 +53,17 @@ const eventDates = (e: CalEvent, from: string, to: string) => {
   if (!e.repeat) return e.date >= from && e.date <= to ? [e.date] : []
   const out: string[] = []
   const d0 = parse(e.date)
-  if (e.repeat === 'week') {
+  const n = Math.max(1, Math.round(e.every || 1))
+  if (e.repeat === 'week' || e.repeat === 'day') {
+    const step = (e.repeat === 'week' ? 7 : 1) * n
     let d = e.date
-    if (d < from) d = addDays(d, Math.ceil((parse(from).getTime() - d0.getTime()) / 86400000 / 7) * 7)
-    for (; d <= to; d = addDays(d, 7)) if (d >= from) out.push(d)
+    if (d < from) d = addDays(d, Math.ceil((parse(from).getTime() - d0.getTime()) / 86400000 / step) * step)
+    for (; d <= to; d = addDays(d, step)) if (d >= from) out.push(d)
   } else {
+    const m0 = d0.getFullYear() * 12 + d0.getMonth()
     for (const mk of monthsIn(from, to)) {
       if (e.repeat === 'year' && +mk.slice(5, 7) !== d0.getMonth() + 1) continue
+      if (e.repeat === 'month' && ((+mk.slice(0, 4) * 12 + +mk.slice(5, 7) - 1) - m0) % n) continue
       const d = dayIn(mk, d0.getDate())
       if (d >= e.date && d >= from && d <= to) out.push(d)
     }
@@ -480,6 +484,7 @@ const ShopWhen = ({ k, planned, title, cat }: { k: string; planned: string; titl
 }
 
 const REPEATS: [CalEvent['repeat'] | '', string][] = [['', 'Once'], ['week', 'Every week'], ['month', 'Every month'], ['year', 'Every year']]
+const UNITS: ['day' | 'week' | 'month', string, string][] = [['day', 'day', 'days'], ['week', 'week', 'weeks'], ['month', 'month', 'months']]
 
 const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
   const st = useSt()
@@ -489,13 +494,15 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
   const [time, setTime] = useState(e?.time ?? '')
   const [end, setEnd] = useState(e?.end ?? '')
   const [repeat, setRepeat] = useState<CalEvent['repeat'] | ''>(e?.repeat ?? '')
+  const [every, setEvery] = useState(Math.max(1, e?.every ?? 1))
+  const [other, setOther] = useState(e?.repeat === 'day' || (e?.every ?? 1) > 1) // the Other chip: every N days / weeks / months
   const [note, setNote] = useState(e?.note ?? '')
   const [armed, setArmed] = useState(false)
   const save = () => {
     if (!title.trim() || !d) return
     update((s) => {
       s.events ??= []
-      const data = { title: title.trim(), date: d, time: time || undefined, end: (time && end) || undefined, repeat: repeat || undefined, note: note.trim() || undefined }
+      const data = { title: title.trim(), date: d, time: time || undefined, end: (time && end) || undefined, repeat: repeat || undefined, every: (other && repeat !== 'year' && every > 1) ? every : undefined, note: note.trim() || undefined }
       const x = s.events.find((y) => y.id === id)
       if (x) Object.assign(x, data)
       else s.events.push({ id: uid(), ...data })
@@ -509,7 +516,20 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
       <Field label="Date"><input className="input" type="date" value={d} onChange={(x) => setD(x.target.value)} /></Field>
       <TimeRange start={time} end={end} onChange={(a, b) => { setTime(a); setEnd(b) }} />
       <Field label="Repeats">
-        <div className="seg">{REPEATS.map(([k, l]) => <button key={l} type="button" className={'chip' + (repeat === k ? ' on' : '')} onClick={() => setRepeat(k)}>{tr(l)}</button>)}</div>
+        <div className="seg">
+          {REPEATS.map(([k, l]) => <button key={l} type="button" className={'chip' + (!other && repeat === k ? ' on' : '')} onClick={() => { setRepeat(k); setOther(false) }}>{tr(l)}</button>)}
+          <button type="button" className={'chip' + (other ? ' on' : '')} onClick={() => { setOther(true); if (!repeat || repeat === 'year') setRepeat('week'); if (every < 2) setEvery(2) }}>{tr('Other')}</button>
+        </div>
+        {other && (
+          <div className="row" style={{ gap: 12, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="stepper">
+              <button type="button" onClick={() => setEvery(Math.max(1, every - 1))}>−</button>
+              <span className="mid" style={{ minWidth: 30, textAlign: 'center' }}>{every}</span>
+              <button type="button" onClick={() => setEvery(Math.min(99, every + 1))}>+</button>
+            </div>
+            <div className="seg">{UNITS.map(([k, one, many]) => <button key={k} type="button" className={'chip' + (repeat === k ? ' on' : '')} onClick={() => setRepeat(k)}>{trn(every, one, many)}</button>)}</div>
+          </div>
+        )}
       </Field>
       <Field label="Note"><input className="input" value={note} placeholder={tr('Address, what to bring…')} onChange={(x) => setNote(x.target.value)} /></Field>
       <button className="btn full" disabled={!title.trim() || !d} onClick={save}>{tr('Save')}</button>

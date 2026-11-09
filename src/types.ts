@@ -22,7 +22,8 @@ export interface CalEvent {
   time?: string // HH:MM
   end?: string // HH:MM
   note?: string
-  repeat?: 'week' | 'month' | 'year'
+  repeat?: 'day' | 'week' | 'month' | 'year'
+  every?: number // repeat every this many days/weeks/months (Other); unset = 1
 }
 
 export interface Place { name: string; lat: number; lon: number }

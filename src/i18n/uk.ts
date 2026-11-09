@@ -756,4 +756,7 @@ export const uk: Record<string, string> = {
   'Left this fortnight: {a}. Once moved, the money no longer counts in the budget.': 'Залишок на два тижні: {a}. Після переносу ці гроші більше не рахуються в бюджеті.',
   '{a} to savings': '{a} у заощадження',
   'Moved to savings': 'Перенесено в заощадження',
+  'day|days': 'день|дні|днів',
+  'week|weeks': 'тиждень|тижні|тижнів',
+  'month|months': 'місяць|місяці|місяців',
 }
