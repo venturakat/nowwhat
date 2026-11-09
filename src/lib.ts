@@ -455,24 +455,25 @@ const sumUp = (parts: TaxPart[]) => {
   return { parts, groups, total: r2(parts.reduce((a, p) => a + p.amount, 0)), left: r2(groups.reduce((a, g) => a + g.left, 0)), paid: parts.length > 0 && groups.every((g) => g.paid) }
 }
 // the maths for the periods ending in month mk (whenever they're paid)
-export const taxPeriod = (st: State, mk: string) => {
+// rev = how a month's revenue is counted (the budget adds the monthly fees still to come, see budgetRevenue)
+export const taxPeriod = (st: State, mk: string, rev: (st: State, mk: string) => number = monthRevenue) => {
   const tm = st.taxMonths[mk]
-  const revenue = monthRevenue(st, mk)
+  const revenue = rev(st, mk)
   const lines = taxLinesOf(st.settings).filter((l) => lineEndsIn(l, mk))
-  const revOf = (l: TaxLine) => periodMonths(l, mk).reduce((a, m) => a + (m === mk ? revenue : monthRevenue(st, m)), 0)
+  const revOf = (l: TaxLine) => periodMonths(l, mk).reduce((a, m) => a + (m === mk ? revenue : rev(st, m)), 0)
   const own: Record<string, number | undefined> = {}
   for (const l of lines) own[l.id] = tm?.lines?.[l.id]?.amount
-  const { amounts, calc } = lineAmounts(lines, revOf, own, (l) => zusCalc(st, l, mk))
+  const { amounts, calc } = lineAmounts(lines, revOf, own, (l) => zusCalc(st, l, mk, rev === monthRevenue ? undefined : revenue))
   const parts: TaxPart[] = lines.map((l) => ({ line: l, end: mk, amount: amounts[l.id], calc: calc[l.id], own: own[l.id] !== undefined, paid: !!tm?.lines?.[l.id]?.paid, revenue: revOf(l) }))
   return { revenue, ...sumUp(parts), override: tm?.revenueOverride !== undefined }
 }
 // everything paid in month pm (each line from the period that ended `lag` months before)
-export const taxFor = (st: State, pm: string) => {
+export const taxFor = (st: State, pm: string, rev: (st: State, mk: string) => number = monthRevenue) => {
   const parts: TaxPart[] = []
-  for (const lag of [0, 1, 2]) for (const p of taxPeriod(st, addMonths(pm, -lag)).parts) if (lagOf(p.line) === lag) parts.push(p)
+  for (const lag of [0, 1, 2]) for (const p of taxPeriod(st, addMonths(pm, -lag), rev).parts) if (lagOf(p.line) === lag) parts.push(p)
   // the month the revenue / edit link speaks about: the period most of it is for
   const month = parts.find((p) => p.line.every === 'month')?.end ?? parts[0]?.end ?? prevMonth(pm)
-  return { pm, month, revenue: monthRevenue(st, month), ...sumUp(parts) }
+  return { pm, month, revenue: rev(st, month), ...sumUp(parts) }
 }
 export type TaxInfo = ReturnType<typeof taxFor>
 // "October", "Q3 2026", "2026" — or several, joined
@@ -497,9 +498,24 @@ export const taxFrom = (st: State) => {
   for (let m = `${since.slice(0, 4)}-01`; m < since; m = nextMonth(m)) if (monthRevenue(st, m) > 0) return m
   return since
 }
-// taxes paid in month pm, as the budget counts them (periods before taxFrom left out)
+// monthly-fee clients' fees for month mk (this month on) that aren't in its revenue yet — the budget's tax estimates count them.
+// Not when the month's revenue is typed in by hand, nor skipped months (fee 0), paid fees or ones invoiced with a date (those count already)
+export const expectedFees = (st: State, mk: string) => {
+  if (mk < monthKey(today()) || st.taxMonths[mk]?.revenueOverride !== undefined) return 0
+  const tc = taxCur(st.settings), paidRule = taxRule(st.settings) === 'paid'
+  let sum = 0
+  for (const c of st.clients) {
+    if (c.kind !== 'fixed' || c.archived || !c.fixedEur || (c.since && mk < c.since)) continue
+    const s = st.sessions.find((x) => x.clientId === c.id && x.feeMonth === mk)
+    if (!s) sum += conv(st.settings, c.fixedEur, c.fixedCur ?? 'EUR', tc)
+    else if (!isSkipped(s) && !s.paid && !(s.invoiceDate && !paidRule)) sum += conv(st.settings, s.fee ?? 0, s.feeCur ?? 'EUR', tc)
+  }
+  return sum
+}
+export const budgetRevenue = (st: State, mk: string) => monthRevenue(st, mk) + expectedFees(st, mk)
+// taxes paid in month pm, as the budget counts them (periods before taxFrom left out; expected monthly fees counted)
 export const taxForBudget = (st: State, pm: string) => {
-  const tx = taxFor(st, pm), from = taxFrom(st)
+  const tx = taxFor(st, pm, budgetRevenue), from = taxFrom(st)
   return { ...tx, ...sumUp(tx.parts.filter((p) => p.end >= from)) }
 }
 // a day of a month, never past its end
