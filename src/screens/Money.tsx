@@ -7,7 +7,7 @@ import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
 } from '../lib'
-import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
+import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
 import { Credits } from './Credits'
 import { AccountSheet, MoveToSavings, Savings } from './Savings'
@@ -422,7 +422,7 @@ const KindPick = ({ id }: { id: string }) => (
   </Sheet>
 )
 
-const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
+const SessionEdit = ({ clientId, id, onBack }: { clientId: string; id?: string; onBack?: () => void }) => {
   const st = useSt()
   const s = st.sessions.find((x) => x.id === id)
   const c = st.clients.find((x) => x.id === clientId)
@@ -431,7 +431,7 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
   if (s?.fee !== undefined || (!s && c?.kind && c.kind !== 'hourly')) {
     const init = s ? { task: s.task, fee: s.fee, feeCur: s.feeCur ?? 'EUR', invoiceDate: s.invoiceDate, paidDate: paidAt } : { feeCur: c?.kind === 'job' ? ([...st.sessions].reverse().find((x) => x.clientId === c.id && x.fee != null)?.feeCur ?? st.settings.mainCur) : (c?.fixedCur ?? 'EUR') }
     return (
-      <FormSheet title={s ? (s.feeMonth ? 'Edit monthly fee' : 'Edit job') : 'New job'} initial={init}
+      <FormSheet title={s ? (s.feeMonth ? 'Edit monthly fee' : 'Edit job') : 'New job'} initial={init} onBack={onBack}
         fields={[{ key: 'task', label: 'What for', type: 'text', placeholder: 'Logo redesign' }, { key: 'fee', label: 'Amount', type: 'number' }, { key: 'feeCur', label: 'Currency', type: 'select', options: curOptions(st.settings, init.feeCur) }, { key: 'invoiceDate', label: 'Invoice date', type: 'date', clearable: true }, { key: 'paidDate', label: 'Paid on', type: 'date', clearable: true }]}
         extra={<span className="t13 muted">{tr('Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.')}{s?.feeMonth ? ' ' + tr('Amount 0 = this month is skipped.') : ''}</span>}
         onSave={(v) => update((d) => {
@@ -461,7 +461,7 @@ const SessionEdit = ({ clientId, id }: { clientId: string; id?: string }) => {
   // older hours invoiced before invoice dates existed stay invoiced (they count for taxes when paid)
   const oldInvoiced = !!s?.invoiced && !s.invoiceDate
   return (
-    <FormSheet title={s ? 'Edit hours' : 'Add hours'} initial={init}
+    <FormSheet title={s ? 'Edit hours' : 'Add hours'} initial={init} onBack={onBack}
       fields={[{ key: 'task', label: 'Task', type: 'text' }, { key: 'start', label: 'Start', type: 'datetime' }, { key: 'end', label: 'Stop', type: 'datetime' }, { key: 'invoiceDate', label: oldInvoiced ? 'Invoice date (invoiced earlier)' : 'Invoice date', type: 'date', clearable: true }, { key: 'paidDate', label: 'Paid on', type: 'date', clearable: true }]}
       extra={<span className="t13 muted">{tr('Leave a date empty until it happens. Invoice date → counts for taxes that month. Paid on → goes into the budget as income on that day.')}</span>}
       onSave={(v) => update((d) => {
@@ -617,12 +617,12 @@ const ClientSheet = ({ id }: { id: string }) => {
       <List title="Hours" right={trn(ss.length, '{n} entry', '{n} entries')} empty="No hours yet">
         {shown.map((s) => (
           <Row key={s.id} title={s.task} meta={`${fmtDay(toLocalDate(s.start))} · ${timeOf(s.start)}–${timeOf(s.end)} · ${isSkipped(s) ? tr('skipped') : s.paid ? tr('paid') : s.invoiced ? tr('invoiced') : tr('not invoiced')}`}
-            trail={s.fee !== undefined ? fmtSum(st, [s]) : `${fmtHours(hours(s))}`} dot={isSkipped(s) ? C.line : s.paid ? C.ok : s.invoiced ? C.money : C.work} onClick={() => openSheet(<SessionEdit clientId={id} id={s.id} />)} />
+            trail={s.fee !== undefined ? fmtSum(st, [s]) : `${fmtHours(hours(s))}`} dot={isSkipped(s) ? C.line : s.paid ? C.ok : s.invoiced ? C.money : C.work} onClick={() => pushSheet(<SessionEdit clientId={id} id={s.id} onBack={popSheet} />)} />
         ))}
         {!all && ss.length > 8 && <Row title={<span className="muted">{tr('Show all')}</span>} onClick={() => setAll(true)} />}
       </List>
       <div className="row">
-        <button className="btn soft grow" onClick={() => openSheet(<SessionEdit clientId={id} />)}>{tr(c.kind === 'job' ? '+ Add a job' : c.kind === 'fixed' ? '+ Add extra payment' : '+ Add hours')}</button>
+        <button className="btn soft grow" onClick={() => pushSheet(<SessionEdit clientId={id} onBack={popSheet} />)}>{tr(c.kind === 'job' ? '+ Add a job' : c.kind === 'fixed' ? '+ Add extra payment' : '+ Add hours')}</button>
         <button className="btn soft grow" onClick={() => openSheet(<ClientEdit id={id} />)}>{tr('Edit client')}</button>
       </div>
     </Sheet>
