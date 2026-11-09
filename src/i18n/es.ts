@@ -1151,4 +1151,6 @@ export const es: Record<string, string> = {
   "worked out": "calculado",
   // ---- ZUS worked out ----
   "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Los impuestos y aportes se calculan desde Ajustes › Impuestos — antes de pagar, compará con tu contabilidad y los formularios presentados. Tocá cualquier mes para revisarlo o corregirlo.",
+  // ---- ZUS worked out ----
+  "Paid so far this year": "Pagado en lo que va del año",
 }

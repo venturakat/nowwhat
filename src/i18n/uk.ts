@@ -798,4 +798,6 @@ export const uk: Record<string, string> = {
   "worked out": "розраховано",
   // ---- ZUS worked out ----
   "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Податки та внески рахуються з Налаштувань › Податки — перед оплатою звір їх зі своєю бухгалтерією та поданими формами. Торкнись будь-якого місяця, щоб перевірити чи виправити.",
+  // ---- ZUS worked out ----
+  "Paid so far this year": "Сплачено з початку року",
 }

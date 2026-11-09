@@ -738,8 +738,9 @@ const Taxes = () => {
           return <Row key={'e' + l.id} dot={C.money} title={tr('Estimated {x} for {p}', { x: l.name, p: periodLabel(l, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(addMonths(end, lagOf(l)), l.dueDay)) })} trail={ft(part?.amount ?? 0)} onClick={() => editMonth(end)} />
         })}
         {pctLines.map((l) => {
-          const sum = months.filter((m) => m <= curM && lineEndsIn(l, m)).reduce((a, m) => a + (taxPeriod(st, m).parts.find((p) => p.line.id === l.id)?.amount ?? 0), 0)
-          return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('So far this year')} trail={ft(sum)} />
+          // what was actually paid in this year's months (marked paid), whichever period it was for
+          const sum = months.reduce((a, pm) => a + taxFor(st, pm).parts.filter((p) => p.line.id === l.id && p.paid).reduce((b, p) => b + p.amount, 0), 0)
+          return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('Paid so far this year')} trail={ft(sum)} />
         })}
       </List>
       <div className="t13 muted" style={{ padding: '0 4px' }}>{tr('Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.')}</div>

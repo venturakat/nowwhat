@@ -1151,4 +1151,6 @@ export const ru: Record<string, string> = {
   "worked out": "рассчитано",
   // ---- ZUS worked out ----
   "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Налоги и взносы считаются из Настроек › Налоги — перед оплатой сверь их со своей бухгалтерией и поданными формами. Нажми на любой месяц, чтобы проверить или исправить.",
+  // ---- ZUS worked out ----
+  "Paid so far this year": "Оплачено с начала года",
 }
