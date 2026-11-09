@@ -1149,4 +1149,6 @@ export const es: Record<string, string> = {
   "ZUS is worked out from Settings › Taxes › ZUS — check it against your ZUS form before paying.": "ZUS se calcula desde Ajustes › Impuestos › ZUS — compará con tu formulario de ZUS antes de pagar.",
   "Add your business start date in Settings › Taxes › ZUS to work ZUS out.": "Agregá la fecha de inicio en Ajustes › Impuestos › ZUS para calcular ZUS.",
   "worked out": "calculado",
+  // ---- ZUS worked out ----
+  "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Los impuestos y aportes se calculan desde Ajustes › Impuestos — antes de pagar, compará con tu contabilidad y los formularios presentados. Tocá cualquier mes para revisarlo o corregirlo.",
 }

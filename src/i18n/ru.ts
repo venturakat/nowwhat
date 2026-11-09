@@ -1149,4 +1149,6 @@ export const ru: Record<string, string> = {
   "ZUS is worked out from Settings › Taxes › ZUS — check it against your ZUS form before paying.": "ZUS считается из Настроек › Налоги › ZUS — перед оплатой сверь с формой ZUS.",
   "Add your business start date in Settings › Taxes › ZUS to work ZUS out.": "Добавь дату начала деятельности в Настройках › Налоги › ZUS, чтобы рассчитать ZUS.",
   "worked out": "рассчитано",
+  // ---- ZUS worked out ----
+  "Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.": "Налоги и взносы считаются из Настроек › Налоги — перед оплатой сверь их со своей бухгалтерией и поданными формами. Нажми на любой месяц, чтобы проверить или исправить.",
 }

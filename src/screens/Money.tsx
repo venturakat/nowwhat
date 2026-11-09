@@ -669,8 +669,6 @@ const Taxes = () => {
   const pctLines = lines.filter((l) => l.kind !== 'fixed')
   const transfer = (s.transfer ?? []).map((r) => [r.label, fillTransfer(r.text, tx.month).trim() || undefined] as [string, string | undefined])
   const paidNames = tx.groups.filter((g) => g.paid).map((g) => g.name).join(' + ')
-  const formulas = pctLines.filter((l) => !isZus(l)).map((l) => lineFormula(l, lines)).join('. ')
-  const zusNote = lines.some(isZus) ? (zusOn(s) ? tr('ZUS is worked out from Settings › Taxes › ZUS — check it against your ZUS form before paying.') : tr('Add your business start date in Settings › Taxes › ZUS to work ZUS out.')) + ' ' : ''
   return (
     <>
       <div className="card dark" style={{ gap: 6 }}>
@@ -744,7 +742,7 @@ const Taxes = () => {
           return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('So far this year')} trail={ft(sum)} />
         })}
       </List>
-      <div className="t13 muted" style={{ padding: '0 4px' }}>{formulas ? formulas + '. ' : ''}{zusNote}{tr('Tap any month to check or correct it. Tax lines are in Settings.')}</div>
+      <div className="t13 muted" style={{ padding: '0 4px' }}>{tr('Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.')}</div>
     </>
   )
 }
