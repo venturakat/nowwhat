@@ -206,7 +206,10 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   for (const c of st.classes ?? []) {
     if (paysPerClass(c)) continue
     const lb = classBatch(st, c)
-    if (lb && inHalf(lb.due)) out.push({ id: 'lessons-' + c.id, label: c.name, amount: lb.pln, date: lb.due, meta: `${trn(lb.dates.length, '{n} class', '{n} classes')} · ${fmtDay(lb.due)}`, kind: 'lessons' })
+    if (!lb) continue
+    // the month being paid now, or a later month on the same schedule (planned ahead, today's rates)
+    const b = p.month === lb.month ? lb : p.month > lb.month ? classBatch(st, c, t, p.month) : undefined
+    if (b && b.dates.length && inHalf(b.due)) out.push({ id: 'lessons-' + c.id, label: c.name, amount: b.pln, date: b.due, meta: `${trn(b.dates.length, '{n} class', '{n} classes')} · ${fmtDay(b.due)}`, kind: 'lessons' })
   }
   // all credit payments falling in this half, summed into one fixed line
   const cr = (st.credits ?? []).map((c) => {
@@ -820,10 +823,11 @@ export const rescheduleClass = (L: Course, d: string, to: string, start: string,
   else (L.times ??= {})[to] = { start, end: end || undefined }
 }
 // the next batch to pay for: the unpaid classes in the month of the first unpaid one
-export const classBatch = (st: State, c: Course, t = today()) => {
+// (or, with `month`, that month's unpaid classes — for planning later months on the same schedule)
+export const classBatch = (st: State, c: Course, t = today(), month?: string) => {
   if (!c.price) return undefined
   const paid = new Set(c.pays.flatMap((p) => p.dates))
-  const first = classDates(c, c.since, addDays(t, 400)).find((d) => !paid.has(d))
+  const first = month ? classDates(c, `${month}-01`, `${month}-${pad(daysInMonth(+month.slice(0, 4), +month.slice(5, 7)))}`).find((d) => !paid.has(d)) : classDates(c, c.since, addDays(t, 400)).find((d) => !paid.has(d))
   if (!first) return undefined
   const mk = monthKey(first)
   const dim = daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7))
