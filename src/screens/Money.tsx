@@ -148,10 +148,17 @@ const Budget = () => {
         ))}
         <Row title={<span className="muted">{tr('+ Add money in')}</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
-      {s.auto.some((a) => a.expected) && (
-        <List title="Expected income" right={<span className="muted">{fmt(s.auto.filter((a) => a.expected).reduce((x, a) => x + a.amount, 0))}</span>}>
-          {s.auto.filter((a) => a.expected).map((a) => (
-            <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={a.counted ? fmt(a.amount) : <span className="muted">{fmt(a.amount)}</span>} onClick={() => useUi.getState().go('money', 'work')} />
+      {s.auto.some((a) => a.expected && a.counted) && (
+        <List title="Expected income • in budget" right={fmt(s.auto.filter((a) => a.expected && a.counted).reduce((x, a) => x + a.amount, 0))}>
+          {s.auto.filter((a) => a.expected && a.counted).map((a) => (
+            <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
+          ))}
+        </List>
+      )}
+      {s.auto.some((a) => a.expected && !a.counted) && (
+        <List title="Expected income • not in budget" right={<span className="muted">{fmt(s.auto.filter((a) => a.expected && !a.counted).reduce((x, a) => x + a.amount, 0))}</span>}>
+          {s.auto.filter((a) => a.expected && !a.counted).map((a) => (
+            <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={<span className="muted">{fmt(a.amount)}</span>} onClick={() => useUi.getState().go('money', 'work')} />
           ))}
         </List>
       )}

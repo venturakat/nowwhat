@@ -161,30 +161,34 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
   }
   // client fees (monthly or per job) expected in this half — shown, but not counted until they're paid (then they're real income)
   const localDay = (iso: string) => { const x = new Date(iso); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}` }
-  // still unpaid from an earlier half → shows in the current half, so nothing gets lost
-  const inHalf = (d: string) => (d >= p.start && d <= p.end) || (d < p.start && t >= p.start && t <= p.end)
-  // invoiced hours, one line per client and invoice
-  const hourly: Record<string, { c: string; d: string; h: number; amt: number; cur: Currency; pln: number; approx: boolean }> = {}
+  // not in the budget until paid (hours, per-job fees): not invoiced by the end of its half, or invoiced and not paid
+  // by the end of the half it was invoiced in → moves on to the next half (so from the past it ends up in the current one)
+  const curStart = periodOf(t, st.settings).start
+  const inHalf = (d: string) => { const e = d < curStart ? t : d; return e >= p.start && e <= p.end }
+  const inOwn = (d: string) => d >= p.start && d <= p.end
+  // hours, one line per client and invoice (not invoiced yet: one line per client)
+  const hourly: Record<string, { c: string; d: string; h: number; amt: number; cur: Currency; pln: number; approx: boolean; inv: boolean }> = {}
   for (const s of st.sessions) {
-    if (s.fee !== undefined || !s.invoiced || s.paid) continue
+    if (s.fee !== undefined || s.paid || !s.end || !(hours(s) > 0)) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
-    const d = s.invoiceDate ?? localDay(s.start)
+    const d = (s.invoiced && s.invoiceDate) || localDay(s.start)
     if (!inHalf(d)) continue
-    const k = `${c.id}@${s.invoiceDate ?? ''}`
-    const g = (hourly[k] ??= { c: c.name, d, h: 0, amt: 0, cur: sessionCur(st, s), pln: 0, approx: false })
+    const k = s.invoiced ? `${c.id}@${s.invoiceDate ?? ''}` : `${c.id}@-`
+    const g = (hourly[k] ??= { c: c.name, d, h: 0, amt: 0, cur: sessionCur(st, s), pln: 0, approx: false, inv: s.invoiced })
     g.h += hours(s); g.amt += sessionAmt(st, s); g.pln += sessionMain(st, s); g.approx ||= !s.nbpRate
     if (d > g.d) g.d = d
   }
   for (const [k, g] of Object.entries(hourly))
-    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtCur(g.amt, g.cur, g.amt % 1 !== 0)} · ${fmtDay(g.d)} · ${tr('invoiced')}`, kind: 'fee', income: true, expected: true })
+    out.push({ id: 'hrs-' + k, label: g.c, amount: g.pln, date: g.d, meta: `${fmtHours(g.h)} · ${fmtCur(g.amt, g.cur, g.amt % 1 !== 0)} · ${fmtDay(g.d)} · ${g.inv ? tr('invoiced') : tr('not invoiced')}`, kind: 'fee', income: true, expected: true })
   for (const s of st.sessions) {
     if (s.fee === undefined || s.paid || isSkipped(s)) continue
     const c = st.clients.find((x) => x.id === s.clientId)
     if (!c || c.archived) continue
-    const d = !s.feeMonth && s.invoiceDate ? s.invoiceDate : localDay(s.start)
-    if (!inHalf(d)) continue
-    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionMain(st, s), date: d, meta: `${s.feeMonth ? tr('monthly fee') : s.task} · ${fmtCur(s.fee ?? 0, s.feeCur ?? 'EUR')} · ${fmtDay(d)} · ${s.invoiced ? tr('invoiced') : tr('expected')}`, kind: 'fee', income: true, expected: true, counted: !!s.feeMonth })
+    const d = !s.feeMonth && s.invoiced && s.invoiceDate ? s.invoiceDate : localDay(s.start)
+    // monthly fees count in the budget of their own half (even before paid); other fees move on until paid
+    if (s.feeMonth ? !inOwn(d) : !inHalf(d)) continue
+    out.push({ id: 'fee-' + s.id, label: c.name, amount: sessionMain(st, s), date: d, meta: `${s.feeMonth ? tr('monthly fee') : s.task} · ${fmtCur(s.fee ?? 0, s.feeCur ?? 'EUR')} · ${fmtDay(d)} · ${s.invoiced ? tr('invoiced') : s.feeMonth ? tr('expected') : tr('not invoiced')}`, kind: 'fee', income: true, expected: true, counted: !!s.feeMonth })
   }
   // future months of monthly clients (their entry is only created when the month comes)
   for (const c of st.clients) {
