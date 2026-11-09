@@ -826,5 +826,5 @@ export const uk: Record<string, string> = {
   'It repeats every month. Delete just this one, or this one and all the months after it?': 'Це повторюється щомісяця. Видалити тільки цей раз чи цей і всі наступні місяці?',
   'Just this one': 'Тільки цей раз',
   'This and all months after': 'Цей і всі наступні',
-  'Expected income • in budget': 'Очікуваний дохід • у бюджеті', 'Expected income • not in budget': 'Очікуваний дохід • не в бюджеті',
+  'Expected income in budget': 'Очікуваний дохід у бюджеті', 'Expected income not in budget': 'Очікуваний дохід не в бюджеті',
 }

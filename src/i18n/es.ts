@@ -1179,5 +1179,5 @@ export const es: Record<string, string> = {
   "It repeats every month. Delete just this one, or this one and all the months after it?": "Se repite todos los meses. ¿Borrás solo este o este y todos los meses que siguen?",
   "Just this one": "Solo este",
   "This and all months after": "Este y todos los que siguen",
-  "Expected income • in budget": "Ingresos esperados • en el presupuesto", "Expected income • not in budget": "Ingresos esperados • fuera del presupuesto",
+  "Expected income in budget": "Ingresos esperados en el presupuesto", "Expected income not in budget": "Ingresos esperados fuera del presupuesto",
 }
