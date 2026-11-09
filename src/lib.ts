@@ -295,12 +295,21 @@ export const summarize = (st: State, key: string): PeriodSummary => {
 export const taxCur = (s: Settings) => s.taxCur ?? 'PLN'
 export const fmtTax = (s: Settings, n: number, dec = false) => fmtCur(n, taxCur(s), dec)
 export const taxRule = (s: Settings): TaxRule => s.taxRule ?? (taxCur(s) === 'PLN' ? 'nbp' : 'invoice')
+// client payments are always business income, but a paid invoice already counts in its invoice month
+// (below, from the session) — so its budget line only adds revenue when it had no invoice date
+const incomeIsRevenue = (st: State, it: BudgetItem) => {
+  if (it.fromSession) {
+    const s = st.sessions.find((x) => x.id === it.fromSession)
+    if (s) return !s.invoiceDate
+  }
+  return !!it.taxable
+}
 export const revenueFromIncome = (st: State, mk: string) => {
   const tc = taxCur(st.settings)
   let sum = 0
   for (const [key, p] of Object.entries(st.periods)) {
     if (!key.startsWith(mk)) continue
-    for (const it of p.items) if (it.kind === 'income' && it.taxable) sum += conv(st.settings, it.amount, it.currency ?? st.settings.mainCur, tc, it.date ?? periodFromKey(key, st.settings).end)
+    for (const it of p.items) if (it.kind === 'income' && incomeIsRevenue(st, it)) sum += conv(st.settings, it.amount, it.currency ?? st.settings.mainCur, tc, it.date ?? periodFromKey(key, st.settings).end)
   }
   // invoices count in the month of the invoice date (no need to wait for payment) — or, by the "when paid" rule, in the month the money arrives
   const paidRule = taxRule(st.settings) === 'paid'

@@ -60,7 +60,9 @@ const Budget = () => {
           { key: 'amount', label: 'Amount', type: 'number' },
           { key: 'currency', label: 'Currency', type: 'select', options: curOptions(st.settings, it?.currency) },
           ...((it?.kind ?? kind) === 'income'
-            ? ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const)
+            ? (it?.fromClient
+                ? ([{ key: 'date', label: 'Date', type: 'date' }] as const)
+                : ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const))
             : ([{ key: 'paid', label: 'Paid', type: 'toggle' }] as const))
         ]}
         onSave={(v) => {
@@ -68,7 +70,7 @@ const Budget = () => {
           const target = v.date ? periodOf(v.date, st.settings).key : key
           update((d) => {
             const p = ensurePeriod(d, key)
-            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, taxable: v.taxable, ...((it?.kind ?? kind) === 'expense' ? { paid: !!v.paid } : {}) }
+            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, ...(it?.fromClient ? {} : { taxable: v.taxable }), ...((it?.kind ?? kind) === 'expense' ? { paid: !!v.paid } : {}) }
             const item = it ? { ...p.items.find((x) => x.id === it.id)!, ...data } : { id: uid(), kind, ...data }
             if (it) p.items = p.items.filter((x) => x.id !== it.id)
             ensurePeriod(d, target).items.push(item as any)
@@ -129,7 +131,7 @@ const Budget = () => {
           <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
         ))}
         {incomes.map((i) => (
-          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.taxable && tr('business revenue')].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
+          <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), (i.fromClient || i.taxable) && tr('business revenue')].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">{tr('+ Add money in')}</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
