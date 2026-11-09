@@ -198,7 +198,7 @@ const ZusBlock = () => {
         <Row dot={C.money} title={tr('Minimum wage')} meta={tr('Preferential ZUS base: 30% = {x}', { x: zl(r2(0.3 * yr.min)) })} trail={zl(yr.min)} onClick={open} />
         <Row dot={C.money} title={tr('Average wage in Q4 {p}', { p: +y - 1 })} meta={tr('Health contribution base: 60 / 100 / 180% = {x}', { x: [0.6, 1, 1.8].map((k) => fmtNum(r2(k * yr.health), 2)).join(' / ') + ' zł' })} trail={zl(yr.health)} onClick={open} />
       </List>
-      <span className="t13 muted" style={{ padding: '0 4px' }}>{yr.known ? tr('Used for the ZUS lines. Built in — tap a number if the official one is different.') : tr('The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.', { y })}</span>
+      <span className="t13 muted" style={{ padding: '0 4px' }}>{yr.known ? tr('Used for the ZUS contributions. Built in — tap a number if the official one is different.') : tr('The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.', { y })}</span>
     </>
   )
 }
