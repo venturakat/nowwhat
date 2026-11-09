@@ -732,10 +732,13 @@ const Taxes = () => {
       <List>
         <Row dot={C.money} title={tr('{m} cash flow', { m: monthName(curM, true) })} meta={tr('Revenue so far · grows as you invoice')} trail={ft(monthRevenue(st, curM))} onClick={() => editMonth(curM)} />
         {/* what the % taxes of the running period will roughly be, from the revenue counted so far */}
-        {pctLines.map((l) => {
+        {/* lines paid together (e.g. ZUS health + social) make one estimate */}
+        {[...new Set(pctLines.map((l) => l.group?.trim() || l.id))].map((key) => {
+          const ls = pctLines.filter((l) => (l.group?.trim() || l.id) === key), l = ls[0]
           const end = periodEnd(l, curM)
-          const part = taxPeriod(st, end).parts.find((p) => p.line.id === l.id)
-          return <Row key={'e' + l.id} dot={C.money} title={tr('Estimated {x} for {p}', { x: l.name, p: periodLabel(l, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(addMonths(end, lagOf(l)), l.dueDay)) })} trail={ft(part?.amount ?? 0)} onClick={() => editMonth(end)} />
+          const parts = taxPeriod(st, end).parts.filter((p) => ls.some((x) => x.id === p.line.id))
+          const name = ls.length > 1 ? l.group!.trim() : l.name
+          return <Row key={'e' + key} dot={C.money} title={tr('Estimated {x} for {p}', { x: name, p: periodLabel(l, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(addMonths(end, lagOf(l)), l.dueDay)) })} trail={ft(parts.reduce((x, p) => x + p.amount, 0))} onClick={() => editMonth(end)} />
         })}
         {pctLines.map((l) => {
           // what was actually paid in this year's months (marked paid), whichever period it was for
