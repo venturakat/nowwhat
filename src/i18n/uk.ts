@@ -214,7 +214,7 @@ export const uk: Record<string, string> = {
   '+ Add selfcare': '+ Додати догляд', 'Planned times go into your budget. Tap one when it’s done to log what you paid.': 'Заплановане йде в бюджет. Торкнись, коли зроблено, щоб записати, скільки сплачено.', 'Logged · next time {d}': 'Записано · наступного разу {d}',
   'Skipped · next time {d}': 'Пропущено · наступного разу {d}', 'next {d}': 'наступного разу {d}', 'last time {d}': 'минулого разу {d}',
   'Done?': 'Зроблено?', 'Paid ({x})': 'Сплачено ({x})', 'When': 'Коли',
-  'Done · log it': 'Зроблено · записати', 'Skip this time': 'Пропустити цього разу', 'Coming up': 'Далі',
+  'Done · log it': 'Зроблено · записати', 'Skip this time': 'Пропустити цього разу', 'Coming up': 'Заплановано',
   'next time': 'наступного разу', 'Add what you do for yourself regularly.': 'Додай те, що регулярно робиш для себе.', 'Manicure': 'Манікюр',
   'Pedicure': 'Педикюр', 'Massage': 'Масаж', 'Haircut': 'Стрижка',
   'Esthetician': 'Косметолог', 'Doctor': 'Лікар', 'New selfcare': 'Новий догляд',

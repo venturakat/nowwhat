@@ -560,7 +560,7 @@ export const ru: Record<string, string> = {
   "When": "Когда",
   "Done · log it": "Сделано · записать",
   "Skip this time": "Пропустить в этот раз",
-  "Coming up": "Дальше",
+  "Coming up": "Запланировано",
   "next time": "в следующий раз",
   "Add what you do for yourself regularly.": "Добавь то, что регулярно делаешь для себя.",
   "Manicure": "Маникюр",
