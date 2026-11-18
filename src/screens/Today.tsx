@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react'
 import { dismissToday, update, useSt } from '../store'
 import type { State } from '../types'
 import { fitSize, addDays, taxPays, timeSpan, creditStatus, classBatch, classPayIn, fmtPay, diffDays, fmt, fmtCur, fmtDay, fmtHours, fmtWeekday, hours, monthName, sessionMain, fmtSum, isSkipped, nextBuy, purgeTasks, taskGone, tickTask, TASK_KEEP, periodOf, prevMonth, shiftPeriod, recipeStatus, summarize, supplyStatus, taxFor, fmtTax, today, monthKey, uid } from '../lib'
@@ -317,16 +317,29 @@ const NoteSheet = ({ id }: { id?: string }) => {
     if (document.visibilityState !== 'visible') return
     save()
   }
-  // view mode: one tap copies, two taps open editing
+  // view mode: one tap opens editing, press and hold copies
   const tapT = useRef<number>()
-  const tap = () => {
-    if (tapT.current) { clearTimeout(tapT.current); tapT.current = undefined; setEditing(true); return }
+  const press = useRef<{ x: number; y: number; long: boolean } | null>(null)
+  const down = (e: PointerEvent) => {
+    press.current = { x: e.clientX, y: e.clientY, long: false }
+    clearTimeout(tapT.current)
     tapT.current = window.setTimeout(() => {
-      tapT.current = undefined
+      if (!press.current) return
+      press.current.long = true
       const c = n?.text || n?.title
       if (c) copyText(c, tr('Note copied'))
-    }, 280)
+    }, 500)
   }
+  const move = (e: PointerEvent) => {
+    const p = press.current
+    if (p && !p.long && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) { clearTimeout(tapT.current); press.current = null } // scrolling or pulling the sheet
+  }
+  const up = () => {
+    clearTimeout(tapT.current)
+    const p = press.current; press.current = null
+    if (p && !p.long) setEditing(true)
+  }
+  const cancel = () => { clearTimeout(tapT.current); press.current = null }
   useEffect(() => () => clearTimeout(tapT.current), [])
   const round = (bg: string, on: boolean) => ({ width: 40, height: 40, borderRadius: '50%', background: bg, color: '#1d1d1f', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0.45 })
   return (
@@ -343,7 +356,7 @@ const NoteSheet = ({ id }: { id?: string }) => {
         ? <>
             <textarea className="input" autoFocus={!n} rows={11} value={text} placeholder={tr('Whatever’s on your mind')} onChange={(e) => setText(e.target.value)} onBlur={onBlur} data-note-field="" style={{ resize: 'none', minHeight: 'calc(min(52vh, 420px) - 3 * 1.35em)', lineHeight: 1.35 }} />
           </>
-        : n && <div onClick={tap} style={{ padding: '4px 0 12px', minHeight: '40vh', touchAction: 'manipulation', userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
+        : n && <div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel} onContextMenu={(e) => e.preventDefault()} style={{ padding: '4px 0 12px', minHeight: '40vh', touchAction: 'manipulation', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', cursor: 'pointer' }}>
             <div className="t13 muted">{fmtWeekday(localDay(n.at))}</div>
             {n.text && <div style={{ fontSize: 14, lineHeight: 1.35, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 14 }}>{n.text}</div>}
           </div>}
