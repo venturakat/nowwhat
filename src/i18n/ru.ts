@@ -1201,4 +1201,5 @@ export const ru: Record<string, string> = {
   "business cost": "расход бизнеса",
   "Costs": "Расходы",
   "Business costs {x} · expenses and spending marked “Business cost” in the Budget": "Расходы бизнеса {x} · расходы и траты с отметкой «Расход бизнеса» в Бюджете",
+  "{n} of {m}": "{n} из {m}",
 }

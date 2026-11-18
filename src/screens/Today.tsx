@@ -52,7 +52,7 @@ const things = (st: State): Thing[] => {
     const n = creditStatus(c).next
     if (!n) continue
     const dd = diffDays(t, n.date)
-    if (dd >= 0 && dd <= 1) out.push({ id: `credit-${c.id}-${n.date}`, dot: C.money, title: `${tr('Credit payment')} · ${c.name}`, meta: `${dd === 0 ? tr('Due today') : tr('Due tomorrow')} · ${tr('payment {n} of {m}', { n: n.n, m: c.count })}`, trail: fmtCur(n.amount, c.currency), go: () => go('money', 'credits') })
+    if (dd >= 0 && dd <= 1) out.push({ id: `credit-${c.id}-${n.date}`, dot: C.money, title: tr('Credit payment'), meta: `${dd === 0 ? tr('Due today') : tr('Due tomorrow')} · ${tr('{n} of {m}', { n: n.n, m: c.count })}`, trail: fmtCur(n.amount, c.currency), go: () => go('money', 'credits') })
   }
   // clients: invoicing first (it's what gets the money moving), "paid yet?" checks go last
   const paidChecks: Thing[] = []
