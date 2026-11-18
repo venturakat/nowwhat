@@ -3,7 +3,7 @@ import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
 import type { Currency, Session, State, TaxLine, TaxMonth } from '../types'
 import { bankAmount, fillTransfer, lineFormula } from '../taxes'
 import { tr, trn } from '../i18n'
-import { fitSize,
+import { BOUGHT_RE, fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, seriesOf, repeatCopy, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax, usesCosts, costsFor, autoCalc, isPit
 } from '../lib'
@@ -104,7 +104,7 @@ const Budget = () => {
   // foreign amounts: "€25.00" with the main-currency value under it (at the rate of its day)
   const amt = (x: { amount: number; currency?: Currency; date?: string }) => !x.currency || x.currency === st.settings.mainCur ? fmt(x.amount) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(x.amount, x.currency)}<br /><span className="t13 muted" style={{ fontWeight: 400 }}>{fmt(toMain(st.settings, x.amount, x.currency, x.date ?? s.info.end))}</span></span>
   const incomes = s.items.filter((i) => i.kind === 'income')
-  const isBought = (i: { bought?: boolean; label: string }) => !!i.bought || i.label.endsWith(' (bought)')
+  const isBought = (i: { bought?: boolean; label: string }) => !!i.bought || BOUGHT_RE.test(i.label)
   const expenses = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && !isPaid(i))
   const paidItems = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && isPaid(i))
   const autoOut = s.auto.filter((a) => !a.income)
@@ -182,7 +182,7 @@ const Budget = () => {
       {bought.length > 0 && (
         <Fold title="Supplies bought" right={fmt(boughtSum)}>
           {bought.map((i) => (
-            <Row key={i.id} dot={C.supplies} title={i.label.replace(/ \(bought\)$/, '')} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+            <Row key={i.id} dot={C.supplies} title={i.label.replace(BOUGHT_RE, '')} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
           ))}
         </Fold>
       )}

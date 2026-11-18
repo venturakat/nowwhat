@@ -1130,3 +1130,6 @@ export const dailyNeeds = (s: Settings) => {
 // travel necessities: offered under a packing list's Other field; edited in Settings
 const TRAVEL_STARTER = ['Passport', 'Residence permit', 'Charger', 'MacBook', 'Powerbank', 'AirPods', 'Meds', 'Book', 'Umbrella', 'Hairbrush', 'Hairclip', 'Hairdryer']
 export const travelUsual = (s: { travelUsual?: string[] }) => s.travelUsual ?? TRAVEL_STARTER
+
+// old supply-bought budget lines ended in "(bought)" in the app language; now the label is just the name
+export const BOUGHT_RE = / \((bought|куплено|comprado)\)$/

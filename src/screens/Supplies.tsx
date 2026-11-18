@@ -24,7 +24,7 @@ export const buySupply = (id: string, qty?: number) =>
     const sp = d.supplies.find((x) => x.id === id)!
     const q = qty ?? sp.buyQty
     const key = periodOf(today(), d.settings).key
-    ensurePeriod(d, key).items.push({ id: uid(), kind: 'expense', label: tr('{name} (bought)', { name: sp.name }), bought: true, amount: Math.round(sp.pricePerUnit * q * 100) / 100, date: today(), oneOff: true })
+    ensurePeriod(d, key).items.push({ id: uid(), kind: 'expense', label: sp.name, bought: true, amount: Math.round(sp.pricePerUnit * q * 100) / 100, date: today(), oneOff: true })
     if (sp.once) { // one-time: done (and ticked off its project)
       d.supplies = d.supplies.filter((x) => x.id !== id)
       if (sp.projectId) editProjectBuy(d, sp.projectId, sp.name)

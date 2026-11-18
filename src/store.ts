@@ -5,7 +5,7 @@ import type { BudgetItem, State } from './types'
 import { seed } from './seed'
 import { migrateTaxes, migrateZus } from './taxes'
 import { defaultCleanPlan, defaultCleanTasks, migrateCleanPlan } from './cleaning'
-import { fillCurs, leftToDurations, logRates, markTaxSince, periodItems, periodOf, setMainCur, syncProjectBuys, today, uid } from './lib'
+import { BOUGHT_RE, fillCurs, leftToDurations, logRates, markTaxSince, periodItems, periodOf, setMainCur, syncProjectBuys, today, uid } from './lib'
 
 const KEY = 'now-what-state'
 
@@ -125,6 +125,8 @@ export const migrate = (s: State): State => {
   if (out.settings.transfer) out.settings.transfer = out.settings.transfer.filter((r) => !(r.label === 'Basis' && !r.text.trim()))
   // ZUS line names without brackets: "Health (ZUS)" → "Health ZUS"
   for (const l of out.settings.taxLines ?? []) { if (l.name === 'Health (ZUS)') l.name = 'Health ZUS'; if (l.name === 'Social (ZUS)') l.name = 'Social ZUS' }
+  // supplies bought: the budget line is just the item name — drop the old "(bought)" suffix in any language
+  for (const per of Object.values(out.periods ?? {})) for (const i of per.items ?? []) if (BOUGHT_RE.test(i.label)) { i.label = i.label.replace(BOUGHT_RE, ''); i.bought = true }
   markTaxSince(out) // taxes already set up: the budget counts them from this year's first month with revenue
   fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies
