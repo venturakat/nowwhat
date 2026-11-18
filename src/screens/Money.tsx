@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { addIncome, ensurePeriod, update, useSt, useStore } from '../store'
 import type { Currency, Session, State, TaxLine, TaxMonth } from '../types'
 import { bankAmount, fillTransfer, lineFormula } from '../taxes'
-import { tr, trn } from '../i18n'
+import { tr, trn, getLang } from '../i18n'
 import { BOUGHT_RE, fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, seriesOf, repeatCopy, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
   setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax, usesCosts, costsFor, autoCalc, isPit
@@ -268,7 +268,7 @@ export const SpendSheet = ({ id, initial }: { id?: string; initial?: any }) => (
     fields={[
       { key: 'amount', label: 'How much', type: 'number' },
       { key: 'currency', label: 'Currency', type: 'select', options: curOptions(useStore.getState().st.settings, initial?.currency) },
-      { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…', suggest: ['Eat out', 'Taxi', 'Coffee', 'Movies', 'Books', 'Gifts', 'Travel'].map((x) => tr(x)) },
+      { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…', suggest: ['Eat out', 'Delivery (food)', 'Taxi', 'Coffee', 'Movies', 'Books', 'Gifts', 'Travel'].map((x) => (x === 'Delivery (food)' && getLang() === 'en' ? 'Delivery' : tr(x))) },
       { key: 'date', label: 'Date', type: 'date' },
       ...(usesCosts(useStore.getState().st.settings) ? [{ key: 'cost', label: 'Business cost (for taxes)?', type: 'toggle' } as const] : [])
     ]}

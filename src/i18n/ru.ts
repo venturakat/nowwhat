@@ -296,7 +296,7 @@ export const ru: Record<string, string> = {
   "How much": "Сколько",
   "What for (optional)": "На что (необязательно)",
   "coffee, taxi…": "кофе, такси…",
-  "Eat out": "Кафе",
+  "Eat out": "Рестораны",
   "Taxi": "Такси",
   "Coffee": "Кофе",
   "Movies": "Кино",
@@ -1201,4 +1201,5 @@ export const ru: Record<string, string> = {
   "Costs": "Расходы",
   "Business costs {x} · expenses and spending marked “Business cost” in the Budget": "Расходы бизнеса {x} · расходы и траты с отметкой «Расход бизнеса» в Бюджете",
   "{n} of {m}": "{n} из {m}",
+  "Delivery (food)": "Доставка",
 }

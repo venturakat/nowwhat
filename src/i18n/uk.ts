@@ -127,7 +127,7 @@ export const uk: Record<string, string> = {
   'Merged': 'Обʼєднано', 'Money in': 'Надходження', 'Mandatory expense': 'Обовʼязкова витрата',
   'Amount': 'Сума', 'Currency': 'Валюта', 'Counts as business revenue (for taxes)?': 'Рахується як дохід бізнесу (для податків)?',
   'Edit spending': 'Редагувати витрату', 'How much': 'Скільки', 'What for (optional)': 'На що (необовʼязково)',
-  'coffee, taxi…': 'кава, таксі…', 'Eat out': 'Кафе', 'Taxi': 'Таксі',
+  'coffee, taxi…': 'кава, таксі…', 'Eat out': 'Ресторани', 'Taxi': 'Таксі',
   'Coffee': 'Кава', 'Movies': 'Кіно', 'Books': 'Книжки',
   'Gifts': 'Подарунки', 'Logged': 'Записано', 'Saved to {x}': 'Збережено: {x}',
   'client': 'клієнт', 'No clients yet. Add one in Money → Work → “+ Add client”.': 'Клієнтів поки немає. Додай у Гроші → Робота → «+ Додати клієнта».', 'Client': 'Клієнт',
@@ -849,4 +849,5 @@ export const uk: Record<string, string> = {
   'Costs': 'Витрати',
   'Business costs {x} · expenses and spending marked “Business cost” in the Budget': 'Витрати бізнесу {x} · витрати й щоденні витрати з позначкою «Витрата бізнесу» в Бюджеті',
   '{n} of {m}': '{n} з {m}',
+  'Delivery (food)': 'Доставка',
 }
