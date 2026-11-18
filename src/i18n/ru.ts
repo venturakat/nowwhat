@@ -159,7 +159,7 @@ export const ru: Record<string, string> = {
   "with {g}": "вместе с {g}",
   "Start from": "Начать с",
   "Started from {x}": "Начато с: {x}",
-  "Replace lines": "Заменить платежи",
+  "Switch": "Сменить",
   "Poland · ryczałt": "Польша · ryczałt",
   "Ukraine": "Украина",
   "Argentina": "Аргентина",

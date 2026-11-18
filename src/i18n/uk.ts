@@ -65,7 +65,7 @@ export const uk: Record<string, string> = {
   'Erase everything': 'Стерти все',
   // taxes
   'Tax lines, pay days, transfer details': 'Платежі, дні оплати, реквізити', 'of': 'від', 'revenue': 'дохід', 'pay day {d}': 'оплата {d}-го', 'with {g}': 'разом із {g}',
-  'Start from': 'Почати з', 'Started from {x}': 'Почато з: {x}', 'Replace lines': 'Замінити платежі',
+  'Start from': 'Почати з', 'Started from {x}': 'Почато з: {x}', 'Switch': 'Змінити',
   'Poland · ryczałt': 'Польща · ryczałt', 'Ukraine': 'Україна', 'Argentina': 'Аргентина', 'Custom': 'Свій',
   'Taxes are in': 'Валюта податків', 'Invoices count': 'Дохід рахується', 'Taxes and contributions': 'Податки та внески', 'Add contribution or tax': 'Додати внесок або податок',
   'Transfer details to copy': 'Реквізити для копіювання', 'empty': 'порожньо', 'Add row': 'Додати рядок',

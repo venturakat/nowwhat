@@ -159,7 +159,7 @@ export const es: Record<string, string> = {
   "with {g}": "junto con {g}",
   "Start from": "Empezar desde",
   "Started from {x}": "Empezado desde {x}",
-  "Replace lines": "Reemplazar pagos",
+  "Switch": "Cambiar",
   "Poland · ryczałt": "Polonia · ryczałt",
   "Ukraine": "Ucrania",
   "Argentina": "Argentina",

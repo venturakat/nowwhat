@@ -91,7 +91,7 @@ export const TaxesSheet = () => {
             <button key={p.key} type="button" className="chip" style={armed === p.key ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
               if (armed !== p.key) { setArmed(p.key); setTimeout(() => setArmed((a) => (a === p.key ? null : a)), 3000); return }
               update((d) => applyPreset(d, p.key)); setArmed(null); toast(tr('Started from {x}', { x: tr(p.name) }))
-            }}>{armed === p.key ? tr('Replace lines') : tr(p.name)}</button>
+            }}>{armed === p.key ? tr('Switch') : tr(p.name)}</button>
           ))}
         </div>
       </Field>
