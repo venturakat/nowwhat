@@ -311,6 +311,17 @@ const NoteSheet = ({ id }: { id?: string }) => {
   // auto-save: the keyboard's Done tick (field loses focus) and pulling the sheet down both save
   const latest = useRef(save); latest.current = save
   useEffect(() => () => latest.current(), [])
+  // tapping anywhere off the title and text fields (but not on a button) saves too
+  useEffect(() => {
+    if (!editing) return
+    const off = (e: Event) => {
+      const t = e.target as HTMLElement | null
+      if (t?.closest?.('[data-note-field], button')) return
+      latest.current()
+    }
+    document.addEventListener('pointerdown', off)
+    return () => document.removeEventListener('pointerdown', off)
+  }, [editing])
   const onBlur = (e: FocusEvent) => {
     const to = e.relatedTarget as Node | null
     if (to && (to as HTMLElement).matches?.('[data-note-field]')) return // hopping between title and text
