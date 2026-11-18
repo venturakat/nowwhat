@@ -10,7 +10,7 @@ export const PAY_BEFORE = 5
 export const defaultPayDay = (dueDay: number) => Math.max(1, dueDay - PAY_BEFORE)
 
 // ---------- presets ("Start from…"): examples, every number editable ----------
-export type PresetKey = 'pl' | 'ua' | 'ar' | 'custom'
+export type PresetKey = 'pl' | 'pl-lin' | 'pl-skala' | 'ua' | 'ar' | 'custom'
 export interface Preset { key: PresetKey; name: string; cur: string; rule: TaxRule; lines: () => TaxLine[]; transfer: () => TransferRow[] }
 const row = (label: string, text = ''): TransferRow => ({ id: uid(), label, text })
 export const PRESETS: Preset[] = [
@@ -22,6 +22,27 @@ export const PRESETS: Preset[] = [
       { id: 'dra', name: 'Health ZUS', kind: 'zusHealth', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
       // ryczałt: rate × (revenue − social contributions − half of the health contribution)
       { id: 'pit', name: 'PIT-28', kind: 'pctLess', pct: 14, less: 'rca', lessPct: 100, less2: 'dra', less2Pct: 50, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
+    ],
+    transfer: () => [row('ZUS account'), row('PIT account'), row('NIP'), row('Title', 'Składki za {miesiąc} {yyyy}')]
+  },
+  // liniowy / skala: income = revenue − business costs (expenses marked "Business cost") − social ZUS paid;
+  // health = 4.9% / 9% of the month before's income (at least the minimum), PIT advance on the year's income so far.
+  // Same line ids as ryczałt, so switching keeps what's marked paid
+  {
+    key: 'pl-lin', name: 'Poland · liniowy', cur: 'PLN', rule: 'nbp',
+    lines: () => [
+      { id: 'rca', name: 'Social ZUS', kind: 'zusSocial', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'dra', name: 'Health ZUS', kind: 'zusHealthIncome', pct: 4.9, amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'pit', name: 'PIT-36L', kind: 'pitLinear', pct: 19, every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
+    ],
+    transfer: () => [row('ZUS account'), row('PIT account'), row('NIP'), row('Title', 'Składki za {miesiąc} {yyyy}')]
+  },
+  {
+    key: 'pl-skala', name: 'Poland · skala', cur: 'PLN', rule: 'nbp',
+    lines: () => [
+      { id: 'rca', name: 'Social ZUS', kind: 'zusSocial', amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'dra', name: 'Health ZUS', kind: 'zusHealthIncome', pct: 9, amount: 0, every: 'month', payDay: defaultPayDay(20), dueDay: 20, group: 'ZUS' },
+      { id: 'pit', name: 'PIT-36', kind: 'pitScale', every: 'month', payDay: defaultPayDay(20), dueDay: 20 }
     ],
     transfer: () => [row('ZUS account'), row('PIT account'), row('NIP'), row('Title', 'Składki za {miesiąc} {yyyy}')]
   },
@@ -63,7 +84,7 @@ export const fillTransfer = (text: string, mk: string) => {
 }
 
 // ---------- words ----------
-export const KIND_NAME = () => ({ fixed: tr('Fixed amount'), pct: tr('% of revenue'), pctLess: tr('% of revenue minus part of another line'), zusSocial: tr('ZUS social contributions'), zusHealth: tr('ZUS health contribution · ryczałt') })
+export const KIND_NAME = () => ({ fixed: tr('Fixed amount'), pct: tr('% of revenue'), pctLess: tr('% of revenue minus part of another line'), zusSocial: tr('ZUS social contributions'), zusHealth: tr('ZUS health contribution · ryczałt'), zusHealthIncome: tr('ZUS health contribution · % of income'), pitLinear: tr('PIT · liniowy, % of income'), pitScale: tr('PIT · skala 12 / 32%') })
 export const EVERY_NAME = () => ({ month: tr('Monthly'), quarter: tr('Quarterly'), year: tr('Yearly') })
 export const LAG_NAME = () => [tr('The same month'), tr('The month after'), tr('Two months after')]
 export const RULE_NAME = () => ({
@@ -75,6 +96,8 @@ export const RULE_NAME = () => ({
 export const lineFormula = (l: TaxLine, all: TaxLine[]) => {
   if (l.kind === 'pct') return `${l.name} = ${l.pct ?? 0}% ${tr('of revenue')}`
   const name = (id?: string) => all.find((x) => x.id === id)?.name ?? '—'
+  if (l.kind === 'pitLinear') return `${l.name} = ${l.pct ?? 19}% ${tr('of income this year')}`
+  if (l.kind === 'pitScale') return `${l.name} = 12 / 32% ${tr('of income this year')}`
   if (l.kind === 'pctLess') return `${l.name} = ${l.pct ?? 0}% × (${tr('revenue')} − ${l.lessPct ?? 0}% ${tr('of')} ${name(l.less)}${l.less2 && all.some((x) => x.id === l.less2) ? ` − ${l.less2Pct ?? 0}% ${tr('of')} ${name(l.less2)}` : ''})`
   return ''
 }

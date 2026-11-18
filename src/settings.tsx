@@ -4,7 +4,7 @@ import { C, Field, Icon, List, popSheet, pushSheet, Row, Sheet, toast } from './
 import { FormSheet } from './form'
 import { seed } from './seed'
 import { blueFits, OFFICIAL, refreshRates } from './rates'
-import { r2, isZus, zusOn, zusCalc, zusStage, zusYear, ZUS_YEARS, ZUS_ACCIDENT, monthKey, monthName, today } from './lib'
+import { r2, isZus, isPit, zusOn, zusCalc, zusStage, zusYear, ZUS_YEARS, ZUS_ACCIDENT, monthKey, monthName, today } from './lib'
 import { uid, fmtCur, allCurrencies, autoProtein, curName, curOptions, curSign, dailyNeeds, fillCurs, fmtDay, fmtNum, hasRate, logRates, numText, parseNum, rateOf, travelUsual, usedCurs } from './lib'
 import type { RateSrc, State, TaxEvery, TaxKind, TaxLine, TaxRule, ZusYear } from './types'
 import { LAG_NAME, defaultPayDay, applyPreset, EVERY_NAME, KIND_NAME, PLACEHOLDERS, PRESETS, RULE_NAME, type PresetKey } from './taxes'
@@ -80,6 +80,7 @@ export const TaxesSheet = () => {
   const lineMeta = (l: TaxLine) => [
     isZus(l) ? (zusOn(s) ? tr('{x} this month', { x: fmtCur(zusCalc(st, l, mk) ?? 0, tc, true) }) : `${fmtCur(l.amount ?? 0, tc, true)} · ${tr('fixed until ZUS is set up')}`)
       : l.kind === 'fixed' ? fmtCur(l.amount ?? 0, tc, true) : l.kind === 'pct' ? `${l.pct ?? 0}%`
+      : l.kind === 'pitLinear' ? `${l.pct ?? 19}% ${tr('of income this year')}` : l.kind === 'pitScale' ? `12 / 32% ${tr('of income this year')}`
       : `${l.pct ?? 0}% − ${l.lessPct ?? 0}% ${tr('of')} ${nameOf(l.less)}${l.less2 ? ` − ${l.less2Pct ?? 0}% ${tr('of')} ${nameOf(l.less2)}` : ''}`,
     EN[l.every], (l.lag ?? 1) !== 1 && LAG_NAME()[l.lag ?? 1].toLowerCase(), tr('pay day {d}', { d: l.payDay }), l.group && tr('with {g}', { g: l.group })].filter(Boolean).join(' · ')
   return (
@@ -137,10 +138,10 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
   return (
     <FormSheet title={l ? l.name : tr('New tax line')} onBack={popSheet} twoTap
       initial={{ ...zusInit, ...(l ? { ...l, lag: String(l.lag ?? 1), less2: l.less2 ?? '' } : { less2: '', lag: '1', kind: 'fixed', every: 'month', payDay: lines[0]?.payDay ?? defaultPayDay(lines[0]?.dueDay ?? 20), dueDay: lines[0]?.dueDay ?? 20, lessPct: 50, less: others[0]?.id }) }}
-      extra={(v) => zusKind(v.kind) && <ZusNotes v={v} />}
+      extra={(v) => zusKind(v.kind) ? <ZusNotes v={v} /> : pitKind(v.kind) ? <PitNotes kind={v.kind} /> : null}
       fields={[
         { key: 'name', label: tr('Name'), type: 'text', placeholder: 'ZUS, ЄСВ, Monotributo…' },
-        { key: 'kind', label: tr('How it’s worked out'), type: 'select', options: (Object.keys(KN) as TaxKind[]).filter((k) => (k !== 'pctLess' || others.length) && (!zusKind(k) || pln || l?.kind === k)).map((k) => [k, KN[k]]) },
+        { key: 'kind', label: tr('How it’s worked out'), type: 'select', options: (Object.keys(KN) as TaxKind[]).filter((k) => (k !== 'pctLess' || others.length) && (!(zusKind(k) || pitKind(k)) || pln || l?.kind === k)).map((k) => [k, KN[k]]) },
         // ZUS lines: what they're worked out from (shared by both ZUS lines, kept in settings.zus)
         { key: 'zusStart', label: tr('Business started on'), type: 'date', hide: (v) => !zusKind(v.kind) },
         { key: 'zusUlga', label: tr('Ulga na start — first 6 months: health contribution only'), type: 'toggle', hide: (v) => !zusKind(v.kind) },
@@ -148,7 +149,7 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
         { key: 'zusSick', label: tr('Sickness insurance (voluntary)'), type: 'toggle', hide: (v) => v.kind !== 'zusSocial' },
         { key: 'zusAccident', label: tr('Accident insurance, %'), type: 'number', placeholder: () => String(ZUS_ACCIDENT).replace('.', ','), hide: (v) => v.kind !== 'zusSocial' },
         { key: 'amount', label: tr('Amount per period'), type: 'number', hide: (v) => v.kind !== 'fixed' && !(zusKind(v.kind) && !v.zusStart) },
-        { key: 'pct', label: tr('Rate, %'), type: 'number', hide: (v) => v.kind === 'fixed' || zusKind(v.kind) },
+        { key: 'pct', label: tr('Rate, %'), type: 'number', hide: (v) => v.kind === 'fixed' || v.kind === 'pitScale' || (zusKind(v.kind) && v.kind !== 'zusHealthIncome') },
         { key: 'less', label: tr('Minus part of'), type: 'select', options: others.map((x) => [x.id, x.name]), hide: (v) => v.kind !== 'pctLess' },
         { key: 'lessPct', label: tr('How much of it, %'), type: 'number', hide: (v) => v.kind !== 'pctLess' },
         { key: 'less2', label: tr('And minus part of'), type: 'select', options: [['', tr('Nothing')], ...others.map((x) => [x.id, x.name] as [string, string])], hide: (v) => v.kind !== 'pctLess' },
@@ -164,7 +165,8 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
         const x: TaxLine = {
           id: l?.id ?? uid(), name: String(v.name).trim(), kind: v.kind, every: zusKind(v.kind) ? 'month' : v.every, lag: Number(v.lag ?? 1),
           dueDay: day(v.dueDay, 20), payDay: day(v.payDay, defaultPayDay(day(v.dueDay, 20))), group: String(v.group ?? '').trim() || undefined,
-          ...(v.kind === 'fixed' || zusKind(v.kind) ? { amount: v.amount ?? l?.amount ?? 0 } : { pct: v.pct ?? 0 }),
+          ...(v.kind === 'fixed' || zusKind(v.kind) ? { amount: v.amount ?? l?.amount ?? 0 } : v.kind === 'pitScale' ? {} : { pct: v.pct ?? 0 }),
+          ...(v.kind === 'zusHealthIncome' ? { pct: v.pct ?? 9 } : {}),
           ...(v.kind === 'pctLess' ? { less: v.less ?? others[0]?.id, lessPct: v.lessPct ?? 0, ...(v.less2 ? { less2: v.less2, less2Pct: v.less2Pct ?? 0 } : {}) } : {})
         }
         const ls = d.settings.taxLines ?? []
@@ -179,7 +181,21 @@ const TaxLineSheet = ({ id }: { id?: string }) => {
   )
 }
 
-const zusKind = (k?: string) => k === 'zusSocial' || k === 'zusHealth'
+const zusKind = (k?: string) => k === 'zusSocial' || k === 'zusHealth' || k === 'zusHealthIncome'
+const pitKind = (k?: string) => k === 'pitLinear' || k === 'pitScale'
+// under a liniowy / skala PIT line: what the income is and where the costs come from
+const PitNotes = ({ kind }: { kind: string }) => {
+  const st = useSt()
+  const cap = zusYear(st.settings, today().slice(0, 4)).hcap
+  return (
+    <div className="col" style={{ gap: 8 }}>
+      <span className="t13 muted">{tr('Worked out every period from this year’s income so far: revenue − business costs − social ZUS paid, minus the advances already due this year.')}</span>
+      {kind === 'pitLinear' && <span className="t13 muted">{tr('Health contributions paid are taken off the income, up to {x} a year.', { x: fmtCur(cap, 'PLN', false) })}</span>}
+      {kind === 'pitScale' && <span className="t13 muted">{tr('12% up to 120 000 zł of income a year and 32% above it, minus 3 600 zł for the tax-free amount.')}</span>}
+      <span className="t13 muted">{tr('Business costs: switch on “Business cost” on expenses and spending in the Budget.')}</span>
+    </div>
+  )
+}
 const STAGE_NAME = () => ({ none: tr('Not started yet'), ulga: tr('Ulga na start'), pref: tr('Preferential ZUS'), full: tr('Full ZUS') })
 const monthYear = (mk: string) => `${monthName(mk, true)} ${mk.slice(0, 4)}`
 
@@ -190,13 +206,17 @@ const ZusBlock = () => {
   const yr = zusYear(st.settings, y)
   const open = () => pushSheet(<ZusYearSheet y={y} />)
   const zl = (n: number) => fmtCur(n, 'PLN', true)
+  const ls = st.settings.taxLines ?? []
+  const byIncome = ls.some((l) => l.kind === 'zusHealthIncome') && !ls.some((l) => l.kind === 'zusHealth'), linear = ls.some((l) => l.kind === 'pitLinear')
   return (
     <>
       <span className="t15 w5" style={{ padding: '8px 4px 0' }}>{tr('Official numbers {y}', { y })}</span>
       <List>
         <Row dot={C.money} title={tr('Forecast average wage')} meta={tr('Full ZUS base: 60% = {x}', { x: zl(r2(0.6 * yr.avg)) })} trail={zl(yr.avg)} onClick={open} />
         <Row dot={C.money} title={tr('Minimum wage')} meta={tr('Preferential ZUS base: 30% = {x}', { x: zl(r2(0.3 * yr.min)) })} trail={zl(yr.min)} onClick={open} />
-        <Row dot={C.money} title={tr('Average wage in Q4 {p}', { p: +y - 1 })} meta={tr('Health contribution base: 60 / 100 / 180% = {x}', { x: [0.6, 1, 1.8].map((k) => fmtNum(r2(k * yr.health), 2)).join(' / ') + ' zł' })} trail={zl(yr.health)} onClick={open} />
+        {byIncome && <Row dot={C.money} title={tr('Minimum health contribution')} meta={tr('Liniowy and skala · February {y} to January {n}', { y, n: +y + 1 })} trail={zl(yr.hmin)} onClick={open} />}
+        {linear && <Row dot={C.money} title={tr('Health deduction limit')} meta={tr('Liniowy · health paid taken off the income, per year')} trail={zl(yr.hcap)} onClick={open} />}
+        {!byIncome && <Row dot={C.money} title={tr('Average wage in Q4 {p}', { p: +y - 1 })} meta={tr('Health contribution base: 60 / 100 / 180% = {x}', { x: [0.6, 1, 1.8].map((k) => fmtNum(r2(k * yr.health), 2)).join(' / ') + ' zł' })} trail={zl(yr.health)} onClick={open} />}
       </List>
       <span className="t13 muted" style={{ padding: '0 4px' }}>{yr.known ? tr('Used for the ZUS contributions. Built in — tap a number if the official one is different.') : tr('The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows. Tap to type the new ones from zus.pl.', { y })}</span>
     </>
@@ -214,7 +234,9 @@ const ZusNotes = ({ v }: { v: Record<string, any> }) => {
     <div className="col" style={{ gap: 8 }}>
       <span className="t14 w5">{now}</span>
       <span className="t13 muted">{tr('Ulga na start and Preferential ZUS have more conditions than the dates — for example, not for work for a former employer this year or last, or after another business in the last 60 months. Check on zus.pl that you qualify.')}</span>
-      <span className="t13 muted">{tr('Months count from the start date if it was the 1st, otherwise from the next month; the first, partial month counts only its days. Full ZUS adds the Labour Fund. Health contribution follows your revenue so far this year: up to 60 000, up to 300 000, more.')}</span>
+      <span className="t13 muted">{(st.settings.taxLines ?? []).some((l) => l.kind === 'zusHealthIncome') || v.kind === 'zusHealthIncome'
+        ? tr('Months count from the start date if it was the 1st, otherwise from the next month; the first, partial month counts only its days. Full ZUS adds the Labour Fund. Health contribution: its % of the month before’s income (revenue − business costs − social ZUS), at least the year’s minimum.')
+        : tr('Months count from the start date if it was the 1st, otherwise from the next month; the first, partial month counts only its days. Full ZUS adds the Labour Fund. Health contribution follows your revenue so far this year: up to 60 000, up to 300 000, more.')}</span>
       <span className="t13 muted">{tr('The business start date, Ulga na start and Preferential ZUS are the same for both ZUS contributions: change them in one and the other follows.')}</span>
     </div>
   )
@@ -231,13 +253,15 @@ const ZusYearSheet = ({ y }: { y: string }) => {
       fields={[
         { key: 'avg', label: tr('Forecast average wage (full ZUS base = 60%)'), type: 'number', placeholder: ph('avg') },
         { key: 'min', label: tr('Minimum wage (preferential base = 30%)'), type: 'number', placeholder: ph('min') },
-        { key: 'health', label: tr('Average wage in Q4 {p} incl. bonuses (health base)', { p: +y - 1 }), type: 'number', placeholder: ph('health') }
+        { key: 'health', label: tr('Average wage in Q4 {p} incl. bonuses (health base)', { p: +y - 1 }), type: 'number', placeholder: ph('health') },
+        { key: 'hmin', label: tr('Minimum health contribution, liniowy and skala (from February)'), type: 'number', placeholder: ph('hmin') },
+        { key: 'hcap', label: tr('Health deduction limit, liniowy (a year)'), type: 'number', placeholder: ph('hcap') }
       ]}
       extra={<span className="t13 muted">{built ? tr('These are built in. Type a number only if the official one is different.') : tr('The app doesn’t have the {y} numbers yet, so it uses the latest ones it knows (shown greyed). Type the new ones from zus.pl.', { y })}</span>}
       onSave={(v) => update((d) => {
         const z = (d.settings.zus ??= {})
         const x: Partial<ZusYear> = {}
-        for (const k of ['avg', 'min', 'health'] as const) if (v[k]) x[k] = v[k]
+        for (const k of ['avg', 'min', 'health', 'hmin', 'hcap'] as const) if (v[k]) x[k] = v[k]
         const ys = { ...(z.years ?? {}) }
         if (Object.keys(x).length) ys[y] = x; else delete ys[y]
         z.years = Object.keys(ys).length ? ys : undefined

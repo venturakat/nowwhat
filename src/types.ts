@@ -97,6 +97,7 @@ export interface BudgetItem {
   currency?: Currency // filled in on save (the main currency when not chosen)
   date?: string // YYYY-MM-DD
   taxable?: boolean // counts as revenue for PIT/ZUS
+  cost?: boolean // expense: a business cost (liniowy / skala take it off the revenue)
   fromClient?: ID
   fromSession?: ID // a client payment marked paid — removed again if it's unmarked
   bought?: boolean // a supply marked bought — listed under "Supplies bought"
@@ -115,6 +116,7 @@ export interface Spend {
   amount: number
   currency?: Currency
   note: string
+  cost?: boolean // a business cost (liniowy / skala take it off the revenue)
 }
 
 export interface Client {
@@ -155,7 +157,9 @@ export interface Timer {
 
 // one thing paid in taxes: fixed, % of revenue, or % of (revenue − part of another line)
 // zusSocial / zusHealth: Polish ZUS worked out from Settings › Taxes › ZUS (until the start date is set they use `amount`)
-export type TaxKind = 'fixed' | 'pct' | 'pctLess' | 'zusSocial' | 'zusHealth'
+// zusHealthIncome: health contribution of liniowy / skala = pct (4.9 / 9) of last month's income, at least the year's minimum
+// pitLinear (pct, 19) / pitScale (12 / 32%): Polish PIT advances on this year's income (revenue − business costs − ZUS paid)
+export type TaxKind = 'fixed' | 'pct' | 'pctLess' | 'zusSocial' | 'zusHealth' | 'zusHealthIncome' | 'pitLinear' | 'pitScale'
 export type TaxEvery = 'month' | 'quarter' | 'year'
 // nbp: invoice month, NBP mid rate of the last working day before the invoice (zł taxes)
 // invoice: invoice month, the app's rate of the invoice day · paid: the month the money arrives, the rate of that day
@@ -179,7 +183,9 @@ export interface TaxLine {
 export interface TransferRow { id: ID; label: string; text: string }
 // official numbers of a year (zł): forecast average wage (full ZUS base = 60%), minimum wage (preferential base = 30%),
 // average wage in Q4 of the year before incl. profit bonuses (ryczałt health base = 60 / 100 / 180%)
-export interface ZusYear { avg: number; min: number; health: number }
+// hmin: minimum health contribution of liniowy / skala for the contribution year starting that February (9% of the minimum wage unless set)
+// hcap: liniowy — health contributions paid that can be taken off the income in that year
+export interface ZusYear { avg: number; min: number; health: number; hmin?: number; hcap?: number }
 export interface ZusSettings {
   start?: string // business start date (YYYY-MM-DD)
   ulga?: boolean // Ulga na start: first 6 months only health

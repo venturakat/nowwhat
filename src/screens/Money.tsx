@@ -5,7 +5,7 @@ import { bankAmount, fillTransfer, lineFormula } from '../taxes'
 import { tr, trn } from '../i18n'
 import { fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, seriesOf, repeatCopy, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
-  setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax
+  setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax, usesCosts, costsFor, autoCalc, isPit
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
@@ -63,7 +63,9 @@ const Budget = () => {
             ? (it?.fromClient
                 ? ([{ key: 'date', label: 'Date', type: 'date' }] as const)
                 : ([{ key: 'date', label: 'Date', type: 'date' }, { key: 'repeat', label: 'Repeat every month', type: 'toggle' }, { key: 'taxable', label: 'Counts as business revenue (for taxes)?', type: 'toggle' }] as const))
-            : ([{ key: 'repeat', label: 'Repeat every month', type: 'toggle' }, { key: 'paid', label: 'Paid', type: 'toggle' }] as const))
+            : usesCosts(st.settings)
+              ? ([{ key: 'repeat', label: 'Repeat every month', type: 'toggle' }, { key: 'paid', label: 'Paid', type: 'toggle' }, { key: 'cost', label: 'Business cost (for taxes)?', type: 'toggle' }] as const)
+              : ([{ key: 'repeat', label: 'Repeat every month', type: 'toggle' }, { key: 'paid', label: 'Paid', type: 'toggle' }] as const))
         ]}
         onSave={(v) => {
           // a dated entry always lives in the half its date belongs to, whichever half it was added from
@@ -71,7 +73,7 @@ const Budget = () => {
           const repeat = !it?.fromClient && !!v.repeat
           update((d) => {
             const p = ensurePeriod(d, key)
-            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, ...(it?.fromClient ? {} : { taxable: v.taxable, repeat }), ...((it?.kind ?? kind) === 'expense' ? { paid: !!v.paid } : {}) }
+            const data = { label: v.label, amount: v.amount ?? 0, currency: v.currency ?? d.settings.mainCur, date: v.date, ...(it?.fromClient ? {} : { taxable: v.taxable, repeat }), ...((it?.kind ?? kind) === 'expense' ? { paid: !!v.paid, cost: usesCosts(d.settings) ? (v.cost ? true : undefined) : it?.cost } : {}) }
             const item = it ? { ...p.items.find((x) => x.id === it.id)!, ...data } : { id: uid(), kind, ...data }
             if (it) p.items = p.items.filter((x) => x.id !== it.id)
             ensurePeriod(d, target).items.push(item as any)
@@ -165,7 +167,7 @@ const Budget = () => {
       <List title="Mandatory planned" right={fmt(plannedSum)}>
         {autoOut.filter((a) => !a.paid).map(autoRow)}
         {expenses.map((i) => (
-          <Row key={i.id} dot={C.line} title={i.label} meta={i.repeat ? tr('every month') : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+          <Row key={i.id} dot={C.line} title={i.label} meta={[i.repeat && tr('every month'), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">{tr('+ Add mandatory expense')}</span>} onClick={() => editItem(undefined, 'expense')} />
       </List>
@@ -173,14 +175,14 @@ const Budget = () => {
         <List title="Mandatory paid" right={fmt(paidSum)}>
           {autoOut.filter((a) => a.paid).map(autoRow)}
           {paidItems.map((i) => (
-            <Row key={i.id} dot={C.line} title={i.label} meta={i.date ? fmtDay(i.date) : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+            <Row key={i.id} dot={C.line} title={i.label} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
           ))}
         </List>
       ) : null}
       {bought.length > 0 && (
         <Fold title="Supplies bought" right={fmt(boughtSum)}>
           {bought.map((i) => (
-            <Row key={i.id} dot={C.supplies} title={i.label.replace(/ \(bought\)$/, '')} meta={i.date ? fmtDay(i.date) : undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+            <Row key={i.id} dot={C.supplies} title={i.label.replace(/ \(bought\)$/, '')} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
           ))}
         </Fold>
       )}
@@ -193,7 +195,7 @@ const Budget = () => {
       )}
       <Fold title="Day-to-day spending" right={fmt(s.spent)}>
         {spends.length ? spends.map((x) => (
-          <Row key={x.id} title={x.note || tr('Spending')} meta={fmtDay(x.date)} trail={amt(x)} onClick={() => editSpend(x.id)} />
+          <Row key={x.id} title={x.note || tr('Spending')} meta={[fmtDay(x.date), x.cost && tr('business cost')].filter(Boolean).join(' · ')} trail={amt(x)} onClick={() => editSpend(x.id)} />
         )) : <div className="list-empty">{tr('Nothing logged yet.')}</div>}
         <MergeSpends spends={spends} date={isNow ? today() : s.info.end} />
       </Fold>
@@ -225,7 +227,7 @@ const DeleteRepeat = ({ label, id, pkey }: { label: string; id: string; pkey: st
 }
 
 // footer of Day-to-day spending: spends with the same "what for" and currency become one, dated the day they're merged (two taps)
-const spendKey = (x: { note: string; currency?: Currency }) => (x.note || 'Spending').trim().toLowerCase() + '|' + (x.currency ?? '')
+const spendKey = (x: { note: string; currency?: Currency; cost?: boolean }) => (x.note || 'Spending').trim().toLowerCase() + '|' + (x.currency ?? '') + (x.cost ? '|cost' : '')
 const MergeSpends = ({ spends, date }: { spends: State['spends']; date: string }) => {
   const [sure, setSure] = useState(false)
   const counts = new Map<string, number>()
@@ -238,7 +240,7 @@ const MergeSpends = ({ spends, date }: { spends: State['spends']; date: string }
       for (const x of d.spends) if (ids.has(x.id) && counts.get(spendKey(x))! > 1) groups.set(spendKey(x), [...(groups.get(spendKey(x)) ?? []), x])
       const gone = new Set([...groups.values()].flat().map((x) => x.id))
       d.spends = d.spends.filter((x) => !gone.has(x.id))
-      for (const g of groups.values()) d.spends.push({ id: uid(), amount: Math.round(g.reduce((a, x) => a + x.amount, 0) * 100) / 100, currency: g[0].currency, note: g[0].note, date })
+      for (const g of groups.values()) d.spends.push({ id: uid(), amount: Math.round(g.reduce((a, x) => a + x.amount, 0) * 100) / 100, currency: g[0].currency, note: g[0].note, date, ...(g[0].cost ? { cost: true } : {}) })
     })
     setSure(false)
     toast('Merged')
@@ -268,13 +270,15 @@ export const SpendSheet = ({ id, initial }: { id?: string; initial?: any }) => (
       { key: 'amount', label: 'How much', type: 'number' },
       { key: 'currency', label: 'Currency', type: 'select', options: curOptions(useStore.getState().st.settings, initial?.currency) },
       { key: 'note', label: 'What for (optional)', type: 'text', placeholder: 'coffee, taxi…', suggest: ['Eat out', 'Taxi', 'Coffee', 'Movies', 'Books', 'Gifts', 'Travel'].map((x) => tr(x)) },
-      { key: 'date', label: 'Date', type: 'date' }
+      { key: 'date', label: 'Date', type: 'date' },
+      ...(usesCosts(useStore.getState().st.settings) ? [{ key: 'cost', label: 'Business cost (for taxes)?', type: 'toggle' } as const] : [])
     ]}
     onSave={(v) => {
       if (!v.amount) return
+      const cost = usesCosts(useStore.getState().st.settings) ? (v.cost ? true : undefined) : initial?.cost
       update((d) => {
-        if (id) Object.assign(d.spends.find((x) => x.id === id)!, { amount: v.amount, currency: v.currency ?? d.settings.mainCur, note: v.note ?? '', date: v.date })
-        else d.spends.push({ id: uid(), amount: v.amount, currency: v.currency ?? d.settings.mainCur, note: v.note ?? '', date: v.date || today() })
+        if (id) Object.assign(d.spends.find((x) => x.id === id)!, { amount: v.amount, currency: v.currency ?? d.settings.mainCur, note: v.note ?? '', date: v.date, cost })
+        else d.spends.push({ id: uid(), amount: v.amount, currency: v.currency ?? d.settings.mainCur, note: v.note ?? '', date: v.date || today(), ...(cost ? { cost } : {}) })
       })
       toast('Logged')
     }}
@@ -733,7 +737,7 @@ const Taxes = () => {
                 <button key={g.key} className={'btn ' + (g.paid ? 'ghost' : 'money')} onClick={() => update((d) => setTaxPaid(d, due!, g.key, !g.paid))}>{g.paid ? tr('Undo {x} paid', { x: g.name }) : tr('Mark {x} paid', { x: g.name })}</button>
               ))}
             </div>
-            <span className="t13" style={{ opacity: 0.7 }}>{next ? tr('Already in your budget for {d}.', { d: fmtDay(next.pay) }) + ' ' : ''}{tr('Revenue')} {ft(tx.revenue, true)} · <u onClick={() => editMonth(tx.month)}>{tr('edit')}</u></span>
+            <span className="t13" style={{ opacity: 0.7 }}>{next ? tr('Already in your budget for {d}.', { d: fmtDay(next.pay) }) + ' ' : ''}{tr('Revenue')} {ft(tx.revenue, true)}{usesCosts(s) ? ` · ${tr('Costs')} ${ft(costsFor(st, tx.month), true)}` : ''} · <u onClick={() => editMonth(tx.month)}>{tr('edit')}</u></span>
           </>
         )}
       </div>
@@ -807,17 +811,18 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
   const revOf = (l: TaxLine) => periodMonths(l, m).reduce((a, x) => a + (x === m ? revNum : monthRevenue(st, x)), 0)
   const ownNum: Record<string, number | undefined> = {}
   for (const [k, v] of Object.entries(own)) if (v !== undefined) ownNum[k] = parseNum(v) ?? 0
-  const { amounts, calc } = lineAmounts(lines, revOf, ownNum, (l) => zusCalc(st, l, m, revNum))
+  const { amounts, calc } = lineAmounts(lines, revOf, ownNum, (l) => autoCalc(st, l, m, monthRevenue, revNum))
   const total = r2(lines.reduce((a, l) => a + amounts[l.id], 0))
   return (
     <Sheet title={`${monthName(m, true)} ${m.slice(0, 4)}`}>
       <Field label={tr('Revenue (invoices + business income: {x})', { x: ft(fromIncome, true) })}>
         <input className="input" inputMode="decimal" value={rev} onChange={(e) => setRev(e.target.value)} />
       </Field>
+      {usesCosts(st.settings) && <span className="t13 muted">{tr('Business costs {x} · expenses and spending marked “Business cost” in the Budget', { x: ft(costsFor(st, m), true) })}</span>}
       {lines.map((l) => {
         const mine = own[l.id] !== undefined
         const usual = l.kind === 'fixed' || (isZus(l) && !zusOn(st.settings))
-        const how = usual ? tr('usual amount') : isZus(l) ? tr('worked out') : tr('calculated: {f}', { f: lineFormula(l, taxLinesOf(st.settings)).split(' = ')[1] })
+        const how = usual ? tr('usual amount') : isZus(l) || isPit(l) ? tr('worked out') : tr('calculated: {f}', { f: lineFormula(l, taxLinesOf(st.settings)).split(' = ')[1] })
         return (
           <Field key={l.id} label={`${l.name} (${mine ? tr('your number') : how})`}>
             <input className="input" inputMode="decimal" value={mine ? own[l.id] : numText(calc[l.id])} onChange={(e) => setOwn({ ...own, [l.id]: e.target.value })} />

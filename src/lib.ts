@@ -351,19 +351,20 @@ export const taxLinesOf = (s: Settings) => s.taxLines ?? []
 // ---------- ZUS (Poland): social contributions + ryczałt health contribution ----------
 // official numbers per year (zł) — add the new year every January (Settings › Taxes › ZUS lets people type them meanwhile)
 export const ZUS_YEARS: Record<string, ZusYear> = {
-  '2025': { avg: 8673, min: 4666, health: 8549.18 },
-  '2026': { avg: 9420, min: 4806, health: 9228.64 }
+  '2025': { avg: 8673, min: 4666, health: 8549.18, hmin: 314.96, hcap: 12900 }, // 2025: minimum health from 75% of the minimum wage
+  '2026': { avg: 9420, min: 4806, health: 9228.64, hmin: 432.54, hcap: 14100 }
 }
 export const ZUS_RATES = { pension: 19.52, disability: 8, sickness: 2.45, labour: 2.45, health: 9 }
 export const ZUS_ACCIDENT = 1.67
-export const isZus = (l: TaxLine) => l.kind === 'zusSocial' || l.kind === 'zusHealth'
+export const isZus = (l: TaxLine) => l.kind === 'zusSocial' || l.kind === 'zusHealth' || l.kind === 'zusHealthIncome'
 export const zusOn = (s: Settings) => !!s.zus?.start
 // the year's numbers: own ones first, then built in; a year the app doesn't know yet uses the latest one it does (known: false)
 export const zusYear = (s: Settings, y: string) => {
   const built = ZUS_YEARS[y] ?? ZUS_YEARS[Object.keys(ZUS_YEARS).filter((k) => k <= y).sort().pop() ?? Object.keys(ZUS_YEARS).sort()[0]]
   const own = s.zus?.years?.[y] ?? {}
   const n: ZusYear = { avg: own.avg || built.avg, min: own.min || built.min, health: own.health || built.health }
-  return { ...n, known: !!ZUS_YEARS[y] || !!(own.avg && own.min && own.health) }
+  const hmin = own.hmin || ZUS_YEARS[y]?.hmin || r2(0.09 * n.min), hcap = own.hcap || built.hcap || 0
+  return { ...n, hmin, hcap, known: !!ZUS_YEARS[y] || !!(own.avg && own.min && own.health) }
 }
 const monthsFrom = (a: string, b: string) => (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7))
 const daysIn = (mk: string) => new Date(+mk.slice(0, 4), +mk.slice(5, 7), 0).getDate()
@@ -409,10 +410,70 @@ export const zusHealth = (st: State, mk: string, revMk?: number) => {
   return { ytd: r2(ytd), tier, total: r2((ZUS_RATES.health / 100) * r2(tier * y.health)) }
 }
 // what a ZUS line comes to in month mk (undefined: not set up yet → the line's own amount)
-export const zusCalc = (st: State, l: TaxLine, mk: string, revMk?: number) => {
+export const zusCalc = (st: State, l: TaxLine, mk: string, revMk?: number, rev: RevFn = monthRevenue) => {
   if (!isZus(l) || !zusOn(st.settings)) return undefined
-  return l.kind === 'zusSocial' ? zusSocial(st.settings, mk).total : zusHealth(st, mk, revMk).total
+  return l.kind === 'zusSocial' ? zusSocial(st.settings, mk).total : l.kind === 'zusHealthIncome' ? healthIncome(st, l, mk, rev) : zusHealth(st, mk, revMk).total
 }
+// ---------- liniowy / skala (Poland): health contribution and PIT advances from income ----------
+type RevFn = (st: State, mk: string) => number
+// business costs of month mk: budget expenses and spending marked "Business cost", in the tax currency
+export const costsFor = (st: State, mk: string) => {
+  const s = st.settings, tc = taxCur(s)
+  let sum = 0
+  for (const [key, p] of Object.entries(st.periods)) {
+    if (!key.startsWith(mk)) continue
+    for (const it of p.items) if (it.kind === 'expense' && it.cost) sum += conv(s, it.amount, it.currency ?? s.mainCur, tc, it.date ?? periodFromKey(key, s).end)
+  }
+  for (const x of st.spends) if (x.cost && x.date.startsWith(mk)) sum += conv(s, x.amount, x.currency ?? s.mainCur, tc, x.date)
+  return r2(sum)
+}
+export const isPit = (l: TaxLine) => l.kind === 'pitLinear' || l.kind === 'pitScale'
+// the "Business cost" switch shows only when a tax line takes costs off
+export const usesCosts = (s: Settings) => taxLinesOf(s).some(isPit)
+// skala: 12% up to 120 000 zł of income a year, 32% above, minus 3 600 zł (the tax on the 30 000 zł tax-free amount)
+export const PL_SCALE = { low: 12, high: 32, limit: 120000, free: 3600 }
+const ownOf = (st: State, l: TaxLine, mk: string) => st.taxMonths[mk]?.lines?.[l.id]?.amount
+// social ZUS paid in month m (= for the period `lag` months before)
+const socialPaid = (st: State, m: string) => taxLinesOf(st.settings).filter((l) => l.kind === 'zusSocial').reduce((a, l) => {
+  const p = addMonths(m, -lagOf(l))
+  return a + (ownOf(st, l, p) ?? zusCalc(st, l, p) ?? l.amount ?? 0)
+}, 0)
+// a month's income: revenue − business costs − social ZUS paid that month (at = the month whose revenue is being edited)
+export const incomeOf = (st: State, m: string, rev: RevFn = monthRevenue, at?: string, revAt?: number) =>
+  r2((m === at && revAt !== undefined ? revAt : rev(st, m)) - costsFor(st, m) - socialPaid(st, m))
+// liniowy / skala health contribution for month mk: pct (4.9 / 9) of the month before's income,
+// at least the minimum of the contribution year (February to January)
+export const healthIncome = (st: State, l: TaxLine, mk: string, rev: RevFn = monthRevenue) => {
+  const s = st.settings
+  if (zusStage(s, mk).stage === 'none') return 0
+  const cy = +mk.slice(5, 7) >= 2 ? mk.slice(0, 4) : String(+mk.slice(0, 4) - 1)
+  const base = Math.max(0, incomeOf(st, prevMonth(mk), rev))
+  return Math.max(zusYear(s, cy).hmin, r2(((l.pct ?? 9) / 100) * base))
+}
+// PIT advance for the period ending in mk: tax on this year's income so far (liniowy: minus the health contributions paid,
+// up to the year's limit), minus the advances of the year's earlier periods (your own numbers where you typed them)
+export const pitCalc = (st: State, l: TaxLine, mk: string, rev: RevFn = monthRevenue, revMk?: number) => {
+  const s = st.settings, y = mk.slice(0, 4), k = PL_SCALE
+  const health = taxLinesOf(s).filter((x) => x.kind === 'zusHealthIncome')
+  const healthOf = (x: TaxLine, p: string) => ownOf(st, x, p) ?? (zusOn(s) ? healthIncome(st, x, p, rev) : x.amount ?? 0)
+  const cap = zusYear(s, y).hcap
+  let income = 0, hpaid = 0, before = 0
+  for (let m = `${y}-01`; m <= mk; m = nextMonth(m)) {
+    income += incomeOf(st, m, rev, mk, revMk)
+    if (l.kind === 'pitLinear') hpaid += health.reduce((a, x) => a + healthOf(x, addMonths(m, -lagOf(x))), 0)
+    if (!lineEndsIn(l, m)) continue
+    const base = Math.max(0, Math.round(income - (l.kind === 'pitLinear' ? Math.min(hpaid, cap) : 0)))
+    const tax = l.kind === 'pitLinear' ? ((l.pct ?? 19) / 100) * base
+      : base <= k.limit ? (k.low / 100) * base - k.free : (k.low / 100) * k.limit - k.free + (k.high / 100) * (base - k.limit)
+    const adv = Math.max(0, Math.round(tax) - before)
+    if (m === mk) return adv
+    before += ownOf(st, l, m) ?? adv
+  }
+  return 0
+}
+// what a worked-out line (ZUS or PIT advance) comes to for the period ending in mk
+export const autoCalc = (st: State, l: TaxLine, mk: string, rev: RevFn = monthRevenue, revMk?: number) =>
+  isPit(l) ? pitCalc(st, l, mk, rev, revMk) : zusCalc(st, l, mk, revMk, rev)
 // the lines' amounts for one period: own numbers first, then fixed, then % lines (a % line may take off part of another line)
 export const lineAmounts = (lines: TaxLine[], revOf: (l: TaxLine) => number, own: Record<string, number | undefined>, auto?: (l: TaxLine) => number | undefined) => {
   const out: Record<string, number> = {}
@@ -421,7 +482,7 @@ export const lineAmounts = (lines: TaxLine[], revOf: (l: TaxLine) => number, own
     if (out[l.id] !== undefined) return out[l.id]
     let c = 0
     if (l.kind === 'fixed') c = l.amount ?? 0
-    else if (isZus(l)) c = auto?.(l) ?? l.amount ?? 0
+    else if (isZus(l) || isPit(l)) c = auto?.(l) ?? l.amount ?? 0
     else if (l.kind === 'pct') c = Math.max(0, r2(((l.pct ?? 0) / 100) * revOf(l)))
     else {
       const o = lines.find((x) => x.id === l.less && x.id !== l.id)
@@ -467,7 +528,7 @@ export const taxPeriod = (st: State, mk: string, rev: (st: State, mk: string) =>
   const revOf = (l: TaxLine) => periodMonths(l, mk).reduce((a, m) => a + (m === mk ? revenue : rev(st, m)), 0)
   const own: Record<string, number | undefined> = {}
   for (const l of lines) own[l.id] = tm?.lines?.[l.id]?.amount
-  const { amounts, calc } = lineAmounts(lines, revOf, own, (l) => zusCalc(st, l, mk, rev === monthRevenue ? undefined : revenue))
+  const { amounts, calc } = lineAmounts(lines, revOf, own, (l) => autoCalc(st, l, mk, rev, rev === monthRevenue ? undefined : revenue))
   const parts: TaxPart[] = lines.map((l) => ({ line: l, end: mk, amount: amounts[l.id], calc: calc[l.id], own: own[l.id] !== undefined, paid: !!tm?.lines?.[l.id]?.paid, revenue: revOf(l) }))
   return { revenue, ...sumUp(parts), override: tm?.revenueOverride !== undefined }
 }
@@ -495,7 +556,7 @@ export const setTaxPaid = (d: State, pm: string, group: string | 'all', on: bool
   }
 }
 // the budget only gets taxes from when they were set up: earlier months of that year count from the first one with revenue, nothing before that
-const taxSet = (s: Settings) => taxLinesOf(s).some((l) => (l.amount ?? 0) > 0 || (l.pct ?? 0) > 0 || (isZus(l) && zusOn(s)))
+const taxSet = (s: Settings) => taxLinesOf(s).some((l) => (l.amount ?? 0) > 0 || (l.pct ?? 0) > 0 || isPit(l) || (isZus(l) && zusOn(s)))
 export const markTaxSince = (d: State) => { if (!d.settings.taxSince && taxSet(d.settings)) d.settings.taxSince = monthKey(today()) }
 export const taxFrom = (st: State) => {
   const since = st.settings.taxSince ?? monthKey(today())
