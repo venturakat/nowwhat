@@ -217,7 +217,7 @@ export const uk: Record<string, string> = {
   'Done · log it': 'Зроблено · записати', 'Skip this time': 'Пропустити цього разу', 'Coming up': 'Далі',
   'next time': 'наступного разу', 'Add what you do for yourself regularly.': 'Додай те, що регулярно робиш для себе.', 'Manicure': 'Манікюр',
   'Pedicure': 'Педикюр', 'Massage': 'Масаж', 'Haircut': 'Стрижка',
-  'Gym': 'Спортзал', 'Yoga class': 'Йога', 'New selfcare': 'Новий догляд',
+  'Esthetician': 'Косметолог', 'Doctor': 'Лікар', 'New selfcare': 'Новий догляд',
   'Details': 'Деталі', 'Place, master, what exactly…': 'Місце, майстер, що саме…', 'Price per time': 'Ціна за раз',
   'Repeat every (days)': 'Повторювати кожні (днів)', 'Next time': 'Наступного разу', 'Starts (when it’s booked)': 'Початок (коли записано)',
   // Supplies

@@ -7,7 +7,7 @@ import { FormSheet } from '../form'
 import { tr, trn } from '../i18n'
 
 // quick starts for an empty tab (name, every N days)
-const IDEAS: [string, number][] = [['Manicure', 21], ['Pedicure', 42], ['Massage', 30], ['Haircut', 60], ['Gym', 30], ['Yoga class', 7]]
+const IDEAS: [string, number][] = [['Manicure', 21], ['Pedicure', 42], ['Massage', 30], ['Haircut', 60], ['Esthetician', 30], ['Doctor', 365]]
 
 export const everyText = (n: number) => (n === 1 ? tr('Every day') : n === 7 ? tr('Every week') : n % 7 === 0 ? trn(n / 7, 'Every {n} week', 'Every {n} weeks') : trn(n, 'Every {n} day', 'Every {n} days'))
 const whenText = (d: string, t: string) => {
