@@ -140,7 +140,6 @@ const Budget = () => {
         <span className="t14">{tr('Spent {a} of {b}', { a: fmt(s.fixed + s.spent), b: fmt(s.income) })}{s.saved ? ' · ' + tr('{a} to savings', { a: fmt(s.saved) }) : ''}</span>
         <button className="btn sm" style={{ alignSelf: 'flex-start', marginTop: 2 }} onClick={() => openSheet(<MoveToSavings date={isNow ? today() : s.info.end} left={s.left} />)}>{tr('Move to savings')}</button>
       </div>
-      {s.isTemplate && <div className="t14 muted" style={{ padding: '0 4px' }}>{tr('Copied from last month — edit anything and it becomes this fortnight’s own plan.')}</div>}
       <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
         {s.auto.filter((a) => a.income && !a.expected).map((a) => (
           <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />

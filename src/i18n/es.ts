@@ -278,7 +278,6 @@ export const es: Record<string, string> = {
   "per day": "por día",
   "per day · {n} day left|per day · {n} days left": "por día · queda {n} día|por día · quedan {n} días|por día · quedan {n} días",
   "Spent {a} of {b}": "Gastaste {a} de {b}",
-  "Copied from last month — edit anything and it becomes this fortnight’s own plan.": "Copiado del mes pasado — cambiá lo que quieras y pasa a ser el plan de esta quincena.",
   "business revenue": "ingresos del negocio",
   "+ Add money in": "+ Agregar ingreso",
   "+ Add mandatory expense": "+ Agregar gasto obligatorio",

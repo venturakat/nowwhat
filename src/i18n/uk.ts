@@ -121,7 +121,7 @@ export const uk: Record<string, string> = {
   'Mandatory planned': 'Обовʼязкові заплановані', 'Mandatory paid': 'Обовʼязкові сплачені', 'Supplies bought': 'Куплені запаси', 'Day-to-day spending': 'Щоденні витрати',
   'Moved to {x}': 'Перенесено: {x}', 'now': 'зараз', 'Left this fortnight': 'Залишок на два тижні',
   'per day': 'на день', 'per day · {n} day left|per day · {n} days left': 'на день · лишився {n} день|на день · лишилося {n} дні|на день · лишилося {n} днів', 'Spent {a} of {b}': 'Витрачено {a} з {b}',
-  'Copied from last month — edit anything and it becomes this fortnight’s own plan.': 'Скопійовано з минулого місяця — зміни будь-що, і це стане планом саме цих двох тижнів.', 'business revenue': 'дохід бізнесу', '+ Add money in': '+ Додати надходження',
+  'business revenue': 'дохід бізнесу', '+ Add money in': '+ Додати надходження',
   '+ Add mandatory expense': '+ Додати обовʼязкову витрату', 'Spending': 'Витрата', 'Nothing logged yet.': 'Ще нічого не записано.',
   '+ Log spending': '+ Додати витрату', 'Tap again to merge': 'Торкнись ще раз, щоб обʼєднати', 'Merge identical spends': 'Обʼєднати однакові витрати',
   'Merged': 'Обʼєднано', 'Money in': 'Надходження', 'Mandatory expense': 'Обовʼязкова витрата',

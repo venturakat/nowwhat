@@ -278,7 +278,6 @@ export const ru: Record<string, string> = {
   "per day": "в день",
   "per day · {n} day left|per day · {n} days left": "в день · остался {n} день|в день · осталось {n} дня|в день · осталось {n} дней",
   "Spent {a} of {b}": "Потрачено {a} из {b}",
-  "Copied from last month — edit anything and it becomes this fortnight’s own plan.": "Скопировано с прошлого месяца — измени что угодно, и это станет планом именно этих двух недель.",
   "business revenue": "доход бизнеса",
   "+ Add money in": "+ Добавить поступление",
   "+ Add mandatory expense": "+ Добавить обязательную трату",
