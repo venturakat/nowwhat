@@ -215,12 +215,14 @@ export const autoLines = (st: State, p: PeriodInfo): AutoLine[] => {
     const b = p.month === lb.month ? lb : p.month > lb.month ? classBatch(st, c, t, p.month) : undefined
     if (b && b.dates.length && inHalf(b.due)) out.push({ id: 'lessons-' + c.id, label: c.name, amount: b.pln, date: b.due, meta: `${trn(b.dates.length, '{n} class', '{n} classes')} · ${fmtDay(b.due)}`, kind: 'lessons' })
   }
-  // all credit payments falling in this half, summed into one fixed line
-  const cr = (st.credits ?? []).map((c) => {
-    const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end)
-    return { c, pln: inP.reduce((a, x) => a + toMain(st.settings, x.amount, c.currency, x.date), 0), dates: inP.map((x) => x.date) }
-  }).filter((x) => x.dates.length)
-  if (cr.length) out.push({ id: 'credits', label: tr('Credits'), amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: creditMeta(cr.flatMap((x) => x.dates)), kind: 'credit' })
+  // credit payments falling in this half, summed into one line — the ones whose date has passed are paid
+  for (const done of [true, false]) {
+    const cr = (st.credits ?? []).map((c) => {
+      const inP = creditSchedule(c).filter((x) => x.date >= p.start && x.date <= p.end && (x.date < t) === done)
+      return { c, pln: inP.reduce((a, x) => a + toMain(st.settings, x.amount, c.currency, x.date), 0), dates: inP.map((x) => x.date) }
+    }).filter((x) => x.dates.length)
+    if (cr.length) out.push({ id: done ? 'credits-paid' : 'credits', label: tr('Credits'), amount: cr.reduce((a, x) => a + x.pln, 0), date: cr.map((x) => x.dates[0]).sort()[0], meta: creditMeta(cr.flatMap((x) => x.dates)), kind: 'credit', paid: done || undefined })
+  }
   // subscriptions charged in this half, as one line
   const subs = (st.settings.subsFrom && p.key < st.settings.subsFrom ? [] : st.subscriptions ?? []).filter((x) => !x.paused).map((x) => ({ x, d: subDate(x, p.month) })).filter(({ d }) => d >= p.start && d <= p.end)
   // the ones whose day has passed are paid
