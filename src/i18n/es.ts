@@ -1202,4 +1202,5 @@ export const es: Record<string, string> = {
   "Business costs {x} · expenses and spending marked “Business cost” in the Budget": "Gastos del negocio {x} · gastos marcados como «Gasto del negocio» en el Presupuesto",
   "{n} of {m}": "{n} de {m}",
   "Delivery (food)": "Delivery",
+  "From savings": "De ahorros",
 }

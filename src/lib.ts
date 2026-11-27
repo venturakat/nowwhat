@@ -284,6 +284,7 @@ export interface PeriodSummary {
   fixed: number
   spent: number
   saved: number // moved to savings from this half (counts out of Left)
+  fromSavings: number // taken out of savings back into this half's budget (counts as income, not taxable)
   left: number
   daysLeft: number
   perDay: number
@@ -295,17 +296,20 @@ export const summarize = (st: State, key: string): PeriodSummary => {
   const auto = autoLines(st, info)
   // dated amounts at the rate of their day; undated ones at the rate of the half's last day
   const pl = (x: { amount: number; currency?: Currency; date?: string }) => toMain(st.settings, x.amount, x.currency, x.date ?? info.end)
-  const income = items.filter((i) => i.kind === 'income').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => a.income && (!a.expected || a.counted)).reduce((a, b) => a + b.amount, 0)
+  const income0 = items.filter((i) => i.kind === 'income').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => a.income && (!a.expected || a.counted)).reduce((a, b) => a + b.amount, 0)
   const fixed = items.filter((i) => i.kind === 'expense').reduce((a, b) => a + pl(b), 0) + auto.filter((a) => !a.income).reduce((a, b) => a + b.amount, 0)
   const spent = st.spends.filter((s) => s.date >= info.start && s.date <= info.end).reduce((a, b) => a + pl(b), 0)
-  // moved to savings from this half's budget (given back = negative)
-  const saved = (st.savings ?? []).reduce((a, acc) => a + acc.moves.filter((m) => m.budget && m.date >= info.start && m.date <= info.end).reduce((b, m) => b + toMain(st.settings, m.budget!, m.budgetCur, m.date), 0), 0)
+  // moved to savings from this half's budget (positive); taken out of savings back into it (negative) = income
+  const bm = (st.savings ?? []).flatMap((acc) => acc.moves.filter((m) => m.budget && m.date >= info.start && m.date <= info.end).map((m) => toMain(st.settings, m.budget!, m.budgetCur, m.date)))
+  const saved = bm.filter((v) => v > 0).reduce((a, v) => a + v, 0)
+  const fromSavings = -bm.filter((v) => v < 0).reduce((a, v) => a + v, 0)
+  const income = income0 + fromSavings
   const left = income - fixed - spent - saved
   const t = today()
   const total = diffDays(info.start, info.end) + 1
   const daysLeft = t < info.start ? total : t > info.end ? 0 : diffDays(t, info.end) + 1
   const perDay = daysLeft > 0 ? left / daysLeft : 0
-  return { info, items, isTemplate, auto, income, fixed, spent, saved, left, daysLeft, perDay }
+  return { info, items, isTemplate, auto, income, fixed, spent, saved, fromSavings, left, daysLeft, perDay }
 }
 
 // ---------- taxes ----------

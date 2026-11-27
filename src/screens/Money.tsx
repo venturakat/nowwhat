@@ -117,7 +117,10 @@ const Budget = () => {
   const bought = s.items.filter((i) => i.kind === 'expense' && isBought(i))
   const boughtSum = bought.reduce((a, i) => a + toMain(st.settings, i.amount, i.currency, i.date ?? s.info.end), 0)
   const spends = st.spends.filter((x) => x.date >= s.info.start && x.date <= s.info.end).sort((a, b) => b.date.localeCompare(a.date))
-  const toSavings = (st.savings ?? []).flatMap((a) => a.moves.filter((m) => m.budget && m.date >= s.info.start && m.date <= s.info.end).map((m) => ({ a, m }))).sort((x, y) => y.m.date.localeCompare(x.m.date))
+  const budgetMoves = (st.savings ?? []).flatMap((a) => a.moves.filter((m) => m.budget && m.date >= s.info.start && m.date <= s.info.end).map((m) => ({ a, m }))).sort((x, y) => y.m.date.localeCompare(x.m.date))
+  // moved into savings → "Moved to savings"; taken out and put back into the budget → "Came in" as "From savings"
+  const toSavings = budgetMoves.filter(({ m }) => m.budget! > 0)
+  const fromSavings = budgetMoves.filter(({ m }) => m.budget! < 0)
   return (
     <>
       <div className="between">
@@ -146,6 +149,9 @@ const Budget = () => {
         ))}
         {incomes.map((i) => (
           <Row key={i.id} dot={i.fromClient ? C.work : C.money} title={i.label} meta={[i.date && fmtDay(i.date), i.repeat && tr('every month'), (i.fromClient || i.taxable) && tr('business revenue')].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
+        ))}
+        {fromSavings.map(({ a, m }) => (
+          <Row key={m.id} dot={C.money} title={tr('From savings')} meta={[fmtDay(m.date), m.note].filter(Boolean).join(' · ')} trail={fmt(-toMain(st.settings, m.budget!, m.budgetCur, m.date))} onClick={() => openSheet(<AccountSheet id={a.id} />)} />
         ))}
         <Row title={<span className="muted">{tr('+ Add money in')}</span>} onClick={() => editItem(undefined, 'income')} />
       </List>
@@ -188,7 +194,7 @@ const Budget = () => {
       {toSavings.length > 0 && (
         <Fold title="Moved to savings" right={fmt(s.saved)}>
           {toSavings.map(({ a, m }) => (
-            <Row key={m.id} dot={C.money} title={a.name} meta={[fmtDay(m.date), m.budget! < 0 && tr('back to the budget'), m.note].filter(Boolean).join(' · ')} trail={(m.budget! < 0 ? '−' : '') + fmt(Math.abs(toMain(st.settings, m.budget!, m.budgetCur, m.date)))} onClick={() => openSheet(<AccountSheet id={a.id} />)} />
+            <Row key={m.id} dot={C.money} title={a.name} meta={[fmtDay(m.date), m.note].filter(Boolean).join(' · ')} trail={fmt(toMain(st.settings, m.budget!, m.budgetCur, m.date))} onClick={() => openSheet(<AccountSheet id={a.id} />)} />
           ))}
         </Fold>
       )}

@@ -850,4 +850,5 @@ export const uk: Record<string, string> = {
   'Business costs {x} · expenses and spending marked “Business cost” in the Budget': 'Витрати бізнесу {x} · витрати й щоденні витрати з позначкою «Витрата бізнесу» в Бюджеті',
   '{n} of {m}': '{n} з {m}',
   'Delivery (food)': 'Доставка',
+  'From savings': 'Із заощаджень',
 }
