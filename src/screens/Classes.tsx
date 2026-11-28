@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ensurePeriod, update, useSt } from '../store'
 import type { Settings } from '../types'
 import type { ClassRate, Course, Currency, PayCur } from '../types'
-import { fitSize, addDays, classBatch, classMonthCost, paysPerClass, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName, pad, daysInMonth } from '../lib'
+import { fitSize, addDays, classBatch, classDates, classMonthCost, paysPerClass, classEnd, classTime, movedAway, toggleClass, classPayIn, classRate, classRateKind, curOptions, curSign, fmt, fmtCur, fmtDay, fmtPay, fmtWeekday, monthName, numText, parseNum, perClassPaid, periodOf, r2, toMain, today, uid, weekdayName, pad, daysInMonth } from '../lib'
 import { C, closeSheet, Field, Icon, List, openSheet, Row, Sheet, TimeRange, toast } from '../ui'
 import { refreshRates } from '../rates'
 import { copyText } from './Money'
@@ -55,6 +55,7 @@ const ClassBlock = ({ c }: { c: Course }) => {
     : ''
   return (
     <>
+      {!per && <PaidAhead c={c} next={b?.month} />}
       {b ? (
         <div className="card money" style={{ gap: 6 }}>
           <span className="t15 w5">{c.name} · {per ? tr('cost this month') : `${tr('next payment')} · ${monthName(b.month, true)}`}</span>
@@ -87,6 +88,24 @@ const ClassBlock = ({ c }: { c: Course }) => {
         <Row title={tr('Class settings')} trail={<Icon.chevR />} onClick={() => openSheet(<ClassEdit id={c.id} />)} />
       </List>
     </>
+  )
+}
+
+// once this month is paid and the card has moved on to the next one: this month's paid classes still to come
+const PaidAhead = ({ c, next }: { c: Course; next?: string }) => {
+  const t = today()
+  const mk = t.slice(0, 7)
+  if (next === mk) return null // this month still has something to pay: its list shows the paid ones too
+  const paid = new Set(c.pays.flatMap((p) => p.dates))
+  const dates = classDates(c, t, `${mk}-${pad(daysInMonth(+mk.slice(0, 4), +mk.slice(5, 7)))}`).filter((d) => paid.has(d))
+  if (!dates.length) return null
+  return (
+    <List title={tr('{x} in {m}', { x: c.name, m: monthName(mk, true) })}>
+      {dates.map((d) => (
+        <Row key={d} dot={C.ok} title={fmtWeekday(d)}
+          meta={[classTime(c, d), c.moved?.[d] ? tr('moved from {d}', { d: fmtDay(c.moved[d]) }) : c.extra.includes(d) && tr('extra'), tr('paid')].filter(Boolean).join(' · ')} />
+      ))}
+    </List>
   )
 }
 
