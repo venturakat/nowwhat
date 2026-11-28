@@ -55,7 +55,6 @@ const ClassBlock = ({ c }: { c: Course }) => {
     : ''
   return (
     <>
-      {!per && <PaidAhead c={c} next={b?.month} />}
       {b ? (
         <div className="card money" style={{ gap: 6 }}>
           <span className="t15 w5">{c.name} · {per ? tr('cost this month') : `${tr('next payment')} · ${monthName(b.month, true)}`}</span>
@@ -81,6 +80,7 @@ const ClassBlock = ({ c }: { c: Course }) => {
           <span className="t14">{tr(!c.days.length ? 'No class days set yet' : per ? 'No classes this month' : 'Nothing to pay right now')}</span>
         </div>
       )}
+      {!per && <PaidAhead c={c} next={b?.month} />}
       <List title={b ? tr('{x} in {m}', { x: c.name, m: monthName(b.month, true) }) : c.name} right={b ? 'tap to cancel' : undefined}>
         {b && <MonthClasses c={c} month={b.month} />}
         <Row title={<span className="muted">{tr('+ Extra class')}</span>} onClick={() => openSheet(<ExtraClass id={c.id} />)} />
