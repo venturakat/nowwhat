@@ -510,7 +510,7 @@ export const uk: Record<string, string> = {
   'up to {x}': 'до {x}',
   'Soon': 'Скоро',
   '+ Add a need': '+ Додати потребу',
-  'Saved, maybe': 'Збережене, може',
+  'Saved (to buy)': 'Збережене',
   'Every saved thing waits here until you decide': 'Кожна збережена річ чекає тут, доки не вирішиш',
   'Saved today': 'Збережено сьогодні',
   'Saved yesterday': 'Збережено вчора',

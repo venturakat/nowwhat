@@ -4,7 +4,7 @@ import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
 import { curOptions, curSign, mainCur, diffDays, fmt, fmtBoth, fmtCur, fmtDay, toMain, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet } from '../form'
-import { tr, trn } from '../i18n'
+import { getLang, tr, trn } from '../i18n'
 import { Travel } from './Travel'
 import { useTodayWeather, type Wx } from '../weather'
 
@@ -237,7 +237,7 @@ const ToBuy = () => {
         <Row title={<span className="muted">{tr('+ Add a need')}</span>} onClick={() => openSheet(<NeedEdit />)} />
       </List>
       <div className="col" style={{ padding: '0 4px', gap: 4 }}>
-        <span className="t17">{tr('Saved, maybe')}</span>
+        <span className="t17">{getLang() === 'en' ? 'Saved' : tr('Saved (to buy)')}</span>
         <span className="t14 muted">{tr('Every saved thing waits here until you decide')}</span>
       </div>
       {saved.map((s) => {

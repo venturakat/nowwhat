@@ -863,7 +863,7 @@ export const es: Record<string, string> = {
   "up to {x}": "hasta {x}",
   "Soon": "Pronto",
   "+ Add a need": "+ Agregar algo que necesito",
-  "Saved, maybe": "Guardado, tal vez",
+  "Saved (to buy)": "Guardado",
   "Every saved thing waits here until you decide": "Todo lo guardado espera acá hasta que decidas",
   "Saved today": "Guardado hoy",
   "Saved yesterday": "Guardado ayer",

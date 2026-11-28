@@ -863,7 +863,7 @@ export const ru: Record<string, string> = {
   "up to {x}": "до {x}",
   "Soon": "Скоро",
   "+ Add a need": "+ Добавить нужное",
-  "Saved, maybe": "Сохранённое, может быть",
+  "Saved (to buy)": "Сохранённое",
   "Every saved thing waits here until you decide": "Каждая сохранённая вещь ждёт здесь, пока не решишь",
   "Saved today": "Сохранено сегодня",
   "Saved yesterday": "Сохранено вчера",
