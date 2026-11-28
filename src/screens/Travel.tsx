@@ -22,7 +22,10 @@ const when = (x: Trip, t: string) => {
 }
 // the current name of what an item points to (the wardrobe thing or supply may have been renamed)
 const nameOf = (st: State, i: PackItem) =>
-  (i.src === 'closet' ? st.closet.find((c) => c.id === i.refId)?.name : i.src === 'care' ? st.supplies.find((s) => s.id === i.refId)?.name : undefined) ?? i.name
+  (i.src === 'closet' ? st.closet.find((c) => c.id === i.refId)?.name : i.src === 'care' ? st.supplies.find((s) => s.id === i.refId)?.name : i.src === 'under' ? tr(i.name) : undefined) ?? i.name
+// every new list starts with these in Clothes › Underwear, 1 each (stored in English, shown translated)
+export const UNDER_STARTER = ['Underpants', 'Socks', 'Bras']
+export const underItems = (): PackItem[] => UNDER_STARTER.map((name) => ({ id: uid(), src: 'under', name }))
 const count = (x: Trip) => tr('{a} of {b} packed', { a: x.items.filter((i) => i.packed).length, b: x.items.length })
 
 export const Travel = () => {
@@ -69,7 +72,7 @@ const TripEdit = ({ id }: { id?: string }) => {
       if (y) Object.assign(y, data)
       else {
         const src = d.trips.find((z) => z.id === from)
-        d.trips.push({ id: nid, ...data, items: (src?.items ?? []).map((i) => ({ ...i, id: uid(), packed: undefined })) })
+        d.trips.push({ id: nid, ...data, under: true, items: src ? src.items.map((i) => ({ ...i, id: uid(), packed: undefined })) : underItems() })
       }
     })
     if (x) popSheet()
@@ -118,7 +121,11 @@ const TripSheet = ({ id }: { id: string }) => {
     setText('')
   }
   const clothes = byFormula(x.items.filter((i) => i.src === 'closet').map((i) => ({ i, cat: st.closet.find((c) => c.id === i.refId)?.cat ?? 'other' as const })))
-  const groups = CATS.map(([cat, label]) => ({ cat, label, items: clothes.filter((c) => c.cat === cat).map((c) => c.i) })).filter((g) => g.items.length)
+  const under = x.items.filter((i) => i.src === 'under')
+  // Underwear comes first: the starter lines, then underwear from the wardrobe
+  const groups = [['underwear', 'Underwear'] as const, ...CATS.filter(([cat]) => cat !== 'underwear')]
+    .map(([cat, label]) => ({ cat, label, items: [...(cat === 'underwear' ? under : []), ...clothes.filter((c) => c.cat === cat).map((c) => c.i)] }))
+    .filter((g) => g.items.length)
   const pieces = (xs: PackItem[]) => xs.reduce((a, i) => a + (i.qty ?? 1), 0) || undefined
   const care = x.items.filter((i) => i.src === 'care')
   const own = x.items.filter((i) => i.src === 'own')
@@ -145,7 +152,7 @@ const TripSheet = ({ id }: { id: string }) => {
   return (
     <Sheet title={x.name}>
       <div className="t15 muted" style={{ marginTop: -4 }}>{dates(x)}{when(x, today())}{x.items.length ? ` · ${count(x)}` : ''}</div>
-      <List title="Clothes" right={pieces(clothes.map((c) => c.i))}>
+      <List title="Clothes" right={pieces([...under, ...clothes.map((c) => c.i)])}>
         {groups.map((g) => (
           <div key={g.cat} className="pgroup">
             <div className="list-sub">{tr(g.label)}</div>

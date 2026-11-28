@@ -1223,4 +1223,7 @@ export const ru: Record<string, string> = {
   "Delete both ways": "Удалить оба направления",
   "The way back is before the way there.": "Дата возвращения раньше даты отправления.",
   "Tomorrow": "Завтра",
+  "Underpants": "Трусы",
+  "Socks": "Носки",
+  "Bras": "Бюстгальтеры",
 }

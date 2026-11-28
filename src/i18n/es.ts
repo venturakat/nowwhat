@@ -1223,4 +1223,7 @@ export const es: Record<string, string> = {
   "Delete both ways": "Borrar ida y vuelta",
   "The way back is before the way there.": "La vuelta es antes que la ida.",
   "Tomorrow": "Mañana",
+  "Underpants": "Bombachas",
+  "Socks": "Medias",
+  "Bras": "Corpiños",
 }

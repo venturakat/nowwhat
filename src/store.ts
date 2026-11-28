@@ -121,6 +121,11 @@ export const migrate = (s: State): State => {
     if (l.id === 'ua-tax') { l.lag = 2; if (l.dueDay === 20) { l.dueDay = 19; if (l.payDay === 15 || l.payDay === 10) l.payDay = 14 } }
   }
   migrateCleanPlan(out.cleanPlan) // each list gets its own day and repeat
+  // packing lists still to come get the starter underwear lines once
+  for (const x of out.trips ?? []) if (!x.under) {
+    x.under = true
+    if ((x.end ?? x.start ?? '9999') >= today()) x.items.unshift(...['Underpants', 'Socks', 'Bras'].map((name) => ({ id: uid(), src: 'under' as const, name })))
+  }
   // the Poland preset no longer has a Basis transfer row: drop it while it's empty
   if (out.settings.transfer) out.settings.transfer = out.settings.transfer.filter((r) => !(r.label === 'Basis' && !r.text.trim()))
   // ZUS line names without brackets: "Health (ZUS)" → "Health ZUS"

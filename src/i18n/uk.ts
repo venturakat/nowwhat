@@ -871,4 +871,7 @@ export const uk: Record<string, string> = {
   'Delete both ways': 'Видалити обидва напрямки',
   'The way back is before the way there.': 'Дата повернення раніше за дату відправлення.',
   'Tomorrow': 'Завтра',
+  'Underpants': 'Труси',
+  'Socks': 'Шкарпетки',
+  'Bras': 'Бюстгальтери',
 }

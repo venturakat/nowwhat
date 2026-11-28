@@ -327,7 +327,7 @@ export interface Outfit {
 // Travel (Closet): packing lists made of wardrobe things, Supplies › Care things and anything typed in
 export interface PackItem {
   id: ID
-  src: 'closet' | 'care' | 'own'
+  src: 'closet' | 'care' | 'own' | 'under' // under = the starter underwear lines (name stored in English)
   refId?: ID // the wardrobe thing / supply it points to
   name: string // its name when added (kept if the thing is later deleted)
   qty?: number // how many to take (1 if not set)
@@ -339,6 +339,7 @@ export interface Trip {
   start?: string // YYYY-MM-DD
   end?: string
   items: PackItem[]
+  under?: boolean // the starter underwear lines were added (once; deleting them keeps them gone)
 }
 
 export interface CreditExtra {
