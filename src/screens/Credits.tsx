@@ -10,7 +10,7 @@ const monthYear = (d?: string) => (d ? `${monthName(d.slice(0, 7))} ${d.slice(0,
 
 // an extra or closing payment is real money leaving this half: log it in the budget
 const logPayment = (date: string, label: string, amount: number, cur?: Currency) =>
-  update((d) => { ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: uid(), kind: 'expense', label, amount, currency: cur ?? d.settings.mainCur, date, oneOff: true }) })
+  update((d) => { ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: uid(), kind: 'expense', label, amount, currency: cur ?? d.settings.mainCur, date, oneOff: true, from: 'credit' }) })
 
 export const Credits = () => {
   const st = useSt()

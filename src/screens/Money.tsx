@@ -130,6 +130,15 @@ const Budget = () => {
   const careKey = (i: (typeof paidItems)[number]) => i.care ?? (i.oneOff && careNames.has(i.label) ? 'n:' + i.label : undefined)
   const careGroups = new Map<string, typeof paidItems>()
   for (const i of paidItems) { const k = careKey(i); if (k) careGroups.set(k, [...(careGroups.get(k) ?? []), i]) }
+  // a paid line's dot = the colour of where it came from (older lines without `from` matched by their name / class payment)
+  const classItems = new Set((st.classes ?? []).flatMap((c) => c.pays.map((p) => p.itemId)).filter(Boolean))
+  const creditNames = (st.credits ?? []).map((c) => ' · ' + c.name)
+  const closetNames = new Set(st.closet.map((x) => x.name))
+  const paidDot = (i: (typeof paidItems)[number]) =>
+    i.from === 'class' || classItems.has(i.id) ? C.ok
+    : careKey(i) || i.from === 'closet' || (i.oneOff && closetNames.has(i.label)) ? C.closet
+    : i.from === 'credit' || (i.oneOff && creditNames.some((n) => i.label.endsWith(n))) ? C.money
+    : C.line
   const paidRows: (typeof paidItems)[] = []
   for (const i of paidItems) {
     const k = careKey(i)
@@ -142,7 +151,7 @@ const Budget = () => {
   const plannedSum = autoOut.filter((a) => !a.paid).reduce((x, a) => x + a.amount, 0) + expenses.reduce((x, i) => x + mainOf(i), 0)
   const paidSum = autoOut.filter((a) => a.paid).reduce((x, a) => x + a.amount, 0) + paidItems.reduce((x, i) => x + mainOf(i), 0)
   const autoRow = (a: (typeof autoOut)[number]) => (
-    <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'classes' : 'credits')} />
+    <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : a.kind === 'lessons' ? C.ok : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'classes' : 'credits')} />
   )
   const bought = s.items.filter((i) => i.kind === 'expense' && isBought(i))
   const boughtSum = bought.reduce((a, i) => a + toMain(st.settings, i.amount, i.currency, i.date ?? s.info.end), 0)
@@ -214,7 +223,7 @@ const Budget = () => {
           {autoOut.filter((a) => a.paid).map(autoRow)}
           {paidRows.map((g) => {
             const i = g[0]
-            if (g.length === 1) return <Row key={i.id} dot={C.line} title={i.label} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+            if (g.length === 1) return <Row key={i.id} dot={paidDot(i)} title={i.label} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
             const total = g.reduce((x, y) => x + mainOf(y), 0)
             const cur = g.every((y) => y.currency === i.currency) ? i.currency : undefined
             const sum = cur && cur !== st.settings.mainCur ? fmtCur(g.reduce((x, y) => x + y.amount, 0), cur) : fmt(total)

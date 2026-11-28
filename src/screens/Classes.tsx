@@ -165,7 +165,7 @@ const PaySheet = ({ id }: { id: string }) => {
         update((d) => {
           const L = d.classes!.find((x) => x.id === id)!
           const itemId = uid()
-          ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: itemId, kind: 'expense', label: `${L.name} (paid)`, amount: zl, currency: d.settings.mainCur, date, oneOff: true })
+          ensurePeriod(d, periodOf(date, d.settings).key).items.push({ id: itemId, kind: 'expense', label: `${L.name} (paid)`, amount: zl, currency: d.settings.mainCur, date, oneOff: true, from: 'class' })
           L.pays.push({ id: uid(), date, dates: b.dates, price: L.price, currency: L.currency, rate: kind ? rate : undefined, paid: sent, payIn, pln: zl, plnCur: d.settings.mainCur, itemId })
         })
         closeSheet(); toast(tr('Paid · {x} added to the budget', { x: fmt(zl) }))
