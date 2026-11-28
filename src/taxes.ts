@@ -49,7 +49,7 @@ export const PRESETS: Preset[] = [
   {
     key: 'ua', name: 'Ukraine', cur: 'UAH', rule: 'paid',
     lines: () => [
-      { id: 'ua-tax', name: 'Single tax', kind: 'pct', pct: 5, every: 'quarter', lag: 2, payDay: defaultPayDay(19), dueDay: 19 }, // ~50 days after the quarter
+      { id: 'ua-tax', name: 'Єдиний податок', kind: 'pct', pct: 5, every: 'quarter', lag: 2, payDay: defaultPayDay(19), dueDay: 19 }, // ~50 days after the quarter
       { id: 'ua-esv', name: 'ЄСВ', kind: 'fixed', amount: 0, every: 'quarter', payDay: defaultPayDay(20), dueDay: 20 }
     ],
     transfer: () => [row('IBAN'), row('РНОКПП'), row('Призначення', '{місяць} {yyyy}')]
