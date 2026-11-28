@@ -242,7 +242,7 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .pgroup .lrow { padding-top: 5px; padding-bottom: 5px; }
 .pgroup { padding-bottom: 6px; }
 /* packing lists: every block has the same space under its title as Clothes has above its first group */
-.list-h + .pgroup .list-sub { padding-top: 18px; }
+.pgroup .list-sub { padding-top: 18px; }
 .list-h + .pgroup:not(:has(> .list-sub)) { padding-top: 13px; }
 .list-h + .padd { padding-top: 5px; }
 .list-h + .padd-in { padding-top: 8px !important; }
