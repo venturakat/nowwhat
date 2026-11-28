@@ -143,7 +143,7 @@ const Budget = () => {
         <span className="t14">{tr('Spent {a} of {b}', { a: fmt(s.fixed + s.spent), b: fmt(s.income) })}{s.saved ? ' · ' + tr('{a} to savings', { a: fmt(s.saved) }) : ''}</span>
         <button className="btn sm" style={{ alignSelf: 'flex-start', marginTop: 2 }} onClick={() => openSheet(<MoveToSavings date={isNow ? today() : s.info.end} left={s.left} />)}>{tr('Move to savings')}</button>
       </div>
-      <List title="Came in" right={fmt(s.income)} empty="Nothing yet">
+      <Fold id="in" open title="Came in" right={fmt(s.income)}>
         {s.auto.filter((a) => a.income && !a.expected).map((a) => (
           <Row key={a.id} dot={C.work} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
         ))}
@@ -154,51 +154,51 @@ const Budget = () => {
           <Row key={m.id} dot={C.money} title={tr('From savings')} meta={[fmtDay(m.date), m.note].filter(Boolean).join(' · ')} trail={fmt(-toMain(st.settings, m.budget!, m.budgetCur, m.date))} onClick={() => openSheet(<AccountSheet id={a.id} />)} />
         ))}
         <Row title={<span className="muted">{tr('+ Add money in')}</span>} onClick={() => editItem(undefined, 'income')} />
-      </List>
+      </Fold>
       {s.auto.some((a) => a.expected && a.counted) && (
-        <List title="Expected income in budget" right={fmt(s.auto.filter((a) => a.expected && a.counted).reduce((x, a) => x + a.amount, 0))}>
+        <Fold id="exp-in" open title="Expected income in budget" right={fmt(s.auto.filter((a) => a.expected && a.counted).reduce((x, a) => x + a.amount, 0))}>
           {s.auto.filter((a) => a.expected && a.counted).map((a) => (
             <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
           ))}
-        </List>
+        </Fold>
       )}
       {s.auto.some((a) => a.expected && !a.counted) && (
-        <List title="Expected income not in budget" right={<span className="muted">{fmt(s.auto.filter((a) => a.expected && !a.counted).reduce((x, a) => x + a.amount, 0))}</span>}>
+        <Fold id="exp-out" open title="Expected income not in budget" right={<span className="muted">{fmt(s.auto.filter((a) => a.expected && !a.counted).reduce((x, a) => x + a.amount, 0))}</span>}>
           {s.auto.filter((a) => a.expected && !a.counted).map((a) => (
             <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={<span className="muted">{fmt(a.amount)}</span>} onClick={() => useUi.getState().go('money', 'work')} />
           ))}
-        </List>
+        </Fold>
       )}
-      <List title="Mandatory planned" right={fmt(plannedSum)}>
+      <Fold id="planned" open title="Mandatory planned" right={fmt(plannedSum)}>
         {autoOut.filter((a) => !a.paid).map(autoRow)}
         {expenses.map((i) => (
           <Row key={i.id} dot={C.line} title={i.label} meta={[i.repeat && tr('every month'), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
         ))}
         <Row title={<span className="muted">{tr('+ Add mandatory expense')}</span>} onClick={() => editItem(undefined, 'expense')} />
-      </List>
+      </Fold>
       {paidSum > 0 || autoOut.some((a) => a.paid) || paidItems.length > 0 ? (
-        <List title="Mandatory paid" right={fmt(paidSum)}>
+        <Fold id="paid" open title="Mandatory paid" right={fmt(paidSum)}>
           {autoOut.filter((a) => a.paid).map(autoRow)}
           {paidItems.map((i) => (
             <Row key={i.id} dot={C.line} title={i.label} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
           ))}
-        </List>
+        </Fold>
       ) : null}
       {bought.length > 0 && (
-        <Fold title="Supplies bought" right={fmt(boughtSum)}>
+        <Fold id="bought" title="Supplies bought" right={fmt(boughtSum)}>
           {bought.map((i) => (
             <Row key={i.id} dot={C.supplies} title={i.label.replace(BOUGHT_RE, '')} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
           ))}
         </Fold>
       )}
       {toSavings.length > 0 && (
-        <Fold title="Moved to savings" right={fmt(s.saved)}>
+        <Fold id="saved" title="Moved to savings" right={fmt(s.saved)}>
           {toSavings.map(({ a, m }) => (
             <Row key={m.id} dot={C.money} title={a.name} meta={[fmtDay(m.date), m.note].filter(Boolean).join(' · ')} trail={fmt(toMain(st.settings, m.budget!, m.budgetCur, m.date))} onClick={() => openSheet(<AccountSheet id={a.id} />)} />
           ))}
         </Fold>
       )}
-      <Fold title="Day-to-day spending" right={fmt(s.spent)}>
+      <Fold id="spent" title="Day-to-day spending" right={fmt(s.spent)}>
         {spends.length ? spends.map((x) => (
           <Row key={x.id} title={x.note || tr('Spending')} meta={[fmtDay(x.date), x.cost && tr('business cost')].filter(Boolean).join(' · ')} trail={amt(x)} onClick={() => editSpend(x.id)} />
         )) : <div className="list-empty">{tr('Nothing logged yet.')}</div>}
@@ -253,9 +253,10 @@ const MergeSpends = ({ spends, date }: { spends: State['spends']; date: string }
   return <Row title={<span className={sure ? undefined : 'muted'}>{sure ? tr('Tap again to merge') : tr('Merge identical spends')}</span>} onClick={() => sure ? merge() : setSure(true)} />
 }
 
-// a list that opens on tap — closed by default
-const Fold = ({ title, right, children }: { title: string; right: ReactNode; children: ReactNode }) => {
-  const [open, setOpen] = useState(false)
+// a Budget block that folds on tap; how it was left (open or folded) is kept in settings.folds and comes back next time
+const Fold = ({ id, open: dflt = false, title, right, children }: { id: string; open?: boolean; title: string; right: ReactNode; children: ReactNode }) => {
+  const open = useStore((z) => z.st.settings.folds?.[id]) ?? dflt
+  const setOpen = (v: boolean) => update((d) => { d.settings.folds = { ...d.settings.folds, [id]: v } })
   return (
     <div className="list">
       <button className="list-h" style={{ width: '100%', paddingBottom: open ? undefined : 8 }} onClick={() => setOpen(!open)}>
