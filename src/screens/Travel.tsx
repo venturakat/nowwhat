@@ -156,7 +156,7 @@ const TripSheet = ({ id }: { id: string }) => {
       <div className="t15 muted" style={{ marginTop: -4 }}>{dates(x)}{when(x, today())}{x.items.some((i) => !i.wear) ? ` · ${count(x)}` : ''}</div>
       <List title="Travel outfit" right={pieces(outfit)}>
         {outfit.length > 0 && <div className="pgroup">{outfit.map((i) => item(i))}</div>}
-        <Row title={<span className="muted">{tr('+ Add from wardrobe')}</span>} onClick={() => pushSheet(<ClosetPick id={id} wear />)} />
+        <div className="padd"><Row title={<span className="muted">{tr('+ Add from wardrobe')}</span>} onClick={() => pushSheet(<ClosetPick id={id} wear />)} /></div>
       </List>
       <List title="Clothes" right={pieces([...under, ...clothes.map((c) => c.i)])}>
         {groups.map((g) => (
@@ -165,15 +165,15 @@ const TripSheet = ({ id }: { id: string }) => {
             {g.items.map((i) => item(i))}
           </div>
         ))}
-        <Row title={<span className="muted">{tr('+ Add from wardrobe')}</span>} onClick={() => pushSheet(<ClosetPick id={id} />)} />
+        <div className="padd"><Row title={<span className="muted">{tr('+ Add from wardrobe')}</span>} onClick={() => pushSheet(<ClosetPick id={id} />)} /></div>
       </List>
       <List title="Care" right={pieces(care)}>
         {care.length > 0 && <div className="pgroup">{care.map((i) => item(i))}</div>}
-        <Row title={<span className="muted">{tr('+ Add from Supplies › Care')}</span>} onClick={() => pushSheet(<CarePick id={id} />)} />
+        <div className="padd"><Row title={<span className="muted">{tr('+ Add from Supplies › Care')}</span>} onClick={() => pushSheet(<CarePick id={id} />)} /></div>
       </List>
       <List title="Other" right={pieces(own)}>
         {own.length > 0 && <div className="pgroup">{own.map((i) => item(i))}</div>}
-        <div className="col" style={{ gap: 6, padding: '6px 12px 10px' }}>
+        <div className="col padd-in" style={{ gap: 6, padding: '6px 12px 10px' }}>
           <div className="row" style={{ gap: 8 }}>
             <div className="combo">
               <input className="input" value={text} placeholder="Choose or type your own" enterKeyHint="done"
