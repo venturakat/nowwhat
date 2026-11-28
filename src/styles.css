@@ -242,9 +242,10 @@ input.input::-webkit-datetime-edit { padding: 0; }
 .pgroup .lrow { padding-top: 5px; padding-bottom: 5px; }
 .pgroup { padding-bottom: 6px; }
 /* packing lists: every block has the same space under its title as Clothes has above its first group */
-.list-h + .pgroup:not(:has(> .list-sub)) { padding-top: 17px; }
-.list-h + .padd { padding-top: 9px; }
-.list-h + .padd-in { padding-top: 12px !important; }
+.list-h + .pgroup .list-sub { padding-top: 18px; }
+.list-h + .pgroup:not(:has(> .list-sub)) { padding-top: 13px; }
+.list-h + .padd { padding-top: 5px; }
+.list-h + .padd-in { padding-top: 8px !important; }
 .qty { display: flex; align-items: center; gap: 2px; font-size: 15px; font-weight: 500; color: var(--ink2); }
 .qty .qbtn { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; font-size: 17.5px; line-height: 1; }
 .qty .qbtn:active { background: var(--swatch); }
