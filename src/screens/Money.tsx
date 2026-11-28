@@ -40,6 +40,21 @@ export const Money = () => {
 }
 
 // ================= BUDGET =================
+// Mandatory paid › a merged selfcare line: every payment in it, tap one to edit
+const CarePaid = ({ ids, pkey, onEdit }: { ids: string[]; pkey: string; onEdit: (id: string) => void }) => {
+  const st = useSt()
+  const items = summarize(st, pkey).items.filter((i) => ids.includes(i.id)).sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+  if (!items.length) return null
+  return (
+    <Sheet title={items[0].label}>
+      <List>
+        {items.map((i) => (
+          <Row key={i.id} dot={C.closet} title={i.date ? fmtDay(i.date) : i.label} trail={!i.currency || i.currency === st.settings.mainCur ? fmt(i.amount) : fmtCur(i.amount, i.currency)} onClick={() => onEdit(i.id)} />
+        ))}
+      </List>
+    </Sheet>
+  )
+}
 // an expense already paid: switched to Paid in its edit form (one-off purchases from Supplies/Closet/Selfcare count as paid)
 const isPaid = (i: { paid?: boolean; oneOff?: boolean }) => i.paid ?? !!i.oneOff
 const Budget = () => {
@@ -110,6 +125,18 @@ const Budget = () => {
   const isBought = (i: { bought?: boolean; label: string }) => !!i.bought || BOUGHT_RE.test(i.label)
   const expenses = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && !isPaid(i))
   const paidItems = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && isPaid(i))
+  // paid selfcare of the same kind (logged from Selfcare; older ones matched by name) → one line
+  const careNames = new Set((st.selfcare ?? []).map((x) => x.name))
+  const careKey = (i: (typeof paidItems)[number]) => i.care ?? (i.oneOff && careNames.has(i.label) ? 'n:' + i.label : undefined)
+  const careGroups = new Map<string, typeof paidItems>()
+  for (const i of paidItems) { const k = careKey(i); if (k) careGroups.set(k, [...(careGroups.get(k) ?? []), i]) }
+  const paidRows: (typeof paidItems)[] = []
+  for (const i of paidItems) {
+    const k = careKey(i)
+    const g = k ? careGroups.get(k)! : [i]
+    if (g.length < 2) paidRows.push([i])
+    else if (g[0] === i) paidRows.push(g)
+  }
   const autoOut = s.auto.filter((a) => !a.income)
   const mainOf = (i: { amount: number; currency?: Currency; date?: string }) => toMain(st.settings, i.amount, i.currency, i.date ?? s.info.end)
   const plannedSum = autoOut.filter((a) => !a.paid).reduce((x, a) => x + a.amount, 0) + expenses.reduce((x, i) => x + mainOf(i), 0)
@@ -185,9 +212,14 @@ const Budget = () => {
       {paidSum > 0 || autoOut.some((a) => a.paid) || paidItems.length > 0 ? (
         <Fold id="paid" open title="Mandatory paid" right={fmt(paidSum)}>
           {autoOut.filter((a) => a.paid).map(autoRow)}
-          {paidItems.map((i) => (
-            <Row key={i.id} dot={C.line} title={i.label} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
-          ))}
+          {paidRows.map((g) => {
+            const i = g[0]
+            if (g.length === 1) return <Row key={i.id} dot={C.line} title={i.label} meta={[i.date && fmtDay(i.date), i.cost && tr('business cost')].filter(Boolean).join(' · ') || undefined} trail={amt(i)} onClick={() => editItem(i.id)} />
+            const total = g.reduce((x, y) => x + mainOf(y), 0)
+            const cur = g.every((y) => y.currency === i.currency) ? i.currency : undefined
+            const sum = cur && cur !== st.settings.mainCur ? fmtCur(g.reduce((x, y) => x + y.amount, 0), cur) : fmt(total)
+            return <Row key={i.id} dot={C.closet} title={i.label} meta={trn(g.length, '{n} time', '{n} times') + ' · ' + sum} trail={fmt(total)} onClick={() => openSheet(<CarePaid ids={g.map((y) => y.id)} pkey={key} onEdit={editItem} />)} />
+          })}
         </Fold>
       ) : null}
       {bought.length > 0 && (
