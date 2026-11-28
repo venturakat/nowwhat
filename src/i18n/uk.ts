@@ -325,7 +325,7 @@ export const uk: Record<string, string> = {
   'Moved to {d}': 'Перенесено на {d}',
   'Skip': 'Пропустити', 'Skip this one': 'Пропустити цей раз',
   'Skipped this one': 'Цей раз пропущено',
-  'Remove this one': 'Прибрати цей раз',
+  'Remove this one': 'Видалити цей раз',
   'Plan it': 'Запланувати',
   'Date (on a cleaning day it takes that clean’s place)': 'Дата (у день прибирання заміняє те прибирання)',
   'Not planned': 'Не заплановано',
