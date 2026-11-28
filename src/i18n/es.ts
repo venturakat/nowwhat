@@ -1226,4 +1226,5 @@ export const es: Record<string, string> = {
   "Underpants": "Bombachas",
   "Socks": "Medias",
   "Bras": "Corpiños",
+  "Travel outfit": "Puesto en el viaje",
 }

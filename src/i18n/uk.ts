@@ -874,4 +874,5 @@ export const uk: Record<string, string> = {
   'Underpants': 'Труси',
   'Socks': 'Шкарпетки',
   'Bras': 'Бюстгальтери',
+  'Travel outfit': 'На мені в дорозі',
 }

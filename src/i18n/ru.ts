@@ -1226,4 +1226,5 @@ export const ru: Record<string, string> = {
   "Underpants": "Трусы",
   "Socks": "Носки",
   "Bras": "Бюстгальтеры",
+  "Travel outfit": "На мне в дороге",
 }

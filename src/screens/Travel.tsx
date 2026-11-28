@@ -26,7 +26,7 @@ const nameOf = (st: State, i: PackItem) =>
 // every new list starts with these in Clothes › Underwear, 1 each (stored in English, shown translated)
 export const UNDER_STARTER = ['Underpants', 'Socks', 'Bras']
 export const underItems = (): PackItem[] => UNDER_STARTER.map((name) => ({ id: uid(), src: 'under', name }))
-const count = (x: Trip) => tr('{a} of {b} packed', { a: x.items.filter((i) => i.packed).length, b: x.items.length })
+const count = (x: Trip) => { const xs = x.items.filter((i) => !i.wear); return tr('{a} of {b} packed', { a: xs.filter((i) => i.packed).length, b: xs.length }) }
 
 export const Travel = () => {
   const st = useSt()
@@ -37,7 +37,7 @@ export const Travel = () => {
   const row = (x: Trip, done = false) => {
     return (
       <Row key={x.id} done={done} dot={done ? C.line : C.closet} title={x.name}
-        meta={`${dates(x)}${done ? '' : when(x, t)}${x.items.length ? ` · ${count(x)}` : ` · ${tr('empty')}`}`}
+        meta={`${dates(x)}${done ? '' : when(x, t)}${x.items.some((i) => !i.wear) ? ` · ${count(x)}` : x.items.length ? '' : ` · ${tr('empty')}`}`}
         trail={<Icon.chevR />} onClick={() => openSheet(<TripSheet id={x.id} />)} />
     )
   }
@@ -120,7 +120,9 @@ const TripSheet = ({ id }: { id: string }) => {
     edit((y) => { for (const name of names) y.items.push({ id: uid(), src: 'own', name }) })
     setText('')
   }
-  const clothes = byFormula(x.items.filter((i) => i.src === 'closet').map((i) => ({ i, cat: st.closet.find((c) => c.id === i.refId)?.cat ?? 'other' as const })))
+  const catOf = (i: PackItem) => st.closet.find((c) => c.id === i.refId)?.cat ?? 'other' as const
+  const outfit = byFormula(x.items.filter((i) => i.src === 'closet' && i.wear).map((i) => ({ i, cat: catOf(i) }))).map((c) => c.i)
+  const clothes = byFormula(x.items.filter((i) => i.src === 'closet' && !i.wear).map((i) => ({ i, cat: st.closet.find((c) => c.id === i.refId)?.cat ?? 'other' as const })))
   const under = x.items.filter((i) => i.src === 'under')
   // Underwear comes first: the starter lines, then underwear from the wardrobe
   const groups = [['underwear', 'Underwear'] as const, ...CATS.filter(([cat]) => cat !== 'underwear')]
@@ -151,7 +153,11 @@ const TripSheet = ({ id }: { id: string }) => {
   const packed = x.items.filter((i) => i.packed).length
   return (
     <Sheet title={x.name}>
-      <div className="t15 muted" style={{ marginTop: -4 }}>{dates(x)}{when(x, today())}{x.items.length ? ` · ${count(x)}` : ''}</div>
+      <div className="t15 muted" style={{ marginTop: -4 }}>{dates(x)}{when(x, today())}{x.items.some((i) => !i.wear) ? ` · ${count(x)}` : ''}</div>
+      <List title="Travel outfit" right={pieces(outfit)}>
+        {outfit.length > 0 && <div className="pgroup">{outfit.map((i) => item(i))}</div>}
+        <Row title={<span className="muted">{tr('+ Add from wardrobe')}</span>} onClick={() => pushSheet(<ClosetPick id={id} wear />)} />
+      </List>
       <List title="Clothes" right={pieces([...under, ...clothes.map((c) => c.i)])}>
         {groups.map((g) => (
           <div key={g.cat} className="pgroup">
@@ -196,24 +202,26 @@ const TripSheet = ({ id }: { id: string }) => {
 }
 
 // keep what's already on the list (and its tick), add the newly chosen ones, drop the unchosen ones
-const syncRefs = (id: ID, src: 'closet' | 'care', ids: ID[], nameFor: (rid: ID) => string) =>
+// (closet things: `wear` picks for the Travel outfit, otherwise for Clothes — the other block is left alone)
+const syncRefs = (id: ID, src: 'closet' | 'care', ids: ID[], nameFor: (rid: ID) => string, wear = false) =>
   update((d) => {
     const y = d.trips?.find((z) => z.id === id)
     if (!y) return
-    const had = new Set(y.items.filter((i) => i.src === src).map((i) => i.refId))
-    y.items = y.items.filter((i) => i.src !== src || ids.includes(i.refId!))
-    for (const rid of ids) if (!had.has(rid)) y.items.push({ id: uid(), src, refId: rid, name: nameFor(rid) })
+    const mine = (i: PackItem) => i.src === src && !!i.wear === wear
+    const had = new Set(y.items.filter(mine).map((i) => i.refId))
+    y.items = y.items.filter((i) => !mine(i) || ids.includes(i.refId!))
+    for (const rid of ids) if (!had.has(rid)) y.items.push({ id: uid(), src, refId: rid, name: nameFor(rid), wear: wear || undefined })
   })
 
 // choose wardrobe things, by category (or a whole saved outfit at once)
-const ClosetPick = ({ id }: { id: ID }) => {
+const ClosetPick = ({ id, wear = false }: { id: ID; wear?: boolean }) => {
   const st = useSt()
   const x = st.trips?.find((y) => y.id === id)
-  const [ids, setIds] = useState<ID[]>(() => (x?.items ?? []).filter((i) => i.src === 'closet' && i.refId).map((i) => i.refId!))
+  const [ids, setIds] = useState<ID[]>(() => (x?.items ?? []).filter((i) => i.src === 'closet' && i.refId && !!i.wear === wear).map((i) => i.refId!))
   const toggle = (cid: ID) => setIds(ids.includes(cid) ? ids.filter((z) => z !== cid) : [...ids, cid])
   const outfits = st.outfits.filter((o) => o.itemIds.some((i) => st.closet.some((c) => c.id === i)))
   return (
-    <Sheet title="From wardrobe" onBack={() => popSheet()}>
+    <Sheet title={wear ? 'Travel outfit' : 'From wardrobe'} onBack={() => popSheet()}>
       {!st.closet.length && <span className="t15 muted">{tr('Your wardrobe is empty — add things in Closet › I own.')}</span>}
       {outfits.length > 0 && (
         <div className="col" style={{ gap: 8 }}>
@@ -238,8 +246,8 @@ const ClosetPick = ({ id }: { id: ID }) => {
         )
       })}
       <div className="sheet-foot">
-        <button className="btn full" onClick={() => { syncRefs(id, 'closet', ids, (r) => st.closet.find((c) => c.id === r)?.name ?? ''); popSheet() }}>
-          {ids.length ? trn(ids.length, 'Pack {n} thing', 'Pack {n} things') : tr('Save')}
+        <button className="btn full" onClick={() => { syncRefs(id, 'closet', ids, (r) => st.closet.find((c) => c.id === r)?.name ?? '', wear); popSheet() }}>
+          {ids.length && !wear ? trn(ids.length, 'Pack {n} thing', 'Pack {n} things') : tr('Save')}
         </button>
       </div>
     </Sheet>

@@ -332,7 +332,8 @@ export interface PackItem {
   refId?: ID // the wardrobe thing / supply it points to
   name: string // its name when added (kept if the thing is later deleted)
   qty?: number // how many to take (1 if not set)
-  packed?: boolean
+  packed?: boolean // ticked (for a Travel outfit thing: ready to wear)
+  wear?: boolean // wardrobe thing worn on the way (Travel outfit) — not packed, not in the packed count
 }
 export interface Trip {
   id: ID
