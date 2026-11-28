@@ -75,21 +75,24 @@ export interface Occurrence {
 // all cleans whose date falls in [from, to]
 export const occurrences = (st: State, from: string, to: string): Occurrence[] => {
   const p = st.cleanPlan
-  const out: Occurrence[] = []
-  const handDates = new Set(MODES.flatMap((m) => p.once?.[m] ?? []))
-  // the bigger clean wins when two lists fall on the same day
+  // one clean a day: one planned by hand takes the place of the scheduled one, otherwise the bigger clean wins.
+  // Nothing is deleted — when the winner is moved or removed, the other one is back on that day.
+  const hand = new Map<string, Occurrence>()
+  for (const m of MODES) for (const x of p.once?.[m] ?? []) if (x >= from && x <= to && (hand.get(x)?.mode ?? 0) < m) hand.set(x, { key: onceKey(m, x), date: x, mode: m, ...p.times?.[onceKey(m, x)] })
+  // the bigger clean wins when two lists fall on the same scheduled day
   const byDate = new Map<string, CleanMode>()
   // look a bit wider so moved ones are found too
   for (const m of MODES) for (const s of schedDates(schedOf(p, m), addDays(from, -21), addDays(to, 21))) if ((byDate.get(s) ?? 0) < m) byDate.set(s, m)
+  const sched = new Map<string, Occurrence>()
   for (const [s, mode] of byDate) {
     if (p.skips.includes(s) || s < (p.start ?? '')) continue
     const date = p.moves[s] ?? s
-    if (date < from || date > to) continue
-    if (handDates.has(date)) continue // one planned by hand on that day takes the place of the scheduled one
-    out.push({ key: s, date, mode, sched: s, ...p.times?.[s] })
+    if (date < from || date > to || hand.has(date)) continue
+    const o: Occurrence = { key: s, date, mode, sched: s, ...p.times?.[s] }
+    const was = sched.get(date) // another clean moved onto (or away to) the same day
+    if (!was || was.mode < mode || (was.mode === mode && s === date)) sched.set(date, o)
   }
-  for (const m of MODES) for (const x of p.once?.[m] ?? []) if (x >= from && x <= to) out.push({ key: onceKey(m, x), date: x, mode: m, ...p.times?.[onceKey(m, x)] })
-  return out.sort((a, b) => a.date.localeCompare(b.date))
+  return [...hand.values(), ...sched.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
 export const tasksFor = (st: State, mode: CleanMode) => st.cleanTasks.filter((t) => t.mode === mode)
