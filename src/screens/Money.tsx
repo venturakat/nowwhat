@@ -103,7 +103,10 @@ const Budget = () => {
 
   // foreign amounts: "€25.00" with the main-currency value under it (at the rate of its day)
   const amt = (x: { amount: number; currency?: Currency; date?: string }) => !x.currency || x.currency === st.settings.mainCur ? fmt(x.amount) : <span style={{ textAlign: 'right', display: 'block' }}>{fmtCur(x.amount, x.currency)}<br /><span className="t13 muted" style={{ fontWeight: 400 }}>{fmt(toMain(st.settings, x.amount, x.currency, x.date ?? s.info.end))}</span></span>
-  const incomes = s.items.filter((i) => i.kind === 'income')
+  // regular (repeating) money in dated after today waits in "Expected income in budget"; on its date it moves to "Came in"
+  const upcoming = (i: { repeat?: boolean; date?: string }) => !!i.repeat && !!i.date && i.date > today()
+  const incomes = s.items.filter((i) => i.kind === 'income' && !upcoming(i))
+  const expIncomes = s.items.filter((i) => i.kind === 'income' && upcoming(i))
   const isBought = (i: { bought?: boolean; label: string }) => !!i.bought || BOUGHT_RE.test(i.label)
   const expenses = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && !isPaid(i))
   const paidItems = s.items.filter((i) => i.kind === 'expense' && !isBought(i) && isPaid(i))
@@ -155,10 +158,13 @@ const Budget = () => {
         ))}
         <Row title={<span className="muted">{tr('+ Add money in')}</span>} onClick={() => editItem(undefined, 'income')} />
       </Fold>
-      {s.auto.some((a) => a.expected && a.counted) && (
-        <Fold id="exp-in" open title="Expected income in budget" right={fmt(s.auto.filter((a) => a.expected && a.counted).reduce((x, a) => x + a.amount, 0))}>
+      {(s.auto.some((a) => a.expected && a.counted) || expIncomes.length > 0) && (
+        <Fold id="exp-in" open title="Expected income in budget" right={fmt(s.auto.filter((a) => a.expected && a.counted).reduce((x, a) => x + a.amount, 0) + expIncomes.reduce((x, i) => x + mainOf(i), 0))}>
           {s.auto.filter((a) => a.expected && a.counted).map((a) => (
             <Row key={a.id} dot={C.line} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => useUi.getState().go('money', 'work')} />
+          ))}
+          {expIncomes.map((i) => (
+            <Row key={i.id} dot={C.line} title={i.label} meta={[i.date && fmtDay(i.date), tr('every month'), i.taxable && tr('business revenue')].filter(Boolean).join(' · ')} trail={amt(i)} onClick={() => editItem(i.id)} />
           ))}
         </Fold>
       )}
