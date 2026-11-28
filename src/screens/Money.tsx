@@ -135,7 +135,7 @@ const Budget = () => {
   const creditNames = (st.credits ?? []).map((c) => ' · ' + c.name)
   const closetNames = new Set(st.closet.map((x) => x.name))
   const paidDot = (i: (typeof paidItems)[number]) =>
-    i.from === 'class' || classItems.has(i.id) ? C.ok
+    i.from === 'class' || classItems.has(i.id) ? C.money
     : careKey(i) || i.from === 'closet' || (i.oneOff && closetNames.has(i.label)) ? C.closet
     : i.from === 'credit' || (i.oneOff && creditNames.some((n) => i.label.endsWith(n))) ? C.money
     : C.line
@@ -151,7 +151,7 @@ const Budget = () => {
   const plannedSum = autoOut.filter((a) => !a.paid).reduce((x, a) => x + a.amount, 0) + expenses.reduce((x, i) => x + mainOf(i), 0)
   const paidSum = autoOut.filter((a) => a.paid).reduce((x, a) => x + a.amount, 0) + paidItems.reduce((x, i) => x + mainOf(i), 0)
   const autoRow = (a: (typeof autoOut)[number]) => (
-    <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : a.kind === 'lessons' ? C.ok : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'classes' : 'credits')} />
+    <Row key={a.id} dot={a.kind === 'supplies' ? C.supplies : a.kind === 'care' ? C.closet : C.money} title={a.label} meta={a.meta} trail={fmt(a.amount)} onClick={() => a.kind === 'supplies' ? useUi.getState().go('supplies', a.id.replace('sup-', '')) : useUi.getState().go('money', a.kind === 'tax' ? 'taxes' : a.kind === 'subs' ? 'subs' : a.kind === 'care' ? 'selfcare' : a.kind === 'lessons' ? 'classes' : 'credits')} />
   )
   const bought = s.items.filter((i) => i.kind === 'expense' && isBought(i))
   const boughtSum = bought.reduce((a, i) => a + toMain(st.settings, i.amount, i.currency, i.date ?? s.info.end), 0)
