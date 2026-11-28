@@ -852,4 +852,8 @@ export const uk: Record<string, string> = {
   'Delivery (food)': 'Доставка',
   'From savings': 'Із заощаджень',
   'Tap again to convert amounts to {c}': 'Тапни ще раз — суми перерахуються в {c}',
+  'Move to another account': 'Перенести на інший рахунок',
+  'to {x}': 'на рахунок «{x}»',
+  'from {x}': 'з рахунку «{x}»',
+  'Arrives as {x}': 'Надійде як {x}',
 }

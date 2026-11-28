@@ -1204,4 +1204,8 @@ export const es: Record<string, string> = {
   "Delivery (food)": "Delivery",
   "From savings": "De ahorros",
   "Tap again to convert amounts to {c}": "Tocá de nuevo: los montos pasan a {c}",
+  "Move to another account": "Pasar a otra cuenta",
+  "to {x}": "a {x}",
+  "from {x}": "de {x}",
+  "Arrives as {x}": "Llega como {x}",
 }

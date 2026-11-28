@@ -484,6 +484,7 @@ export interface SavingsMove {
   budget?: number // taken from (positive) or given back to (negative) that fortnight's budget, in budgetCur
   budgetCur?: Currency // the main currency at the time
   note?: string
+  link?: { acc: ID; move: ID } // a move between two accounts: the matching move in the other account
 }
 export interface SavingsAccount {
   id: ID

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { update, useSt, useStore } from '../store'
 import type { Currency, SavingsAccount, SavingsMove } from '../types'
-import { conv, curOptions, curSign, fitSize, fmt, fmtCur, fmtDay, periodOf, r2, toMain, today, uid } from '../lib'
+import { conv, curOptions, curSign, fitSize, fmt, fmtCur, fmtDay, parseNum, periodOf, r2, toMain, today, uid } from '../lib'
 import { closeSheet, List, openSheet, popSheet, pushSheet, Row, Sheet, toast } from '../ui'
 import { FormSheet } from '../form'
 import { tr } from '../i18n'
@@ -82,6 +82,7 @@ export const AccountSheet = ({ id }: { id: string }) => {
         <button className="btn" onClick={() => pushSheet(<AddMoney id={a.id} back />)}>{tr('Add money')}</button>
         <button className="btn ghost" onClick={() => pushSheet(<AddMoney id={a.id} out back />)}>{tr('Take money out')}</button>
       </div>
+      {(st.savings ?? []).length > 1 && <button className="btn full soft" onClick={() => pushSheet(<MoveBetween id={a.id} />)}>{tr('Move to another account')}</button>}
       <List title="History" empty="Nothing added yet.">
         {shown.map((m) => <MoveRow key={m.id} a={a} m={m} />)}
         {!all && moves.length > 8 && <Row title={<span className="muted">{tr('Show all')}</span>} onClick={() => setAll(true)} />}
@@ -92,7 +93,9 @@ export const AccountSheet = ({ id }: { id: string }) => {
 }
 
 const MoveRow = ({ a, m }: { a: SavingsAccount; m: SavingsMove }) => {
-  const meta = [yearDay(m.date), m.budget ? tr(m.budget > 0 ? 'from the budget' : 'back to the budget') : '', m.note ?? ''].filter(Boolean).join(' · ')
+  const st = useSt()
+  const other = m.link ? (st.savings ?? []).find((x) => x.id === m.link!.acc)?.name : undefined
+  const meta = [yearDay(m.date), other ? tr(m.amount < 0 ? 'to {x}' : 'from {x}', { x: other }) : '', m.budget ? tr(m.budget > 0 ? 'from the budget' : 'back to the budget') : '', m.note ?? ''].filter(Boolean).join(' · ')
   return <Row title={(m.amount < 0 ? '−' : '+') + fmtCur(Math.abs(m.amount), a.currency)} meta={meta} onClick={() => pushSheet(<MoveEdit acc={a.id} id={m.id} />)} />
 }
 
@@ -124,6 +127,46 @@ const AddMoney = ({ id, out, back }: { id: string; out?: boolean; back?: boolean
   )
 }
 
+// move money from one account to another: two linked moves, converted at the rate of the date when currencies differ
+const MoveBetween = ({ id }: { id: string }) => {
+  const st = useStore.getState().st
+  const accs = st.savings ?? []
+  const a = accs.find((x) => x.id === id)!
+  const others = accs.filter((x) => x.id !== id)
+  return (
+    <FormSheet title="Move to another account" initial={{ to: others[0]?.id, date: today() }} saveLabel="Move" onBack={() => popSheet()} full={false}
+      fields={[
+        { key: 'to', label: 'To account', type: 'select', options: others.map((x) => [x.id, x.name] as [string, string]) },
+        { key: 'amount', label: tr('Amount ({x})', { x: curSign(a.currency) }), type: 'number' },
+        { key: 'date', label: 'Date', type: 'date' },
+        { key: 'note', label: 'Note (optional)', type: 'text' }
+      ]}
+      extra={(v) => {
+        const b = others.find((x) => x.id === v.to)
+        const n = parseNum(v.amount)
+        if (!b || !n || b.currency === a.currency) return null
+        return <span className="t14 muted">{tr('Arrives as {x}', { x: fmtCur(r2(conv(st.settings, Math.abs(n), a.currency, b.currency, v.date || today())), b.currency) })}</span>
+      }}
+      onSave={(v) => {
+        const b = others.find((x) => x.id === v.to)
+        if (!v.amount || !b) return
+        const date = v.date || today()
+        const n = Math.abs(v.amount)
+        const note = v.note?.trim() || undefined
+        update((d) => {
+          const from = (d.savings ?? []).find((x) => x.id === a.id)
+          const to = (d.savings ?? []).find((x) => x.id === b.id)
+          if (!from || !to) return
+          const m1 = uid(), m2 = uid()
+          from.moves.push({ id: m1, date, amount: -n, note, link: { acc: to.id, move: m2 } })
+          to.moves.push({ id: m2, date, amount: r2(conv(d.settings, n, from.currency, to.currency, date)), note, link: { acc: from.id, move: m1 } })
+        })
+        toast(tr('Moved to {x}', { x: b.name }))
+      }}
+    />
+  )
+}
+
 const MoveEdit = ({ acc, id }: { acc: string; id: string }) => {
   const a = (useStore.getState().st.savings ?? []).find((x) => x.id === acc)
   const m = a?.moves.find((x) => x.id === id)
@@ -133,7 +176,7 @@ const MoveEdit = ({ acc, id }: { acc: string; id: string }) => {
       fields={[
         { key: 'amount', label: tr('Amount ({x})', { x: curSign(a.currency) }), type: 'number' },
         { key: 'date', label: 'Date', type: 'date' },
-        { key: 'budget', label: m.amount < 0 ? 'Put it back into that fortnight’s budget' : 'Take it from that fortnight’s budget', type: 'toggle' },
+        { key: 'budget', label: m.amount < 0 ? 'Put it back into that fortnight’s budget' : 'Take it from that fortnight’s budget', type: 'toggle', hide: () => !!m.link },
         { key: 'note', label: 'Note (optional)', type: 'text' }
       ]}
       onSave={(v) => {
@@ -151,9 +194,18 @@ const MoveEdit = ({ acc, id }: { acc: string; id: string }) => {
           x.amount = n
           x.date = date
           x.note = v.note?.trim() || undefined
+          // a move between accounts: the other side follows (amount converted at the date's rate)
+          const pa = x.link && (d.savings ?? []).find((y) => y.id === x.link!.acc)
+          const p = pa && pa.moves.find((y) => y.id === x.link!.move)
+          if (pa && p) { p.amount = r2(-Math.sign(n) * conv(d.settings, Math.abs(n), acc0.currency, pa.currency, date)); p.date = date; p.note = x.note }
         })
       }}
-      onDelete={() => update((d) => { const y = (d.savings ?? []).find((z) => z.id === acc); if (y) y.moves = y.moves.filter((z) => z.id !== id) })}
+      onDelete={() => update((d) => {
+        const y = (d.savings ?? []).find((z) => z.id === acc)
+        if (y) y.moves = y.moves.filter((z) => z.id !== id)
+        // deleting one side of a move between accounts deletes the other side too
+        if (m.link) { const o = (d.savings ?? []).find((z) => z.id === m.link!.acc); if (o) o.moves = o.moves.filter((z) => z.id !== m.link!.move) }
+      })}
     />
   )
 }
@@ -187,7 +239,10 @@ export const AccountEdit = ({ id, back }: { id?: string; back?: boolean }) => {
           else d.savings.push({ id: uid(), ...data, moves: [] })
         })
       }}
-      onDelete={a ? () => { gone = true; update((d) => { d.savings = (d.savings ?? []).filter((y) => y.id !== id) }) } : undefined}
+      onDelete={a ? () => { gone = true; update((d) => {
+        d.savings = (d.savings ?? []).filter((y) => y.id !== id)
+        for (const y of d.savings) for (const z of y.moves) if (z.link?.acc === id) delete z.link // moves from/to a deleted account stay, unlinked
+      }) } : undefined}
     />
   )
 }
