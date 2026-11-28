@@ -137,7 +137,7 @@ export const migrate = (s: State): State => {
     for (const i of per.items) if (i.from === 'closet' && i.date) (out.spends ??= []).push({ id: i.id, date: i.date, amount: i.amount, currency: i.currency, note: i.label })
     per.items = per.items.filter((i) => !(i.from === 'closet' && i.date))
   }
-  for (const l of out.settings.taxLines ?? []) if (l.id === 'ua-tax' && l.name === 'Single tax') l.name = 'Єдиний податок' // Ukraine preset: the tax's own name, like ЄСВ
+  for (const l of out.settings.taxLines ?? []) if (l.id === 'ua-tax' && l.name === 'Єдиний податок') l.name = 'Single tax' // Ukraine preset: shown in the app language (lineName)
   markTaxSince(out) // taxes already set up: the budget counts them from this year's first month with revenue
   fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies

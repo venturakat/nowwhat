@@ -1227,4 +1227,5 @@ export const ru: Record<string, string> = {
   "Socks": "Носки",
   "Bras": "Бюстгальтеры",
   "Travel outfit": "На мне в дороге",
+  "Single tax": "Единый налог",
 }

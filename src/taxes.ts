@@ -1,5 +1,5 @@
 import type { Settings, State, TaxLine, TaxRule, TransferRow } from './types'
-import { monthName, taxPeriod, uid } from './lib'
+import { lineName, monthName, taxPeriod, uid } from './lib'
 import { tr } from './i18n'
 
 // Bank-friendly amount: 954,54 (comma, no thousands separator)
@@ -49,7 +49,7 @@ export const PRESETS: Preset[] = [
   {
     key: 'ua', name: 'Ukraine', cur: 'UAH', rule: 'paid',
     lines: () => [
-      { id: 'ua-tax', name: 'Єдиний податок', kind: 'pct', pct: 5, every: 'quarter', lag: 2, payDay: defaultPayDay(19), dueDay: 19 }, // ~50 days after the quarter
+      { id: 'ua-tax', name: 'Single tax', kind: 'pct', pct: 5, every: 'quarter', lag: 2, payDay: defaultPayDay(19), dueDay: 19 }, // ~50 days after the quarter
       { id: 'ua-esv', name: 'ЄСВ', kind: 'fixed', amount: 0, every: 'quarter', payDay: defaultPayDay(20), dueDay: 20 }
     ],
     transfer: () => [row('IBAN'), row('РНОКПП'), row('Призначення', '{місяць} {yyyy}')]
@@ -94,11 +94,11 @@ export const RULE_NAME = () => ({
 })
 // "PIT-28 = 14% × (revenue − 50% of ZUS DRA)"
 export const lineFormula = (l: TaxLine, all: TaxLine[]) => {
-  if (l.kind === 'pct') return `${l.name} = ${l.pct ?? 0}% ${tr('of revenue')}`
-  const name = (id?: string) => all.find((x) => x.id === id)?.name ?? '—'
-  if (l.kind === 'pitLinear') return `${l.name} = ${l.pct ?? 19}% ${tr('of income this year')}`
-  if (l.kind === 'pitScale') return `${l.name} = 12 / 32% ${tr('of income this year')}`
-  if (l.kind === 'pctLess') return `${l.name} = ${l.pct ?? 0}% × (${tr('revenue')} − ${l.lessPct ?? 0}% ${tr('of')} ${name(l.less)}${l.less2 && all.some((x) => x.id === l.less2) ? ` − ${l.less2Pct ?? 0}% ${tr('of')} ${name(l.less2)}` : ''})`
+  if (l.kind === 'pct') return `${lineName(l)} = ${l.pct ?? 0}% ${tr('of revenue')}`
+  const name = (id?: string) => { const x = all.find((y) => y.id === id); return x ? lineName(x) : '—' }
+  if (l.kind === 'pitLinear') return `${lineName(l)} = ${l.pct ?? 19}% ${tr('of income this year')}`
+  if (l.kind === 'pitScale') return `${lineName(l)} = 12 / 32% ${tr('of income this year')}`
+  if (l.kind === 'pctLess') return `${lineName(l)} = ${l.pct ?? 0}% × (${tr('revenue')} − ${l.lessPct ?? 0}% ${tr('of')} ${name(l.less)}${l.less2 && all.some((x) => x.id === l.less2) ? ` − ${l.less2Pct ?? 0}% ${tr('of')} ${name(l.less2)}` : ''})`
   return ''
 }
 

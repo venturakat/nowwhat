@@ -5,7 +5,8 @@ import { bankAmount, fillTransfer, lineFormula } from '../taxes'
 import { tr, trn, getLang } from '../i18n'
 import { BOUGHT_RE, fitSize,
   diffDays, fmt, fmtCur, numText, periodFromKey, parseNum, revenueFromIncome, toMain, fmtClock, fmtDay, fmtHours, hours, monthKey, seriesOf, repeatCopy, sessionMain, ensureFees, isSkipped, fmtSum, needsRate, monthName, nextMonth, periodOf, prevMonth, r2, sessionAmt, sessionCur, shiftPeriod, summarize, taxFor, today, uid,
-  setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax, usesCosts, costsFor, autoCalc, isPit
+  setTaxPaid, isZus, zusOn, zusCalc, taxLinesOf, lineEndsIn, taxPays, monthRevenue, periodEnd, partsName, periodLabel, taxPeriod, addMonths, lagOf, dayOf, periodMonths, lineAmounts, curOptions, curSign, fmtTax, usesCosts, costsFor, autoCalc, isPit,
+  lineName
 } from '../lib'
 import { C, Chips, closeSheet, Field, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
 import { FormSheet, type FieldDef } from '../form'
@@ -836,13 +837,13 @@ const Taxes = () => {
           const ls = pctLines.filter((l) => (l.group?.trim() || l.id) === key), l = ls[0]
           const end = periodEnd(l, curM)
           const parts = taxPeriod(st, end).parts.filter((p) => ls.some((x) => x.id === p.line.id))
-          const name = ls.length > 1 ? l.group!.trim() : l.name
+          const name = ls.length > 1 ? l.group!.trim() : lineName(l)
           return <Row key={'e' + key} dot={C.money} title={tr('Estimated {x} for {p}', { x: name, p: periodLabel(l, end) })} meta={tr('So far · to be paid by {d}', { d: fmtDay(dayOf(addMonths(end, lagOf(l)), l.dueDay)) })} trail={ft(parts.reduce((x, p) => x + p.amount, 0))} onClick={() => editMonth(end)} />
         })}
         {pctLines.map((l) => {
           // what was actually paid in this year's months (marked paid), whichever period it was for
           const sum = months.reduce((a, pm) => a + taxFor(st, pm).parts.filter((p) => p.line.id === l.id && p.paid).reduce((b, p) => b + p.amount, 0), 0)
-          return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: l.name, y: year })} meta={tr('Paid so far this year')} trail={ft(sum)} />
+          return <Row key={'y' + l.id} dot={C.money} title={tr('{x} in {y}', { x: lineName(l), y: year })} meta={tr('Paid so far this year')} trail={ft(sum)} />
         })}
       </List>
       <div className="t13 muted" style={{ padding: '0 4px' }}>{tr('Taxes and contributions are worked out from Settings › Taxes – check them against your accounting and filed forms before paying. Tap any month to check or correct it.')}</div>
@@ -877,7 +878,7 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
         const usual = l.kind === 'fixed' || (isZus(l) && !zusOn(st.settings))
         const how = usual ? tr('usual amount') : isZus(l) || isPit(l) ? tr('worked out') : tr('calculated: {f}', { f: lineFormula(l, taxLinesOf(st.settings)).split(' = ')[1] })
         return (
-          <Field key={l.id} label={`${l.name} (${mine ? tr('your number') : how})`}>
+          <Field key={l.id} label={`${lineName(l)} (${mine ? tr('your number') : how})`}>
             <input className="input" inputMode="decimal" value={mine ? own[l.id] : numText(calc[l.id])} onChange={(e) => setOwn({ ...own, [l.id]: e.target.value })} />
             {mine && <button className="link" style={{ alignSelf: 'flex-start' }} onClick={() => setOwn({ ...own, [l.id]: undefined })}>{usual ? tr('Use the usual amount') : tr('Use the calculated amount')}</button>}
           </Field>
@@ -888,7 +889,7 @@ const TaxMonthSheet = ({ m }: { m: string }) => {
           {tx.groups.map((g) => <button key={g.key} className={'chip' + (paid[g.key] ? ' on' : '')} onClick={() => setPaid({ ...paid, [g.key]: !paid[g.key] })}>{paid[g.key] ? '✓ ' : ''}{tr('{x} paid', { x: g.name })}</button>)}
         </div>
       )}
-      {lines.length > 0 && <div className="t14 muted">{lines.map((l) => `${l.name} ${ft(amounts[l.id], true)}`).join(' · ')} = <b>{ft(total, true)}</b></div>}
+      {lines.length > 0 && <div className="t14 muted">{lines.map((l) => `${lineName(l)} ${ft(amounts[l.id], true)}`).join(' · ')} = <b>{ft(total, true)}</b></div>}
       <button className="btn full" onClick={() => {
         update((d) => {
           const x: TaxMonth = { ...(d.taxMonths[m] ?? {}) }

@@ -514,7 +514,7 @@ const groupParts = (parts: TaxPart[]) => {
   for (const p of parts) {
     const key = p.line.group?.trim() || p.line.id
     let g = groups.find((x) => x.key === key)
-    if (!g) groups.push((g = { key, name: p.line.group?.trim() || p.line.name, parts: [], amount: 0, left: 0, paid: true, payDay: p.line.payDay, dueDay: p.line.dueDay }))
+    if (!g) groups.push((g = { key, name: p.line.group?.trim() || lineName(p.line), parts: [], amount: 0, left: 0, paid: true, payDay: p.line.payDay, dueDay: p.line.dueDay }))
     g.parts.push(p)
     g.amount = r2(g.amount + p.amount)
     if (!p.paid) { g.left = r2(g.left + p.amount); g.paid = false }
@@ -527,6 +527,9 @@ const sumUp = (parts: TaxPart[]) => {
 }
 // the maths for the periods ending in month mk (whenever they're paid)
 // rev = how a month's revenue is counted (the budget adds the monthly fees still to come, see budgetRevenue)
+// a tax line's name to show: the Ukraine preset's single tax in the app language, own names as typed
+export const lineName = (l: { name: string }) => (l.name === 'Single tax' ? tr('Single tax') : l.name)
+
 export const taxPeriod = (st: State, mk: string, rev: (st: State, mk: string) => number = monthRevenue) => {
   const tm = st.taxMonths[mk]
   const revenue = rev(st, mk)

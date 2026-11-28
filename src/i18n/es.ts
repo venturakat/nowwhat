@@ -1227,4 +1227,5 @@ export const es: Record<string, string> = {
   "Socks": "Medias",
   "Bras": "Corpiños",
   "Travel outfit": "Puesto en el viaje",
+  "Single tax": "Impuesto único",
 }

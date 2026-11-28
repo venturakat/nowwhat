@@ -875,4 +875,5 @@ export const uk: Record<string, string> = {
   'Socks': 'Шкарпетки',
   'Bras': 'Бюстгальтери',
   'Travel outfit': 'На мені в дорозі',
+  'Single tax': 'Єдиний податок',
 }
