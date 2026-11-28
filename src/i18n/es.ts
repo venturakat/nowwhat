@@ -1203,4 +1203,5 @@ export const es: Record<string, string> = {
   "{n} of {m}": "{n} de {m}",
   "Delivery (food)": "Delivery",
   "From savings": "De ahorros",
+  "Tap again to convert amounts to {c}": "Tocá de nuevo: los montos pasan a {c}",
 }

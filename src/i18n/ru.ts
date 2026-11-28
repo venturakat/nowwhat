@@ -1203,4 +1203,5 @@ export const ru: Record<string, string> = {
   "{n} of {m}": "{n} из {m}",
   "Delivery (food)": "Доставка",
   "From savings": "Из сбережений",
+  "Tap again to convert amounts to {c}": "Тапни ещё раз — суммы пересчитаются в {c}",
 }

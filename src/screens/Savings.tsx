@@ -166,11 +166,18 @@ export const AccountEdit = ({ id, back }: { id?: string; back?: boolean }) => {
         { key: 'goal', label: 'Goal (optional)', type: 'number' },
         { key: 'note', label: 'Note (optional)', type: 'text' }
       ]}
+      // changing the currency of an account with money in it converts its amounts (and goal) at today's rate — second tap
+      confirmSave={(v) => (a && v.currency && v.currency !== a.currency && a.moves.length ? tr('Tap again to convert amounts to {c}', { c: v.currency }) : undefined)}
       onSave={(v) => {
         const data = { name: String(v.name).trim(), currency: v.currency ?? s.settings.mainCur, goal: v.goal || undefined, note: v.note?.trim() || undefined }
         update((d) => {
           d.savings ??= []
           const x = d.savings.find((y) => y.id === id)
+          if (x && x.currency !== data.currency) {
+            for (const m of x.moves) m.amount = r2(conv(d.settings, m.amount, x.currency, data.currency))
+            // a goal left as it was is converted too; a goal typed anew is kept as typed
+            if (data.goal && a && data.goal === a.goal) data.goal = r2(conv(d.settings, data.goal, x.currency, data.currency))
+          }
           if (x) Object.assign(x, data)
           else d.savings.push({ id: uid(), ...data, moves: [] })
         })

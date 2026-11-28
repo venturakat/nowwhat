@@ -16,8 +16,9 @@ type Vals = Record<string, any>
 type Def = FieldDef & { off?: (v: Vals) => boolean; hide?: (v: Vals) => boolean; hint?: string } // hint: a grey line under the field
 
 // Generic bottom-sheet form. Number fields come back as numbers (or undefined when empty).
-export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void | false; saveLabel?: string; extra?: React.ReactNode | ((v: Vals) => React.ReactNode); onBack?: () => void; full?: boolean; twoTap?: boolean }) => {
+export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onSave: (v: Vals) => void; onDelete?: () => void | false; saveLabel?: string; extra?: React.ReactNode | ((v: Vals) => React.ReactNode); onBack?: () => void; full?: boolean; twoTap?: boolean; confirmSave?: (v: Vals) => string | undefined }) => {
   const [armed, setArmed] = useState(false) // twoTap: first Delete tap arms (3 s), second deletes
+  const [saveArmed, setSaveArmed] = useState(false) // confirmSave: first Save tap shows the warning (3 s), second saves
   const full = p.full ?? !!p.onBack
   // number fields are kept as typed text (so "12,50" works) and parsed on save
   const [v, setV] = useState<Vals>(() => {
@@ -28,16 +29,18 @@ export const FormSheet = (p: { title: string; fields: Def[]; initial?: Vals; onS
   const set = (k: string, val: any) => setV((o) => ({ ...o, [k]: val }))
   const firstText = p.fields[0]?.type === 'text' ? p.fields[0] : undefined
   const can = !firstText || String(v[firstText.key] ?? '').trim().length > 0
+  const warn = p.confirmSave?.(v)
   const buttons = (
     <>
-    <button className="btn full" disabled={!can} onClick={() => {
+    <button className={'btn full' + (warn && saveArmed ? ' soft' : '')} style={warn && saveArmed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} disabled={!can} onClick={() => {
+      if (warn && !saveArmed) { setSaveArmed(true); setTimeout(() => setSaveArmed(false), 3000); return }
       const out: Vals = { ...v }
       for (const f of p.fields) if (f.type === 'number') out[f.key] = parseNum(v[f.key])
       p.onSave(out)
       // from a sub-page, saving takes you back to where you came from
       if (p.onBack) p.onBack(); else closeSheet()
     }}>
-      {tr(p.saveLabel ?? 'Save')}
+      {warn && saveArmed ? warn : tr(p.saveLabel ?? 'Save')}
     </button>
     {p.onDelete && (
       <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
