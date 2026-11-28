@@ -678,7 +678,7 @@ export const ru: Record<string, string> = {
   "Moved to {d}": "Перенесено на {d}",
   "Skip": "Пропустить", "Skip this one": "Пропустить в этот раз",
   "Skipped this one": "В этот раз пропущено",
-  "Remove this one": "Убрать в этот раз",
+  "Remove this one": "Удалить этот раз",
   "Plan it": "Запланировать",
   "Date (on a cleaning day it takes that clean’s place)": "Дата (в день уборки заменяет ту уборку)",
   "Not planned": "Не запланировано",
