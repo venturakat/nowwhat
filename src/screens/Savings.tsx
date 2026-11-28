@@ -129,22 +129,27 @@ const MoveEdit = ({ acc, id }: { acc: string; id: string }) => {
   const m = a?.moves.find((x) => x.id === id)
   if (!a || !m) return null
   return (
-    <FormSheet title="Edit" initial={{ amount: Math.abs(m.amount), date: m.date, note: m.note }} onBack={() => popSheet()} full={false} twoTap
+    <FormSheet title="Edit" initial={{ amount: Math.abs(m.amount), date: m.date, note: m.note, budget: !!m.budget }} onBack={() => popSheet()} full={false} twoTap
       fields={[
         { key: 'amount', label: tr('Amount ({x})', { x: curSign(a.currency) }), type: 'number' },
         { key: 'date', label: 'Date', type: 'date' },
+        { key: 'budget', label: m.amount < 0 ? 'Put it back into that fortnight’s budget' : 'Take it from that fortnight’s budget', type: 'toggle' },
         { key: 'note', label: 'Note (optional)', type: 'text' }
       ]}
-      extra={m.budget ? <span className="t14 muted">{tr(m.budget > 0 ? 'Taken from the budget of that fortnight.' : 'Given back to the budget of that fortnight.')}</span> : undefined}
       onSave={(v) => {
         if (!v.amount) return
         update((d) => {
-          const x = (d.savings ?? []).find((y) => y.id === acc)?.moves.find((y) => y.id === id)
-          if (!x) return
+          const acc0 = (d.savings ?? []).find((y) => y.id === acc)
+          const x = acc0?.moves.find((y) => y.id === id)
+          if (!acc0 || !x) return
           const n = Math.sign(x.amount || 1) * Math.abs(v.amount)
-          if (x.budget && x.amount) x.budget = r2((x.budget * n) / x.amount)
+          const date = v.date || x.date
+          // the budget switch: on = this move also leaves / goes back into the fortnight's budget of its date
+          if (!v.budget) { delete x.budget; delete x.budgetCur }
+          else if (x.budget && x.amount && date === x.date) x.budget = r2((x.budget * n) / x.amount)
+          else { const main = d.settings.mainCur; x.budget = r2(conv(d.settings, n, acc0.currency, main, date)); x.budgetCur = main }
           x.amount = n
-          x.date = v.date || x.date
+          x.date = date
           x.note = v.note?.trim() || undefined
         })
       }}
