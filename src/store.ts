@@ -132,6 +132,11 @@ export const migrate = (s: State): State => {
   for (const l of out.settings.taxLines ?? []) { if (l.name === 'Health (ZUS)') l.name = 'Health ZUS'; if (l.name === 'Social (ZUS)') l.name = 'Social ZUS' }
   // supplies bought: the budget line is just the item name — drop the old "(bought)" suffix in any language
   for (const per of Object.values(out.periods ?? {})) for (const i of per.items ?? []) if (BOUGHT_RE.test(i.label)) { i.label = i.label.replace(BOUGHT_RE, ''); i.bought = true }
+  // closet buys go to Day-to-day spending, not Mandatory paid
+  for (const per of Object.values(out.periods ?? {})) if (per.items?.some((i) => i.from === 'closet')) {
+    for (const i of per.items) if (i.from === 'closet' && i.date) (out.spends ??= []).push({ id: i.id, date: i.date, amount: i.amount, currency: i.currency, note: i.label })
+    per.items = per.items.filter((i) => !(i.from === 'closet' && i.date))
+  }
   markTaxSince(out) // taxes already set up: the budget counts them from this year's first month with revenue
   fillCurs(out)
   syncProjectBuys(out) // project "need to buy" items → one-time supplies

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ensurePeriod, update, useSt, useStore } from '../store'
+import { update, useSt, useStore } from '../store'
 import type { ClosetCat, ClosetItem, Currency, ID } from '../types'
 import { curOptions, curSign, mainCur, diffDays, fmt, fmtBoth, fmtCur, fmtDay, toMain, fmtWeekday, addDays, periodOf, shiftPeriod, summarize, today, uid } from '../lib'
 import { C, Chips, closeSheet, Field, Garment, Header, Icon, List, openSheet, popSheet, pushSheet, Row, Sheet, toast, registerSubs, useUi } from '../ui'
@@ -254,7 +254,7 @@ const ToBuy = () => {
                     update((d) => {
                       d.saved = d.saved.filter((x) => x.id !== s.id)
                       d.closet.push({ id: uid(), name: s.name, cat: s.cat, photo: s.photo, size: s.size, worn: 0, pairs: [], added: today() })
-                      ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${s.name}`, amount: s.price, currency: s.currency ?? d.settings.mainCur, date: today(), oneOff: true, from: 'closet' })
+                      d.spends.push({ id: uid(), date: today(), amount: s.price, currency: s.currency ?? d.settings.mainCur, note: s.name })
                     })
                     toast('Enjoy it · in your wardrobe, with its photo, and in the budget')
                   }}>{tr('Bought it')}</button>
@@ -316,7 +316,7 @@ const GotNeed = ({ id }: { id: string }) => {
   const done = (log: boolean) => {
     update((d) => {
       d.needs = d.needs.filter((x) => x.id !== n.id)
-      if (log && paid > 0) ensurePeriod(d, periodOf(today(), d.settings).key).items.push({ id: uid(), kind: 'expense', label: `${n.name}`, amount: paid, currency: cur, date: today(), oneOff: true, from: 'closet' })
+      if (log && paid > 0) d.spends.push({ id: uid(), date: today(), amount: paid, currency: cur, note: n.name })
     })
     toast(log && paid > 0 ? tr('{x} added to spending', { x: fmtCur(paid, cur) }) : 'Off the list')
     openSheet(<ItemEdit from={{ name: n.name, cat: 'other', size: n.size }} />)
