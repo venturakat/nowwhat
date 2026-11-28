@@ -10,6 +10,7 @@ import { ShipmentLog } from './Shipments'
 import { currentClean, MODE_NAME, progress } from '../cleaning'
 import { tr, trn } from '../i18n'
 import { BackupSheet, CurrenciesSheet, TaxesSheet } from '../settings'
+import { TravelEdit } from '../calendar'
 
 // Today › Fresh start: three setup buttons, each opens its Settings page and then hides; the block goes once all three were tapped
 const SETUP: [string, string, () => ReactNode][] = [['backup', 'Restore', () => <BackupSheet />], ['currencies', 'Currencies', () => <CurrenciesSheet />], ['taxes', 'Taxes', () => <TaxesSheet />]]
@@ -177,14 +178,24 @@ const OtherTasks = () => {
     return () => clearTimeout(h)
   }, [next])
   const toggle = (id: string) => update((d) => { const x = d.tasks?.find((y) => y.id === id); if (x) tickTask(x) })
+  // travel tomorrow: at the top on the day before (ticked ones go down with the done tasks)
+  const tmr = addDays(today(), 1)
+  const trips = (st.events ?? []).filter((e) => e.kind === 'travel' && e.date === tmr)
+  const trip = (e: (typeof trips)[number]) => (
+    <Row key={'trip-' + e.id} done={!!e.ticked} title={e.title} dot={C.ink} meta={[tr('Tomorrow'), timeSpan(e.time, e.end), e.place].filter(Boolean).join(' · ')}
+      trail={<span onClick={(x) => { x.stopPropagation(); update((d) => { const y = d.events?.find((z) => z.id === e.id); if (y) y.ticked = !y.ticked || undefined }) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!e.ticked} /></span>}
+      onClick={() => openSheet(<TravelEdit id={e.id} after={0} />)} />
+  )
   return (
     <div className="list">
       <div className="list-h"><span className="t17">{tr('Parking lot')}</span></div>
+      {trips.filter((e) => !e.ticked).map(trip)}
       {[...open, ...done].map((x) => (
         <Row key={x.id} done={!!x.doneAt} title={x.text} dot={dotOf(x.color)} meta={x.date ? [fmtWeekday(x.date), timeSpan(x.time, x.end)].filter(Boolean).join(' · ') : undefined}
           trail={<span onClick={(e) => { e.stopPropagation(); toggle(x.id) }} style={{ display: 'flex', padding: 4, margin: -4 }}><Check on={!!x.doneAt} /></span>}
           onClick={() => openSheet(<TaskSheet id={x.id} />)} />
       ))}
+      {trips.filter((e) => e.ticked).map(trip)}
       <Row title={<span className="muted">+ {tr('Add a task')}</span>} onClick={() => openSheet(<TaskSheet />)} />
     </div>
   )

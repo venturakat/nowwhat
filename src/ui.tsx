@@ -239,12 +239,13 @@ export const C = {
 }
 
 // Starts / Ends: the end follows the start (start + hours) until it's changed by hand
-export const TimeRange = ({ start, end, hours = 1, onChange }: { start: string; end: string; hours?: number; onChange: (start: string, end: string) => void }) => {
+// hours = 0: the end isn't filled in from the start
+export const TimeRange = ({ start, end, hours = 1, labels = ['Starts', 'Ends'], onChange }: { start: string; end: string; hours?: number; labels?: [string, string]; onChange: (start: string, end: string) => void }) => {
   const [byHand, setByHand] = useState(!!end && !!start && end !== addHours(start, hours))
   return (
     <div className="row" style={{ gap: 8 }}>
-      <div style={{ flex: 1, minWidth: 0 }}><Field label={tr('Starts')}><input className="input" type="time" value={start} onChange={(e) => { const v = e.target.value; onChange(v, byHand && end ? end : v ? addHours(v, hours) : '') }} /></Field></div>
-      <div style={{ flex: 1, minWidth: 0 }}><Field label={tr('Ends')}><input className="input" type="time" value={end} onChange={(e) => { setByHand(!!e.target.value); onChange(start, e.target.value) }} /></Field></div>
+      <div style={{ flex: 1, minWidth: 0 }}><Field label={tr(labels[0])}><input className="input" type="time" value={start} onChange={(e) => { const v = e.target.value; onChange(v, !hours || (byHand && end) ? end : v ? addHours(v, hours) : '') }} /></Field></div>
+      <div style={{ flex: 1, minWidth: 0 }}><Field label={tr(labels[1])}><input className="input" type="time" value={end} onChange={(e) => { setByHand(!!e.target.value); onChange(start, e.target.value) }} /></Field></div>
     </div>
   )
 }

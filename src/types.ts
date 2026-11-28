@@ -24,6 +24,12 @@ export interface CalEvent {
   note?: string
   repeat?: 'day' | 'week' | 'month' | 'year'
   every?: number // repeat every this many days/weeks/months (Other); unset = 1
+  // Travel: time = departure, end = arrival, place = airport / station; both ways = two events linked by pair
+  kind?: 'travel'
+  place?: string
+  pair?: ID // the other way
+  back?: boolean // this one is the way back
+  ticked?: boolean // ticked on the Parking lot the day before
 }
 
 export interface Place { name: string; lat: number; lon: number }

@@ -109,7 +109,7 @@ export const calItems = (st: State, from: string, to: string): Item[] => {
     for (const d of st.periodStarts ?? []) if (d >= from && d <= to) out.push({ id: 'per-' + d, date: d, title: perWord(), meta: tr('First day'), dot: PERIOD, edit: () => <PeriodEdit date={d} /> })
     for (const d of predictedPeriods(st, to)) if (d >= from) out.push({ id: 'perp-' + d, date: d, title: perWord(), meta: tr('Predicted'), dot: PERIOD, edit: () => <PeriodEdit date={d} predicted /> })
   }
-  for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.note, dot: C.ink, event: e })
+  for (const e of st.events ?? []) for (const d of eventDates(e, from, to)) out.push({ id: `ev-${e.id}-${d}`, date: d, title: e.title, time: timeSpan(e.time, e.end), meta: e.kind === 'travel' ? travelMeta(e) : e.note, dot: C.ink, event: e })
   if (on.taxes) for (const mk of monthsIn(from, to)) {
     for (const x of taxPays(st, mk)) {
       if (x.amount <= 0) continue
@@ -234,7 +234,7 @@ export const CalendarPage = () => {
   }
   useLayoutEffect(() => { if (!busy.current && !drag.current) place(0) })
   const open = (i: Item) => {
-    if (i.event) { pushSheet(<EventEdit id={i.event.id} />); return }
+    if (i.event) { pushSheet(i.event.kind === 'travel' ? <TravelEdit id={i.event.id} /> : <EventEdit id={i.event.id} />); return }
     if (i.edit) { pushSheet(i.edit()); return }
     if (!i.go) return
     useUi.getState().go(i.go[0], i.go[1]) // closes the calendar too
@@ -317,6 +317,7 @@ const AddSheet = ({ date }: { date: string }) => {
     <Sheet title={tr('Add on {d}', { d: fmtDay(date) })} onBack={popSheet}>
       <List>
         {opt('Appointment', 'Your own — not tied to any tab', () => pushSheet(<EventEdit date={date} />))}
+        {opt('Travel', 'One way or both ways', () => pushSheet(<TravelEdit date={date} after={2} />))}
         {opt('Parking lot task', 'New, or one already on the Parking lot', () => pushSheet(open.length ? <TaskPick date={date} /> : <TaskSheet date={date} back={2} />))}
         {opt('Birthday', 'Here every year on that day', () => pushSheet(<BirthdayEdit date={date} />))}
         {st.settings.period?.on && opt('Period started', 'First day — the predictions move with it', () => pushSheet(<PeriodEdit date={date} add />))}
@@ -538,6 +539,85 @@ const EventEdit = ({ id, date }: { id?: string; date?: string }) => {
         if (!armed) { setArmed(true); setTimeout(() => setArmed(false), 3000); return }
         update((s) => { s.events = (s.events ?? []).filter((y) => y.id !== id) }); popSheet()
       }}>{tr(armed ? 'Tap again to delete' : e.repeat ? 'Delete (every time)' : 'Delete')}</button>}
+    </Sheet>
+  )
+}
+
+// Travel: one way, or both ways = two linked events (the way back made on Save). Either one opens this card with both dates.
+// after: pages to go back on Save / Delete (0 = opened from Today: close)
+export const travelMeta = (e: CalEvent) => [tr(e.pair ? (e.back ? 'Way back' : 'Way there') : 'Trip'), e.place].filter(Boolean).join(' · ')
+export const TravelEdit = ({ id, date, after = 1 }: { id?: string; date?: string; after?: number }) => {
+  const st = useSt()
+  const evs = st.events ?? []
+  const e0 = evs.find((x) => x.id === id)
+  const other = e0?.pair ? evs.find((x) => x.id === e0.pair) : undefined
+  const there = e0?.back && other ? other : e0
+  const back = there === e0 ? other : e0
+  const [title, setTitle] = useState(there?.title ?? '')
+  const [both, setBoth] = useState(!!back)
+  const [d1, setD1] = useState(there?.date ?? date ?? today())
+  const [t1, setT1] = useState(there?.time ?? '')
+  const [a1, setA1] = useState(there?.end ?? '')
+  const [p1, setP1] = useState(there?.place ?? '')
+  const [d2, setD2] = useState(back?.date ?? '')
+  const [t2, setT2] = useState(back?.time ?? '')
+  const [a2, setA2] = useState(back?.end ?? '')
+  const [p2, setP2] = useState(back?.place ?? '')
+  const [armed, setArmed] = useState(false)
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 3000); return () => clearTimeout(t) }, [armed])
+  const ok = !!title.trim() && !!d1 && (!both || (!!d2 && d2 >= d1))
+  const done = () => { if (!after) closeSheet(); else if (after === 1) popSheet(); else for (let i = 0; i < after; i++) popSheet(false) }
+  const save = () => {
+    if (!ok) return
+    update((s) => {
+      s.events ??= []
+      const leg = (x: CalEvent | undefined, d: string, t: string, a: string, p: string) => ({
+        kind: 'travel' as const, title: title.trim(), date: d, time: t || undefined, end: a || undefined, place: p.trim() || undefined,
+        repeat: undefined, every: undefined, ticked: x?.date === d ? x.ticked : undefined,
+      })
+      let a = s.events.find((y) => y.id === there?.id)
+      if (a) Object.assign(a, leg(a, d1, t1, a1, p1), { back: undefined })
+      else { a = { id: uid(), ...leg(undefined, d1, t1, a1, p1) }; s.events.push(a) }
+      const b = s.events.find((y) => y.id === back?.id)
+      if (both) {
+        const data = { ...leg(b, d2, t2, a2, p2), back: true, pair: a.id }
+        if (b) Object.assign(b, data)
+        else { const n = { id: uid(), ...data }; s.events.push(n); a.pair = n.id }
+      } else {
+        a.pair = undefined
+        if (b) s.events = s.events.filter((y) => y.id !== b.id)
+      }
+    })
+    done()
+  }
+  const legFields = (d: string, setD: (v: string) => void, t: string, a: string, setTA: (t: string, a: string) => void, p: string, setP: (v: string) => void) => (
+    <>
+      <Field label="Date"><input className="input" type="date" value={d} onChange={(x) => setD(x.target.value)} /></Field>
+      <TimeRange start={t} end={a} hours={0} labels={['Departs', 'Arrives']} onChange={setTA} />
+      <Field label="Airport / station"><input className="input" value={p} placeholder={tr('Where it leaves from')} onChange={(x) => setP(x.target.value)} /></Field>
+    </>
+  )
+  return (
+    <Sheet title={e0 ? 'Trip' : 'New trip'} onBack={after ? popSheet : undefined}>
+      <Field label="Where to"><input className="input" autoFocus={!e0} value={title} placeholder={tr('City or trip name')} onChange={(x) => setTitle(x.target.value)} /></Field>
+      <div className="seg">
+        <button type="button" className={'chip' + (!both ? ' on' : '')} onClick={() => setBoth(false)}>{tr('One way')}</button>
+        <button type="button" className={'chip' + (both ? ' on' : '')} onClick={() => { setBoth(true); if (!d2) setD2(d1) }}>{tr('Both ways')}</button>
+      </div>
+      {both && <span className="t15 w6" style={{ marginTop: 6 }}>{tr('Way there')}</span>}
+      {legFields(d1, setD1, t1, a1, (t, a) => { setT1(t); setA1(a) }, p1, setP1)}
+      {both && (
+        <>
+          <span className="t15 w6" style={{ marginTop: 6 }}>{tr('Way back')}</span>
+          {legFields(d2, setD2, t2, a2, (t, a) => { setT2(t); setA2(a) }, p2, setP2)}
+          {!!d2 && d2 < d1 && <span className="t13" style={{ color: 'var(--alert)' }}>{tr('The way back is before the way there.')}</span>}
+        </>
+      )}
+      <button className="btn full" disabled={!ok} onClick={save}>{tr('Save')}</button>
+      {e0 && <button className="btn full soft" style={armed ? { color: 'var(--alert)', borderColor: 'var(--alert)' } : undefined} onClick={() => {
+        if (!armed) { setArmed(true); return }
+        update((s) => { s.events = (s.events ?? []).filter((y) => y.id !== there?.id && y.id !== back?.id) }); done()
+      }}>{tr(armed ? 'Delete' : back ? 'Delete both ways' : 'Delete')}</button>}
     </Sheet>
   )
 }
